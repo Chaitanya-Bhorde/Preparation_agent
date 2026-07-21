@@ -37,7 +37,8 @@ export const createProblem = (data) => API.post('/problems', data);
 export const updateProblem = (id, data) => API.put(`/problems/${id}`, data);
 export const deleteProblem = (id) => API.delete(`/problems/${id}`);
 export const getTags = () => API.get('/problems/tags');
-export const createSubmission = (data) => API.post('/submissions', data);
+export const runCode = (data) => API.post('/submissions/run', data);
+export const submitCode = (data) => API.post('/submissions/submit', data);
 export const getSubmissions = (params) => API.get('/submissions', { params });
 export const getSubmission = (id) => API.get(`/submissions/${id}`);
 export const getRecommendations = () => API.get('/recommendations');
@@ -53,4 +54,15 @@ export const analyzeResumeFile = (file) => {
 export const analyzeResumeText = (text) => API.post('/ats/analyze-text', { text });
 export const getAnalytics = () => API.get('/analytics');
 export const getAdminAnalytics = () => API.get('/analytics/admin');
+export const getAdminUsers = (params) => API.get('/admin/users', { params });
+export const getAdminUser = (id) => API.get(`/admin/users/${id}`);
+export const updateUserRole = (id, role) => API.put(`/admin/users/${id}/role`, { role });
+export const deleteUser = (id) => API.delete(`/admin/users/${id}`);
+export const uploadProfilePicture = (file) => {
+  const formData = new FormData();
+  formData.append('profile', file);
+  return API.post('/ats/upload-profile-picture', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 export default API;

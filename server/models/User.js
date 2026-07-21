@@ -31,6 +31,7 @@ const UserSchema = new mongoose.Schema(
     },
     profile: {
       resumeUrl: String,
+      profilePicture: String,
       atsScore: { type: Number, default: 0 },
       skills: [String],
       college: String,
@@ -51,6 +52,8 @@ const UserSchema = new mongoose.Schema(
       {
         problem: { type: mongoose.Schema.Types.ObjectId, ref: 'Problem' },
         addedAt: { type: Date, default: Date.now },
+        dueDate: { type: Date, default: Date.now },
+        intervalIndex: { type: Number, default: 0 },
       },
     ],
     resetPasswordToken: String,

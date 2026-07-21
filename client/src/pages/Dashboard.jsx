@@ -27,7 +27,6 @@ export default function Dashboard() {
   };
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      {}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
           Welcome back, {user?.name?.split(' ')[0] || 'Student'}!

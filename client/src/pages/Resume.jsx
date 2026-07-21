@@ -36,7 +36,12 @@ export default function Resume() {
       setResult(data.data);
       toast.success('Resume analyzed!');
     } catch (error) {
-      toast.error('Failed to analyze resume. Try pasting text instead.');
+      const message = error.response?.data?.message || 'Failed to analyze resume. Try pasting text instead.';
+      // Format multiline error messages for better display
+      const formattedMessage = message.includes('\n') 
+        ? message.split('\n').map((line, i) => i === 0 ? line : `  ${line}`).join('\n')
+        : message;
+      toast.error(formattedMessage, { duration: 6000 });
     } finally {
       setLoading(false);
     }
@@ -52,7 +57,8 @@ export default function Resume() {
       setResult(data.data);
       toast.success('Resume analyzed!');
     } catch (error) {
-      toast.error('Failed to analyze resume');
+      const message = error.response?.data?.message || 'Failed to analyze resume';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

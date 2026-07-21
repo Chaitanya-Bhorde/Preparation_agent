@@ -20,10 +20,23 @@ const SubmissionSchema = new mongoose.Schema(
       required: true,
       enum: ['javascript', 'python', 'java', 'cpp', 'c', 'go', 'rust', 'typescript'],
     },
+    type: {
+      type: String,
+      enum: ['run', 'submit'],
+      default: 'submit',
+    },
     status: {
       type: String,
       enum: ['pending', 'running', 'accepted', 'wrong_answer', 'time_limit_exceeded', 'memory_limit_exceeded', 'runtime_error', 'compilation_error'],
       default: 'pending',
+    },
+    errorType: {
+      type: String,
+      default: null,
+    },
+    errorMessage: {
+      type: String,
+      default: null,
     },
     testCaseResults: [
       {
@@ -34,6 +47,8 @@ const SubmissionSchema = new mongoose.Schema(
         actualOutput: String,
         executionTime: Number,
         memoryUsed: Number,
+        errorType: String,
+        errorMessage: String,
       },
     ],
     passedTestCases: { type: Number, default: 0 },

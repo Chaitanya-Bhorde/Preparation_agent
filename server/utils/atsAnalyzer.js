@@ -1,6 +1,15 @@
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+const WordExtractor = require('word-extractor');
+const { createWorker } = require('tesseract.js');
+const { fromPath } = require('pdf2pic');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 exports.analyzeResume = (text) => {
   const lower = text.toLowerCase();
+
   let contact_structure = 0;
   const hasEmail = /[\w.-]+@[\w.-]+\.\w{2,3}/.test(text);
   const hasPhone = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(text);
@@ -9,6 +18,7 @@ exports.analyzeResume = (text) => {
   const hasExperience = /\b(experience|internship|work\s*history)\b/i.test(text);
   const hasProjects = /\b(projects?)\b/i.test(text);
   const hasSkills = /\b(skills?|technical\s*skills|technologies)\b/i.test(text);
+
   if (hasEmail) contact_structure += 2;
   if (hasPhone) contact_structure += 2;
   if (hasLinkedInOrGithub) contact_structure += 2;
@@ -18,26 +28,29 @@ exports.analyzeResume = (text) => {
   if (hasProjects) sectionsFound++;
   if (hasSkills) sectionsFound++;
   contact_structure += Math.min(sectionsFound, 4);
+
   let experience = 0;
-  const datePattern = /\b(20\d{2})\b/g;
-  const dates = text.match(datePattern) || [];
+  const dates = text.match(/\b(20\d{2})\b/g) || [];
   const hasCompanyName = /at\s+[A-Z][A-Za-z\s.]+|company|inc\.?|technologies|ltd\.?|pvt\.?|private\s+limited/i.test(text);
   const hasRoleTitle = /\b(software engineer|intern|developer|analyst|trainee|associate|engineer|sde|full.?stack)\b/i.test(text);
   const hasBullets = /[•\-*]\s*.+/.test(text);
+
   if (hasCompanyName && dates.length >= 1 && hasRoleTitle && hasBullets) {
     const entries = text.split(/\n\s*\n/).filter(block => {
       const b = block.toLowerCase();
       return (b.includes('at ') || b.includes('intern') || b.includes('engineer')) &&
              /\b(20\d{2})\b/.test(block) &&
-             b.includes('-') || b.includes('•') || b.includes('*');
+             (b.includes('-') || b.includes('•') || b.includes('*'));
     });
     const entryCount = Math.min(entries.length, 2);
     experience += entryCount * 5;
+
     const bulletLines = text.split('\n').filter(line => /^[•\-*\s]+/.test(line.trim()));
     let qualityScore = 0;
     const actionVerbs = /\b(developed|designed|built|implemented|created|optimized|improved|reduced|led|managed|architected|engineered|deployed|integrated|automated|scaled|migrated)\b/i;
     const techMention = /\b(react|node|python|java|javascript|typescript|mongodb|sql|aws|docker|kubernetes|api|git|redux|css|html|django|flask|spring)\b/i;
     const outcomeMention = /\b(increased|decreased|reduced|improved|achieved|resulted|saved|boosted|enhanced|delivered)\b/i;
+
     for (const line of bulletLines) {
       const l = line.toLowerCase();
       if (actionVerbs.test(l) && techMention.test(l) && outcomeMention.test(l)) {
@@ -50,12 +63,12 @@ exports.analyzeResume = (text) => {
     }
     experience += Math.min(qualityScore, 10);
   }
+
   let projects = 0;
   const projectSection = text.split(/\bprojects?\b/i)[1] || '';
   const projectBlocks = projectSection.split(/\n\s*\n/).filter(b => b.trim().length > 20);
-  let projectCount = 0;
   const projectTitles = (projectSection.match(/\b([A-Z][A-Za-z0-9\s]+)\b(?=.*?used|.*?built|.*?developed|.*?created)/gi)) || [];
-  projectCount = Math.max(projectTitles.length, projectBlocks.length > 3 ? projectBlocks.length : 0);
+  let projectCount = Math.max(projectTitles.length, projectBlocks.length > 3 ? projectBlocks.length : 0);
   if (projectCount === 0) {
     const lines = projectSection.split('\n').filter(l => l.trim().length > 10 && l.trim().length < 80);
     projectCount = Math.min(lines.length, 5);
@@ -65,10 +78,12 @@ exports.analyzeResume = (text) => {
   else if (projectCount === 1) projects = 8;
   else if (projectCount === 2) projects = 15;
   else if (projectCount >= 3) projects = 25;
+
   const hasProjectLinks = /github\.com\/(?!linkedin)|vercel\.com|netlify\.app|herokuapp|firebaseapp|gitlab/i.test(lower);
   if (!hasProjectLinks && projects > 0) projects = Math.max(projects - 5, 0);
   const hasTechStack = projectSection.match(/\b(react|node|python|java|javascript|typescript|mongodb|sql|aws|docker|kubernetes|api|git|redux|css|html|django|flask|spring|express|angular|vue)\b/i);
   if (!hasTechStack && projects > 0) projects = Math.max(projects - 5, 0);
+
   let technical_skills = 0;
   const technologies = new Set();
   const techKeywords = [
@@ -85,13 +100,12 @@ exports.analyzeResume = (text) => {
   ];
   for (const tech of techKeywords) {
     const regex = new RegExp(`\\b${tech.replace(/[+#.]/g, '\\$&')}\\b`, 'i');
-    if (regex.test(text)) {
-      technologies.add(tech);
-    }
+    if (regex.test(text)) technologies.add(tech);
   }
-  technical_skills += Math.min(technologies.size, 15); 
+  technical_skills += Math.min(technologies.size, 15);
   const hasCategories = /(languages?|programming\s*languages?):.*[\s\S]{0,100}(frameworks?|libraries?|tools?|technologies?|databases?|platforms?)/i.test(text);
   if (hasCategories) technical_skills += 5;
+
   let achievements = 0;
   const numberPatterns = [
     /\b\d{2,3}\s*\+?\s*(problems?|questions?|challenges?|tasks?|projects?)/gi,
@@ -106,14 +120,13 @@ exports.analyzeResume = (text) => {
   const foundNumbers = new Set();
   for (const pattern of numberPatterns) {
     const matches = text.match(pattern);
-    if (matches) {
-      matches.forEach(m => foundNumbers.add(m.trim()));
-    }
+    if (matches) matches.forEach(m => foundNumbers.add(m.trim()));
   }
   const numAchievements = foundNumbers.size;
   if (numAchievements === 0) achievements = 0;
   else if (numAchievements <= 2) achievements = 5;
   else achievements = 10;
+
   let education = 0;
   const hasCGPA = /(cgpa|gpa|percentage|aggregate|score)\s*[:]?\s*\d+[\.\d]*/i.test(text);
   const hasDegree = /\b(b\.?tech|b\.?e\.|m\.?tech|m\.?e\.|bachelor|master|ph\.?d|bca|mca|bsc|msc|bcs|mcs|be\s|me\s|b\.?com|m\.?com)\b/i.test(text);
@@ -123,6 +136,7 @@ exports.analyzeResume = (text) => {
   if (hasDegree && hasInstitution && hasGradYear) education += 5;
   else if (hasDegree && hasInstitution) education += 3;
   else if (hasDegree) education += 2;
+
   let keyword_density = 0;
   const sdeKeywords = ['dsa', 'data structures', 'algorithm', 'oop', 'object-oriented', 'dbms', 'database management',
                         'os', 'operating system', 'computer networks', 'cn', 'system design', 'rest api', 'restful', 'git'];
@@ -134,7 +148,9 @@ exports.analyzeResume = (text) => {
     }
   }
   keyword_density = kwFound;
+
   const total_score = contact_structure + experience + projects + technical_skills + achievements + education + keyword_density;
+
   const improvements = [];
   if (experience === 0) {
     improvements.push('Add internship/work experience section with company name, dates, role, and bullet points describing your work');
@@ -165,6 +181,7 @@ exports.analyzeResume = (text) => {
   while (improvements.length < 3) {
     improvements.push('Consider getting an internship or building more projects to strengthen your resume');
   }
+
   return {
     category_scores: {
       contact_structure: contact_structure,
@@ -180,7 +197,7 @@ exports.analyzeResume = (text) => {
       contact_structure: hasEmail && hasPhone ? `Email found, phone found${hasLinkedInOrGithub ? ', LinkedIn/GitHub found' : ''}, ${sectionsFound}/4 sections present` :
                      `Email: ${hasEmail}, Phone: ${hasPhone}, LinkedIn/GitHub: ${hasLinkedInOrGithub}, Sections: ${sectionsFound}/4`,
       experience: experience === 0 ? 'No internship/work experience section with company + dates + role + bullets detected' :
-                  `Found internship entries with company/dates/roles, bullet quality scored ${experience - (experience > 10 ? 10 : experience)}/10 entry pts`,
+                  `Found internship entries with company/dates/roles, bullet quality scored ${Math.min(experience - (experience > 10 ? 10 : experience), 10)}/10`,
       projects: projectCount === 0 ? 'No projects section detected' :
                 `${projectCount} project(s) identified${!hasProjectLinks ? ', missing GitHub/link' : ''}${!hasTechStack ? ', tech stack not explicitly listed' : ''}`,
       technical_skills: `${technologies.size} distinct technologies found${hasCategories ? ', grouped into categories' : ', not grouped into categories'}`,
@@ -194,14 +211,73 @@ exports.analyzeResume = (text) => {
     top_3_improvements: improvements.slice(0, 3),
   };
 };
-exports.parseResumeText = (fileBuffer, mimeType) => {
-  if (mimeType === 'application/pdf') {
-    const text = fileBuffer.toString('utf8')
-      .replace(/\\n/g, ' ')
-      .replace(/\\r/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    return text;
+
+const extractPdfText = async (fileBuffer) => {
+  try {
+    const data = await pdfParse(fileBuffer);
+    if (data.text && data.text.trim().length >= 100) {
+      return data.text.trim();
+    }
+  } catch (pdfError) {
+    console.log('pdf-parse failed, trying OCR fallback:', pdfError.message);
   }
-  return fileBuffer.toString('utf8');
+  try {
+    const tempPdfPath = path.join(os.tmpdir(), `temp_${Date.now()}.pdf`);
+    fs.writeFileSync(tempPdfPath, fileBuffer);
+    const converter = fromPath(tempPdfPath, { density: 200, format: 'png' });
+    const images = await converter(1);
+    if (images && images.length > 0) {
+      const imageBuffer = fs.readFileSync(images[0].path);
+      const worker = await createWorker('eng');
+      const result = await worker.recognize(imageBuffer);
+      await worker.terminate();
+      fs.unlinkSync(tempPdfPath);
+      if (images[0].path && fs.existsSync(images[0].path)) {
+        fs.unlinkSync(images[0].path);
+      }
+      if (result.data.text && result.data.text.trim().length >= 100) {
+        console.log(`OCR fallback succeeded with confidence: ${result.data.confidence}%`);
+        return result.data.text.trim();
+      }
+    }
+  } catch (ocrError) {
+    console.log('PDF OCR fallback also failed:', ocrError.message);
+  }
+  return '';
+};
+
+exports.extractResumeText = async (fileBuffer, mimeType, originalname) => {
+  const ext = originalname.split('.').pop().toLowerCase();
+  try {
+    let text = '';
+    if (ext === 'pdf') {
+      text = await extractPdfText(fileBuffer);
+    } else if (ext === 'docx') {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      text = result.value;
+    } else if (ext === 'doc') {
+      const extractor = new WordExtractor();
+      const doc = await extractor.extractBuffer(fileBuffer);
+      text = doc.getBody();
+    } else if (ext === 'txt') {
+      text = fileBuffer.toString('utf-8');
+    } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+      const worker = await createWorker('eng');
+      const result = await worker.recognize(fileBuffer);
+      await worker.terminate();
+      text = result.data.text;
+    } else {
+      throw new Error('UNSUPPORTED_FORMAT');
+    }
+
+    if (!text || text.trim().length < 100) {
+      throw new Error('PARSE_FAILURE');
+    }
+    return text.trim();
+  } catch (error) {
+    if (error.message === 'PARSE_FAILURE' || error.message === 'UNSUPPORTED_FORMAT') {
+      throw error;
+    }
+    throw new Error('PARSE_FAILURE');
+  }
 };
