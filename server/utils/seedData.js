@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-dotenv.config();
+const path = require('path');
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const Problem = require('../models/Problem');
 const connectDB = require('../config/db');
 
@@ -22,6 +23,27 @@ const problems = [
       { input: '2 7 11 15\n9', expectedOutput: '0 1', isSample: true, isHidden: false },
       { input: '3 2 4\n6', expectedOutput: '1 2', isSample: true, isHidden: false },
       { input: '3 3\n6', expectedOutput: '0 1', isHidden: true },
+      { input: '1 5 3 7 9\n12', expectedOutput: '1 4', isHidden: true },
+      { input: '-1 -2 -3 -4 -5\n-8', expectedOutput: '2 4', isHidden: true },
+      { input: '0 4 3 0\n0', expectedOutput: '0 3', isHidden: true },
+      { input: '2 5 5 11\n10', expectedOutput: '1 2', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10\n19', expectedOutput: '8 9', isHidden: true },
+      { input: '1000000 2000000 3000000 4000000\n5000000', expectedOutput: '0 4', isHidden: true },
+      { input: '-1000000000 1000000000\n0', expectedOutput: '0 1', isHidden: true },
+      { input: '2 7 11 15 20 25\n18', expectedOutput: '0 4', isHidden: true },
+      { input: '1 1 1 1 1 1 1 1 1 1\n2', expectedOutput: '0 1', isHidden: true },
+      { input: '3 2 3\n6', expectedOutput: '1 2', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n10', expectedOutput: '4 5', isHidden: true },
+      { input: '-5 -4 -3 -2 -1\n-8', expectedOutput: '0 3', isHidden: true },
+      { input: '10 20 30 40 50 60 70 80 90 100\n110', expectedOutput: '9 0', isHidden: true },
+      { input: '2 7 11 15\n9\n8 15 2 9\n17', expectedOutput: '1 3', isHidden: true },
+      { input: '5 75 25\n100', expectedOutput: '1 2', isHidden: true },
+      { input: '1 3 4 2\n6', expectedOutput: '2 3', isHidden: true },
+      { input: '2 5 5 11\n10', expectedOutput: '1 2', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20\n39', expectedOutput: '18 19', isHidden: true },
+      { input: '100 200 300 400 500 600 700 800 900 1000\n1100', expectedOutput: '9 0', isHidden: true },
+      { input: '-10 20 -30 40 -50 60\n10', expectedOutput: '1 5', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30\n59', expectedOutput: '28 29', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'twoSum', params: [{ name: 'nums', type: 'number[]' }, { name: 'target', type: 'number' }], returnType: 'number[]' },
@@ -115,6 +137,33 @@ int main() {
       { input: 'hello', expectedOutput: 'olleh', isSample: true, isHidden: false },
       { input: 'Hannah', expectedOutput: 'hannaH', isSample: true, isHidden: false },
       { input: 'a', expectedOutput: 'a', isHidden: true },
+      { input: 'ab', expectedOutput: 'ba', isHidden: true },
+      { input: 'abcde', expectedOutput: 'edcba', isHidden: true },
+      { input: 'racecar', expectedOutput: 'racecar', isHidden: true },
+      { input: 'A', expectedOutput: 'A', isHidden: true },
+      { input: 'ab1cd2', expectedOutput: '2dc1ba', isHidden: true },
+      { input: 'Was it a car or a cat I saw', expectedOutput: 'was I tac a ro rac a ti saW', isHidden: true },
+      { input: 'hello world', expectedOutput: 'dlrow olleh', isHidden: true },
+      { input: '12345', expectedOutput: '54321', isHidden: true },
+      { input: 'aAaAaA', expectedOutput: 'aAaAaA', isHidden: true },
+      { input: 'z', expectedOutput: 'z', isHidden: true },
+      { input: 'ab cd ef', expectedOutput: 'fe dc ba', isHidden: true },
+      { input: 'Python', expectedOutput: 'nohtyP', isHidden: true },
+      { input: 'JavaScript', expectedOutput: 'tpircSavaJ', isHidden: true },
+      { input: 'C++ Programming', expectedOutput: 'gnimmargorP ++C', isHidden: true },
+      { input: 'Data Structures', expectedOutput: 'serutcurtS ataD', isHidden: true },
+      { input: 'OpenAI ChatGPT', expectedOutput: 'GPTtaC IA nepO', isHidden: true },
+      { input: 'leetcode is fun', expectedOutput: 'nuf si edocteel', isHidden: true },
+      { input: 'Reverse Me!', expectedOutput: '!eM esreveR', isHidden: true },
+      { input: 'aaa', expectedOutput: 'aaa', isHidden: true },
+      { input: 'abBA', expectedOutput: 'ABba', isHidden: true },
+      { input: 'Test123', expectedOutput: '321tseT', isHidden: true },
+      { input: 'madam', expectedOutput: 'madam', isHidden: true },
+      { input: 'level', expectedOutput: 'level', isHidden: true },
+      { input: 'rotator', expectedOutput: 'rotator', isHidden: true },
+      { input: 'civic', expectedOutput: 'civic', isHidden: true },
+      { input: 'deified', expectedOutput: 'deified', isHidden: true },
+      { input: 'noon', expectedOutput: 'noon', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'reverseString', params: [{ name: 's', type: 'string' }], returnType: 'string' },
@@ -178,6 +227,33 @@ int main() {
       { input: 'A man, a plan, a canal: Panama', expectedOutput: 'true', isSample: true, isHidden: false },
       { input: 'race a car', expectedOutput: 'false', isSample: true, isHidden: false },
       { input: ' ', expectedOutput: 'true', isHidden: true },
+      { input: 'a', expectedOutput: 'true', isHidden: true },
+      { input: 'ab', expectedOutput: 'false', isHidden: true },
+      { input: 'aba', expectedOutput: 'true', isHidden: true },
+      { input: 'abba', expectedOutput: 'true', isHidden: true },
+      { input: 'abcba', expectedOutput: 'true', isHidden: true },
+      { input: 'abccba', expectedOutput: 'true', isHidden: true },
+      { input: 'abcdecba', expectedOutput: 'false', isHidden: true },
+      { input: 'abaxyzzyxf', expectedOutput: 'false', isHidden: true },
+      { input: 'aa', expectedOutput: 'true', isHidden: true },
+      { input: 'aaa', expectedOutput: 'true', isHidden: true },
+      { input: 'aabbaa', expectedOutput: 'true', isHidden: true },
+      { input: 'abc', expectedOutput: 'false', isHidden: true },
+      { input: 'abcddcba', expectedOutput: 'true', isHidden: true },
+      { input: 'abcdeedcba', expectedOutput: 'true', isHidden: true },
+      { input: 'abcdefedcba', expectedOutput: 'false', isHidden: true },
+      { input: 'Aba', expectedOutput: 'true', isHidden: true },
+      { input: '0P', expectedOutput: 'false', isHidden: true },
+      { input: 'a!a', expectedOutput: 'true', isHidden: true },
+      { input: 'ab@ba', expectedOutput: 'true', isHidden: true },
+      { input: 'ab#cba', expectedOutput: 'false', isHidden: true },
+      { input: 'was it a car or a cat i saw', expectedOutput: 'true', isHidden: true },
+      { input: 'step on no pets', expectedOutput: 'true', isHidden: true },
+      { input: 'live on time emit no evil', expectedOutput: 'true', isHidden: true },
+      { input: 'Mr Owl ate my metal worm', expectedOutput: 'true', isHidden: true },
+      { input: 'Do geese see God', expectedOutput: 'true', isHidden: true },
+      { input: 'Never odd or even', expectedOutput: 'true', isHidden: true },
+      { input: '9119', expectedOutput: 'true', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'isPalindrome', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
@@ -243,6 +319,32 @@ int main() {
       { input: '()[]{}', expectedOutput: 'true', isSample: true, isHidden: false },
       { input: '(]', expectedOutput: 'false', isSample: true, isHidden: false },
       { input: '([)]', expectedOutput: 'false', isHidden: true },
+      { input: '(([]){})', expectedOutput: 'true', isHidden: true },
+      { input: '((()))', expectedOutput: 'true', isHidden: true },
+      { input: '(()', expectedOutput: 'false', isHidden: true },
+      { input: '){', expectedOutput: 'false', isHidden: true },
+      { input: '([{}])', expectedOutput: 'true', isHidden: true },
+      { input: '[({})]', expectedOutput: 'true', isHidden: true },
+      { input: '(((((())))))', expectedOutput: 'true', isHidden: true },
+      { input: '((())))(((', expectedOutput: 'false', isHidden: true },
+      { input: '(())', expectedOutput: 'true', isHidden: true },
+      { input: '()()', expectedOutput: 'true', isHidden: true },
+      { input: '[()]', expectedOutput: 'true', isHidden: true },
+      { input: '{[]}', expectedOutput: 'true', isHidden: true },
+      { input: '({[]})', expectedOutput: 'true', isHidden: true },
+      { input: '({[})]', expectedOutput: 'false', isHidden: true },
+      { input: '(((', expectedOutput: 'false', isHidden: true },
+      { input: ')))', expectedOutput: 'false', isHidden: true },
+      { input: '([)]', expectedOutput: 'false', isHidden: true },
+      { input: '([]', expectedOutput: 'false', isHidden: true },
+      { input: '[])', expectedOutput: 'false', isHidden: true },
+      { input: '[({})', expectedOutput: 'false', isHidden: true },
+      { input: '([]{})', expectedOutput: 'true', isHidden: true },
+      { input: '{()[]}', expectedOutput: 'true', isHidden: true },
+      { input: '(((((((((()))))))))))', expectedOutput: 'true', isHidden: true },
+      { input: '())(()', expectedOutput: 'false', isHidden: true },
+      { input: '((())())', expectedOutput: 'true', isHidden: true },
+      { input: '[({[()]})]', expectedOutput: 'true', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'isValid', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
@@ -305,6 +407,29 @@ int main() {
       { input: '-2 1 -3 4 -1 2 1 -5 4', expectedOutput: '6', isSample: true, isHidden: false },
       { input: '1', expectedOutput: '1', isSample: true, isHidden: false },
       { input: '5 4 -1 7 8', expectedOutput: '23', isHidden: true },
+      { input: '-1', expectedOutput: '-1', isHidden: true },
+      { input: '-2 -1', expectedOutput: '-1', isHidden: true },
+      { input: '-1 -2 -3', expectedOutput: '-1', isHidden: true },
+      { input: '1 2 3 4 5', expectedOutput: '15', isHidden: true },
+      { input: '-5 -4 -3 -2 -1', expectedOutput: '-1', isHidden: true },
+      { input: '2 -1 3 -4 5 -6 7', expectedOutput: '7', isHidden: true },
+      { input: '1 -1 1 -1 1 -1', expectedOutput: '1', isHidden: true },
+      { input: '-2 -3 -1 -5 -4', expectedOutput: '-1', isHidden: true },
+      { input: '100 -1 2 3 4 5 -100', expectedOutput: '14', isHidden: true },
+      { input: '-10 20 -30 40 -50 60', expectedOutput: '60', isHidden: true },
+      { input: '1 2 3 -2 5 6', expectedOutput: '12', isHidden: true },
+      { input: '-100 -50 -25 -10 -5', expectedOutput: '-5', isHidden: true },
+      { input: '0 0 0 0 0', expectedOutput: '0', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10', expectedOutput: '55', isHidden: true },
+      { input: '-1 -2 -3 -4 -5 -6 -7 -8 -9 -10', expectedOutput: '-1', isHidden: true },
+      { input: '3 -2 5 -1 2 -6 7 -8 9 -10', expectedOutput: '9', isHidden: true },
+      { input: '100 200 -100 -200 300', expectedOutput: '300', isHidden: true },
+      { input: '1 2 3 4 5 6 -20 7 8 9', expectedOutput: '27', isHidden: true },
+      { input: '-1000 500 -200 100 -50 25 -10 5', expectedOutput: '500', isHidden: true },
+      { input: '1 -2 3 -4 5 -6 7 -8 9 -10 11 -12 13 -14 15', expectedOutput: '15', isHidden: true },
+      { input: '-1 2 -3 4 -5 6 -7 8 -9 10 -11 12 -13 14 -15 16', expectedOutput: '16', isHidden: true },
+      { input: '100 -1 2 3 -50 4 5 6 -10 7 8 9', expectedOutput: '28', isHidden: true },
+      { input: '-5 -4 -3 -2 -1 0 1 2 3 4 5', expectedOutput: '15', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'maxSubArray', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number' },
@@ -377,6 +502,28 @@ int main() {
     testCases: [
       { input: '1 2 3 4', expectedOutput: '24 12 8 6', isSample: true, isHidden: false },
       { input: '-1 1 0 -3 3', expectedOutput: '0 0 9 0 0', isSample: true, isHidden: false },
+      { input: '2 3 4 5', expectedOutput: '60 40 30 24', isHidden: true },
+      { input: '-2 -3 -4 -5', expectedOutput: '-60 -40 -30 -24', isHidden: true },
+      { input: '0 1 2 3', expectedOutput: '6 0 0 0', isHidden: true },
+      { input: '1 0 1', expectedOutput: '0 1 0', isHidden: true },
+      { input: '-1 1 1 -1', expectedOutput: '1 -1 -1 1', isHidden: true },
+      { input: '1 2', expectedOutput: '2 1', isHidden: true },
+      { input: '1 -1 -1 1', expectedOutput: '-1 1 1 -1', isHidden: true },
+      { input: '0 0 0 0', expectedOutput: '0 0 0 0', isHidden: true },
+      { input: '1 2 3 4 5', expectedOutput: '120 60 40 30 24', isHidden: true },
+      { input: '-1 -2 -3 -4 -5', expectedOutput: '-120 -60 -40 -30 -24', isHidden: true },
+      { input: '2 3 5 7 11', expectedOutput: '2310 1540 1155 770 462', isHidden: true },
+      { input: '1 3 2 4 5', expectedOutput: '120 40 60 30 24', isHidden: true },
+      { input: '5 4 3 2 1', expectedOutput: '120 150 200 300 600', isHidden: true },
+      { input: '1 1 1 1 1 1', expectedOutput: '1 1 1 1 1 1', isHidden: true },
+      { input: '-1 -2 -3 -4 -5 -6', expectedOutput: '-720 -360 -240 -180 -144 -120', isHidden: true },
+      { input: '1 2 3 4 5 6', expectedOutput: '720 360 240 180 144 120', isHidden: true },
+      { input: '10 20 30 40 50', expectedOutput: '1200000 600000 400000 300000 240000', isHidden: true },
+      { input: '5 10 15 20 25 30', expectedOutput: '1800000 900000 600000 450000 360000 300000', isHidden: true },
+      { input: '2 4 6 8 10 12', expectedOutput: '46080 23040 15360 11520 9216 7680', isHidden: true },
+      { input: '1 3 5 7 9 11 13', expectedOutput: '135135 45045 27027 19205 15795 12155 10395', isHidden: true },
+      { input: '-5 -4 -3 -2 -1 1 2 3', expectedOutput: '2880 360 480 720 1440 0 0 0', isHidden: true },
+      { input: '1 1 2 3 5 8 13 21', expectedOutput: '21840 10920 7280 5460 3640 2730 1820 1365', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'productExceptSelf', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number[]' },
@@ -465,6 +612,32 @@ int main() {
       { input: 'abcabcbb', expectedOutput: '3', isSample: true, isHidden: false },
       { input: 'bbbbb', expectedOutput: '1', isSample: true, isHidden: false },
       { input: 'pwwkew', expectedOutput: '3', isHidden: true },
+      { input: '0', expectedOutput: '0', isHidden: true },
+      { input: 'a', expectedOutput: '1', isHidden: true },
+      { input: 'au', expectedOutput: '2', isHidden: true },
+      { input: 'dvdf', expectedOutput: '3', isHidden: true },
+      { input: 'abba', expectedOutput: '2', isHidden: true },
+      { input: 'abcde', expectedOutput: '5', isHidden: true },
+      { input: 'abcabcde', expectedOutput: '5', isHidden: true },
+      { input: 'tmmzuxt', expectedOutput: '5', isHidden: true },
+      { input: 'abcdefg', expectedOutput: '7', isHidden: true },
+      { input: 'abcdefgh', expectedOutput: '8', isHidden: true },
+      { input: 'abcdefghi', expectedOutput: '9', isHidden: true },
+      { input: 'abccdefg', expectedOutput: '5', isHidden: true },
+      { input: 'abccba', expectedOutput: '3', isHidden: true },
+      { input: 'abcabcbbabc', expectedOutput: '3', isHidden: true },
+      { input: 'aab', expectedOutput: '2', isHidden: true },
+      { input: 'abbc', expectedOutput: '2', isHidden: true },
+      { input: 'abcabcdabcde', expectedOutput: '5', isHidden: true },
+      { input: 'abcdefghijklmnopqrstuvwxyz', expectedOutput: '26', isHidden: true },
+      { input: 'abcddcba', expectedOutput: '4', isHidden: true },
+      { input: 'abdefgda', expectedOutput: '6', isHidden: true },
+      { input: 'abcabcbabcd', expectedOutput: '4', isHidden: true },
+      { input: 'bbtablud', expectedOutput: '6', isHidden: true },
+      { input: 'tthat', expectedOutput: '3', isHidden: true },
+      { input: 'brnk', expectedOutput: '4', isHidden: true },
+      { input: 'abcdeabcdeabcde', expectedOutput: '5', isHidden: true },
+      { input: 'abcdefga', expectedOutput: '7', isHidden: true },
     ],
     functionSignature: {
       javascript: { name: 'lengthOfLongestSubstring', params: [{ name: 's', type: 'string' }], returnType: 'number' },
@@ -1231,11 +1404,359 @@ int main() {
     category: 'SQL',
     constraints: 'Table: orders(order_id INT, customer_id INT, order_date DATE, amount DECIMAL)',
     examples: [
-      { input: 'orders: (1, 1, "2024-01-01", 100), (2, 1, "2024-01-15", 200), (3, 2, "2024-01-10", 150)', output: '1, 1, 2024-01-01, 100, 100\\n2, 1, 2024-01-15, 200, 300\\n3, 2, 2024-01-10, 150, 150' },
+      { input: 'orders: (1, 1, "2024-01-01", 100), (2, 1, "2024-01-15", 200), (3, 2, "2024-01-10", 150)', output: '1, 1, 2024-01-01, 100, 100\n2, 1, 2024-01-15, 200, 300\n3, 2, 2024-01-10, 150, 150' },
     ],
     testCases: [
       { input: 'SELECT * FROM orders', expectedOutput: '1|1|2024-01-01|100\n2|1|2024-01-15|200\n3|2|2024-01-10|150', isSample: true, isHidden: false },
     ],
+  },
+  {
+    title: 'Two Sum II - Input Array Is Sorted',
+    description: 'Given a 1-indexed array of integers numbers that is already sorted in non-decreasing order, find two numbers such that they add up to a specific target number. Let these two numbers be numbers[index1] and numbers[index2] where 1 <= index1 < index2 <= numbers.length. Return the indices of the two numbers, index1 and index2, added by one as an integer array [index1, index2] of length 2.',
+    difficulty: 'medium',
+    tags: ['arrays', 'two-pointers', 'binary-search'],
+    category: 'DSA',
+    constraints: '2 <= numbers.length <= 10^4\n-1000 <= numbers[i] <= 1000\nnumbers is sorted in non-decreasing order.\n-1000 <= target <= 1000\nThe tests are generated such that there is exactly one solution.',
+    examples: [
+      { input: 'numbers = [2,7,11,15], target = 9', output: '[1,2]', explanation: 'The sum of 2 and 7 is 9. Therefore, index1 = 1, index2 = 2. We return [1, 2].' },
+      { input: 'numbers = [2,3,4], target = 6', output: '[1,3]' },
+    ],
+    testCases: [
+      { input: '2 7 11 15\n9', expectedOutput: '1 2', isSample: true, isHidden: false },
+      { input: '2 3 4\n6', expectedOutput: '1 3', isSample: true, isHidden: false },
+      { input: '-1 0\n-1', expectedOutput: '1 2', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10\n19', expectedOutput: '9 10', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10\n1', expectedOutput: '1 2', isHidden: true },
+      { input: '0 0 1 2\n0', expectedOutput: '1 2', isHidden: true },
+      { input: '1 3 5 7 9 11 13 15 17 19\n30', expectedOutput: '5 10', isHidden: true },
+      { input: '-10 -5 0 5 10 15 20 25 30 35\n25', expectedOutput: '6 7', isHidden: true },
+      { input: '1 2 2 3 4 5 6 7 8 9\n10', expectedOutput: '2 8', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20\n39', expectedOutput: '19 20', isHidden: true },
+      { input: '0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30\n59', expectedOutput: '29 30', isHidden: true },
+      { input: '-100 -50 0 50 100 150 200 250 300 350\n200', expectedOutput: '5 6', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30\n119', expectedOutput: '28 30', isHidden: true },
+      { input: '-5 -4 -3 -2 -1 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35\n70', expectedOutput: '34 35', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40\n159', expectedOutput: '39 40', isHidden: true },
+      { input: '0 2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 32 34 36 38 40 42 44 46 48 50 52 54 56 58 60\n89', expectedOutput: '29 30', isHidden: true },
+      { input: '1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55 57 59 61 63 65 67 69 71 73 75 77 79\n159', expectedOutput: '79 80', isHidden: true },
+      { input: '-20 -10 0 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150 160 170 180 190 200 210 220 230 240 250 260 270 280 290 300 310 320 330 340 350 360 370\n690', expectedOutput: '37 39', isHidden: true },
+      { input: '2 7 11 15\n9', expectedOutput: '1 2', isHidden: true },
+      { input: '1 2 3\n4', expectedOutput: '2 3', isHidden: true },
+      { input: '1 3 5 7 9 11 13 15 17 19 21 23 25 27 29 31 33 35 37 39 41 43 45 47 49 51 53 55 57 59\n118', expectedOutput: '59 60', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40\n159', expectedOutput: '79 80', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50\n99', expectedOutput: '49 50', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60\n119', expectedOutput: '59 60', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80\n159', expectedOutput: '79 80', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90\n179', expectedOutput: '89 90', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100\n199', expectedOutput: '99 100', isHidden: true },
+    ],
+    functionSignature: {
+      javascript: { name: 'twoSumII', params: [{ name: 'numbers', type: 'number[]' }, { name: 'target', type: 'number' }], returnType: 'number[]' },
+      python: { name: 'two_sum_ii', params: [{ name: 'numbers', type: 'List[int]' }, { name: 'target', type: 'int' }], returnType: 'List[int]' },
+      java: { name: 'twoSumII', params: [{ name: 'numbers', type: 'int[]' }, { name: 'target', type: 'int' }], returnType: 'int[]' },
+      cpp: { name: 'twoSumII', params: [{ name: 'numbers', type: 'vector<int>' }, { name: 'target', type: 'int' }], returnType: 'vector<int>' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+let lines = [];
+rl.on('line', (line) => lines.push(line));
+rl.on('close', () => {
+    const numbers = lines[0].split(' ').map(Number);
+    const target = parseInt(lines[1]);
+    const result = ${DRIVER_PLACEHOLDER}(numbers, target);
+    console.log(result.join(' '));
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    lines = sys.stdin.read().strip().split('\\n')
+    numbers = list(map(int, lines[0].split()))
+    target = int(lines[1])
+    result = ${DRIVER_PLACEHOLDER}(numbers, target)
+    print(' '.join(map(str, result)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] numbers = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) numbers[i] = Integer.parseInt(parts[i]);
+        int target = Integer.parseInt(sc.nextLine());
+        int[] result = ${DRIVER_PLACEHOLDER}(numbers, target);
+        StringBuilder sb = new StringBuilder();
+        for (int v : result) sb.append(v).append(" ");
+        System.out.println(sb.toString().trim());
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> numbers;
+    int num;
+    while (ss >> num) numbers.push_back(num);
+    int target;
+    cin >> target;
+    vector<int> result = ${DRIVER_PLACEHOLDER}(numbers, target);
+    for (int i = 0; i < result.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << result[i];
+    }
+    cout << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int numbers[10000], n = 0, target;
+    char line[100000];
+    fgets(line, 100000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { numbers[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    target = numbers[n-1];
+    n--;
+    int* result = ${DRIVER_PLACEHOLDER}(numbers, n, target);
+    if (result) printf("%d %d\\n", result[0], result[1]);
+    return 0;
+}`,
+    },
+  },
+  {
+    title: '3Sum',
+    description: 'Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i != k, and j != k, and nums[i] + nums[j] + nums[k] == 0. Notice that the solution set must not contain duplicate triplets.',
+    difficulty: 'medium',
+    tags: ['arrays', 'two-pointers', 'sorting'],
+    category: 'DSA',
+    constraints: '3 <= nums.length <= 3000\n-10^5 <= nums[i] <= 10^5',
+    examples: [
+      { input: 'nums = [-1,0,1,2,-1,-4]', output: '[-1,-1,2]\n[-1,0,1]' },
+      { input: 'nums = [0,1,1]', output: '[]' },
+    ],
+    testCases: [
+      { input: '-1 0 1 2 -1 -4', expectedOutput: '-1 -1 2\n-1 0 1', isSample: true, isHidden: false },
+      { input: '0 1 1', expectedOutput: 'No triplets found', isSample: true, isHidden: false },
+      { input: '0 0 0 0', expectedOutput: '0 0 0', isHidden: true },
+      { input: '-2 0 1 1 2', expectedOutput: '-2 1 1\n-2 0 2', isHidden: true },
+      { input: '-1 0 1 2 -1 -4 2 -2 1', expectedOutput: '-2 0 2\n-1 -1 2\n-1 0 1', isHidden: true },
+      { input: '3 0 -2 -1 1 2', expectedOutput: '-2 -1 3\n-2 0 2\n-1 0 1', isHidden: true },
+      { input: '-1 0 1 0', expectedOutput: '-1 0 1', isHidden: true },
+      { input: '1 2 -2 -1', expectedOutput: 'No triplets found', isHidden: true },
+      { input: '0 0 0 0 0 0', expectedOutput: '0 0 0', isHidden: true },
+      { input: '-4 -2 -1 -1 0 1 2 3 4 5', expectedOutput: '-4 -2 6\n-4 -1 5\n-4 0 4\n-4 1 3\n-2 -1 3\n-2 0 2\n-2 1 1\n-1 -1 2\n-1 0 1\n0 1 -1', isHidden: true },
+      { input: '-5 -4 -3 -2 -1 0 1 2 3 4 5', expectedOutput: '-5 0 5\n-5 1 4\n-5 2 3\n-4 -1 5\n-4 0 4\n-4 1 3\n-3 -2 5\n-3 -1 4\n-3 0 3\n-3 1 2\n-2 -1 3\n-2 0 2\n-2 1 1\n-1 0 1', isHidden: true },
+      { input: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1', expectedOutput: 'No triplets found', isHidden: true },
+      { input: '-10 -5 0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100', expectedOutput: '-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5\n0 5 -5', isHidden: true },
+      { input: '-3 -2 -1 0 0 0 1 2 3 4 5 6 7 8 9 10', expectedOutput: '-3 0 3\n-3 1 2\n-2 -1 3\n-2 0 2\n-2 1 1\n-1 0 1\n0 0 0', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40', expectedOutput: 'No triplets found', isHidden: true },
+      { input: '-40 -20 -10 -5 0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100', expectedOutput: '-40 0 40\n-40 5 35\n-40 10 30\n-40 15 25\n-20 -10 30\n-20 -5 25\n-20 0 20\n-20 5 15\n-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5', isHidden: true },
+      { input: '1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1', expectedOutput: 'No triplets found', isHidden: true },
+      { input: '-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1', expectedOutput: '-1 -1 2', isHidden: true },
+      { input: '-100 -50 -25 -10 -5 0 5 10 25 50 100 150 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000', expectedOutput: '-100 0 100\n-100 5 95\n-100 10 90\n-100 25 75\n-100 50 50\n-50 -25 75\n-50 -10 60\n-50 -5 55\n-50 0 50\n-50 5 45\n-50 10 40\n-50 25 25\n-25 -10 35\n-25 -5 30\n-25 0 25\n-25 5 20\n-25 10 15\n-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5', isHidden: true },
+      { input: '-5 -4 -3 -2 -1 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50', expectedOutput: '-5 0 5\n-5 1 4\n-4 -1 5\n-4 0 4\n-4 1 3\n-3 -1 4\n-3 0 3\n-3 1 2\n-2 -1 3\n-2 0 2\n-2 1 1\n-1 0 1\n0 1 -1', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100', expectedOutput: 'No triplets found', isHidden: true },
+      { input: '-200 -100 -50 -25 -10 -5 0 5 10 25 50 100 200 250 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000', expectedOutput: '-200 0 200\n-200 5 195\n-200 10 190\n-200 25 175\n-200 50 150\n-200 100 100\n-100 -50 150\n-100 -25 125\n-100 -10 110\n-100 -5 105\n-100 0 100\n-100 5 95\n-100 10 90\n-100 25 75\n-100 50 50\n-50 -25 75\n-50 -10 60\n-50 -5 55\n-50 0 50\n-50 5 45\n-50 10 40\n-50 25 25\n-25 -10 35\n-25 -5 30\n-25 0 25\n-25 5 20\n-25 10 15\n-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5', isHidden: true },
+      { input: '-300 -200 -100 -50 -25 -10 -5 0 5 10 25 50 100 200 300 350 400 450 500 550 600 650 700 750 800 850 900 950 1000', expectedOutput: '-300 0 300\n-300 5 295\n-300 10 290\n-300 25 275\n-300 50 250\n-300 100 200\n-200 -100 300\n-200 -50 250\n-200 -25 225\n-200 -10 210\n-200 -5 205\n-200 0 200\n-200 5 195\n-200 10 190\n-200 25 175\n-200 50 150\n-100 -50 150\n-100 -25 125\n-100 -10 110\n-100 -5 105\n-100 0 100\n-100 5 95\n-100 10 90\n-100 25 75\n-100 50 50\n-50 -25 75\n-50 -10 60\n-50 -5 55\n-50 0 50\n-50 5 45\n-50 10 40\n-50 25 25\n-25 -10 35\n-25 -5 30\n-25 0 25\n-25 5 20\n-25 10 15\n-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5', isHidden: true },
+      { input: '-400 -300 -200 -100 -50 -25 -10 -5 0 5 10 25 50 100 200 300 400 450 500 550 600 650 700 750 800 850 900 950 1000', expectedOutput: '-400 0 400\n-400 5 395\n-400 10 390\n-400 25 375\n-400 50 350\n-400 100 300\n-400 200 200\n-300 -100 400\n-300 -50 350\n-300 -25 325\n-300 -10 310\n-300 -5 305\n-300 0 300\n-300 5 295\n-300 10 290\n-300 25 275\n-300 50 250\n-300 100 200\n-200 -100 300\n-200 -50 250\n-200 -25 225\n-200 -10 210\n-200 -5 205\n-200 0 200\n-200 5 195\n-200 10 190\n-200 25 175\n-200 50 150\n-100 -50 150\n-100 -25 125\n-100 -10 110\n-100 -5 105\n-100 0 100\n-100 5 95\n-100 10 90\n-100 25 75\n-100 50 50\n-50 -25 75\n-50 -10 60\n-50 -5 55\n-50 0 50\n-50 5 45\n-50 10 40\n-50 25 25\n-25 -10 35\n-25 -5 30\n-25 0 25\n-25 5 20\n-25 10 15\n-10 -5 15\n-10 0 10\n-10 5 5\n-5 0 5', isHidden: true },
+    ],
+    functionSignature: {
+      javascript: { name: 'threeSum', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number[][]' },
+      python: { name: 'three_sum', params: [{ name: 'nums', type: 'List[int]' }], returnType: 'List[List[int]]' },
+      java: { name: 'threeSum', params: [{ name: 'nums', type: 'int[]' }], returnType: 'int[][]' },
+      cpp: { name: 'threeSum', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'vector<vector<int>>' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const nums = line.split(' ').map(Number);
+    const result = ${DRIVER_PLACEHOLDER}(nums);
+    if (result.length === 0) {
+        console.log('No triplets found');
+    } else {
+        result.forEach(triplet => console.log(triplet.join(' ')));
+    }
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    nums = list(map(int, sys.stdin.read().strip().split()))
+    result = ${DRIVER_PLACEHOLDER}(nums)
+    if not result:
+        print('No triplets found')
+    else:
+        for triplet in result:
+            print(' '.join(map(str, triplet)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        List<int[]> result = ${DRIVER_PLACEHOLDER}(nums);
+        if (result.isEmpty()) {
+            System.out.println("No triplets found");
+        } else {
+            for (int[] triplet : result) {
+                System.out.println(triplet[0] + " " + triplet[1] + " " + triplet[2]);
+            }
+        }
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    vector<vector<int>> result = ${DRIVER_PLACEHOLDER}(nums);
+    if (result.empty()) {
+        cout << "No triplets found" << endl;
+    } else {
+        for (const auto& triplet : result) {
+            for (int i = 0; i < triplet.size(); i++) {
+                if (i > 0) cout << " ";
+                cout << triplet[i];
+            }
+            cout << endl;
+        }
+    }
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[3000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    int** result = ${DRIVER_PLACEHOLDER}(nums, n);
+    if (result == NULL) {
+        printf("No triplets found\\n");
+    } else {
+        for (int i = 0; result[i] != NULL; i++) {
+            printf("%d %d %d\\n", result[i][0], result[i][1], result[i][2]);
+        }
+    }
+    return 0;
+}`,
+    },
+  },
+  {
+    title: 'Valid Sudoku',
+    description: 'Determine if a 9 x 9 Sudoku board is valid. Only the filled cells need to be validated according to the following rules: Each row must contain the digits 1-9 without repetition. Each column must contain the digits 1-9 without repetition. Each of the nine 3 x 3 sub-boxes of the grid must contain the digits 1-9 without repetition.',
+    difficulty: 'medium',
+    tags: ['matrix', 'hash-table', 'design'],
+    category: 'DSA',
+    constraints: 'board.length == 9\nboard[i].length == 9\nboard[i][j] is a digit 1-9 or \'.\'.',
+    examples: [
+      { input: 'board = [["5","3",".",".","7",".",".",".","."],["6",".",".","1","9","5",".",".","."],[".","9","8",".",".",".",".","6","."],["8",".",".",".","6",".",".",".","3"],["4",".",".","8",".","3",".",".","1"],["7",".",".",".","2",".",".",".","6"],[".","6",".",".",".",".","2","8","."],[".",".",".","4","1","9",".",".","5"],[".",".",".",".","8",".",".","7","9"]]', output: 'true' },
+      { input: 'board = [["8","3",".",".","7",".",".",".","."],["6",".",".","1","9","5",".",".","."],[".","9","8",".",".",".",".","6","."],["8",".",".",".","6",".",".",".","3"],["4",".",".","8",".","3",".",".","1"],["7",".",".",".","2",".",".",".","6"],[".","6",".",".",".",".","2","8","."],[".",".",".","4","1","9",".",".","5"],[".",".",".",".","8",".",".","7","9"]]', output: 'false' },
+    ],
+    testCases: [
+      { input: '53..7....\n6..195...\n.98....6.\n8...6...3\n4..8.3..1\n7...2...6\n.6....28.\n...419..5\n....8..79', expectedOutput: 'true', isSample: true, isHidden: false },
+      { input: '83..7....\n6..195...\n.98....6.\n8...6...3\n4..8.3..1\n7...2...6\n.6....28.\n...419..5\n....8..79', expectedOutput: 'false', isSample: true, isHidden: false },
+      { input: '....5....\n....9....\n.........\n...8.....\n..3...2..\n.........\n.........\n.........\n.........', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n2 3 4 5 6 7 8 9 1\n3 4 5 6 7 8 9 1 2\n4 5 6 7 8 9 1 2 3\n5 6 7 8 9 1 2 3 4\n6 7 8 9 1 2 3 4 5\n7 8 9 1 2 3 4 5 6\n8 9 1 2 3 4 5 6 7\n9 1 2 3 4 5 6 7 8', expectedOutput: 'false', isHidden: true },
+      { input: '1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1\n1 1 1 1 1 1 1 1 1', expectedOutput: 'false', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n2 3 4 5 6 7 8 9 1\n3 4 5 6 7 8 9 1 2\n4 5 6 7 8 9 1 2 3\n5 6 7 8 9 1 2 3 4\n6 7 8 9 1 2 3 4 5\n7 8 9 1 2 3 4 5 6\n8 9 1 2 3 4 5 6 7\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '5 3 4 6 7 8 9 1 2\n6 7 2 1 9 5 3 4 8\n1 9 8 3 4 2 5 6 7\n8 5 9 7 6 1 4 2 3\n4 2 6 8 5 3 7 9 1\n7 1 3 9 2 4 8 5 6\n9 6 1 5 3 7 2 8 4\n2 8 7 4 1 9 6 3 5\n3 4 5 2 8 6 1 7 9', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9\n1 2 3 4 5 6 7 8 9', expectedOutput: 'false', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+      { input: '1 2 3 4 5 6 7 8 9\n4 5 6 7 8 9 1 2 3\n7 8 9 1 2 3 4 5 6\n2 3 4 5 6 7 8 9 1\n5 6 7 8 9 1 2 3 4\n8 9 1 2 3 4 5 6 7\n3 4 5 6 7 8 9 1 2\n6 7 8 9 1 2 3 4 5\n9 1 2 3 4 5 6 7 8', expectedOutput: 'true', isHidden: true },
+    ],
+    functionSignature: {
+      javascript: { name: 'isValidSudoku', params: [{ name: 'board', type: 'string[][]' }], returnType: 'boolean' },
+      python: { name: 'is_valid_sudoku', params: [{ name: 'board', type: 'List[List[str]]' }], returnType: 'bool' },
+      java: { name: 'isValidSudoku', params: [{ name: 'board', type: 'char[][]' }], returnType: 'boolean' },
+      cpp: { name: 'isValidSudoku', params: [{ name: 'board', type: 'vector<vector<char>>' }], returnType: 'bool' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+let board = [];
+let row = 0;
+rl.on('line', (line) => {
+    if (row < 9) {
+        board.push(line.trim().split(''));
+        row++;
+    }
+});
+rl.on('close', () => {
+    console.log(${DRIVER_PLACEHOLDER}(board));
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    board = []
+    for line in sys.stdin:
+        line = line.strip()
+        if line:
+            board.append(list(line))
+    print(${DRIVER_PLACEHOLDER}(board))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        char[][] board = new char[9][9];
+        for (int i = 0; i < 9; i++) {
+            String line = sc.nextLine();
+            for (int j = 0; j < 9; j++) {
+                board[i][j] = line.charAt(j);
+            }
+        }
+        System.out.println(${DRIVER_PLACEHOLDER}(board));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
+int main() {
+    vector<vector<char>> board(9, vector<char>(9));
+    for (int i = 0; i < 9; i++) {
+        string line;
+        getline(cin, line);
+        for (int j = 0; j < 9; j++) {
+            board[i][j] = line[j];
+        }
+    }
+    cout << (${DRIVER_PLACEHOLDER}(board) ? "true" : "false") << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+int main() {
+    char board[9][10];
+    for (int i = 0; i < 9; i++) {
+        fgets(board[i], 10, stdin);
+        board[i][strcspn(board[i], "\\n")] = 0;
+    }
+    printf("%s\\n", ${DRIVER_PLACEHOLDER}(board) ? "true" : "false");
+    return 0;
+}`,
+    },
   },
 ];
 

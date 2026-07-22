@@ -19,17 +19,19 @@ exports.getRecommendations = async (req, res) => {
     const user = await User.findById(req.user.id);
     const weakTopics = user.weakTopics || [];
 
-    const allSubmissions = await Submission.find({ user: req.user.id })
-      .populate('problem', 'tags difficulty');
+    const allSubmissions = await Submission.find({ user: req.user.id });
     const tagStats = {};
+    const tagLastAttempt = {};
     allSubmissions.forEach((sub) => {
-      if (sub.problem && sub.problem.tags) {
-        sub.problem.tags.forEach((tag) => {
-          if (!tagStats[tag]) tagStats[tag] = { total: 0, accepted: 0 };
-          tagStats[tag].total += 1;
-          if (sub.status === 'accepted') tagStats[tag].accepted += 1;
-        });
-      }
+      const tags = sub.problemTags && sub.problemTags.length > 0 ? sub.problemTags : [];
+      tags.forEach((tag) => {
+        if (!tagStats[tag]) tagStats[tag] = { total: 0, accepted: 0, lastAttempt: sub.createdAt };
+        tagStats[tag].total += 1;
+        if (sub.status === 'accepted') tagStats[tag].accepted += 1;
+        if (!tagLastAttempt[tag] || new Date(sub.createdAt) > new Date(tagLastAttempt[tag])) {
+          tagLastAttempt[tag] = sub.createdAt;
+        }
+      });
     });
     const tagSuccessRates = Object.entries(tagStats).map(([tag, stats]) => ({
       tag,
@@ -39,11 +41,21 @@ exports.getRecommendations = async (req, res) => {
     const lowPerformanceTags = tagSuccessRates
       .filter((t) => t.successRate < 0.5 && t.totalAttempts >= 2)
       .map((t) => t.tag);
-    const allWeakTopics = [...new Set([...weakTopics, ...lowPerformanceTags])];
+    const spacedRepetitionTags = tagSuccessRates
+      .filter((t) => t.successRate < 0.7 && t.totalAttempts >= 1)
+      .filter((t) => {
+        const last = tagLastAttempt[t.tag];
+        if (!last) return true;
+        const days = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
+        return days >= 5;
+      })
+      .map((t) => t.tag);
+    const allWeakTopics = [...new Set([...weakTopics, ...lowPerformanceTags, ...spacedRepetitionTags])];
 
     const solvedProblemIds = await Submission.find({
       user: req.user.id,
       status: 'accepted',
+      type: 'submit',
     }).distinct('problem');
 
     let recommendations = [];
@@ -54,24 +66,26 @@ exports.getRecommendations = async (req, res) => {
         isActive: true,
       })
         .select('-testCases -solution')
-        .limit(5)
+        .limit(8)
         .sort({ acceptanceRate: 1 });
       recommendations.push(...weakProblems);
     }
 
-    const recentSubmissions = await Submission.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
-      .limit(10);
-    const recentSuccessRate = recentSubmissions.filter((s) => s.status === 'accepted').length / Math.max(recentSubmissions.length, 1);
-
-    let targetDifficulty;
-    if (recentSuccessRate > 0.7) {
-      targetDifficulty = 'hard';
-    } else if (recentSuccessRate > 0.4) {
-      targetDifficulty = 'medium';
-    } else {
-      targetDifficulty = 'easy';
-    }
+    const lastN = allSubmissions.slice(0, 5);
+    const recentSuccessRate = lastN.length > 0 ? lastN.filter((s) => s.status === 'accepted').length / lastN.length : 0;
+    const adaptiveByRecent = allSubmissions.slice(0, 5);
+    const diffStats = { easy: { total: 0, accepted: 0 }, medium: { total: 0, accepted: 0 }, hard: { total: 0, accepted: 0 } };
+    adaptiveByRecent.forEach((s) => {
+      const d = s.problemDifficulty || 'easy';
+      diffStats[d].total += 1;
+      if (s.status === 'accepted') diffStats[d].accepted += 1;
+    });
+    const easyRate = diffStats.easy.total > 0 ? diffStats.easy.accepted / diffStats.easy.total : 0;
+    const mediumRate = diffStats.medium.total > 0 ? diffStats.medium.accepted / diffStats.medium.total : 0;
+    const hardRate = diffStats.hard.total > 0 ? diffStats.hard.accepted / diffStats.hard.total : 0;
+    let targetDifficulty = 'easy';
+    if (mediumRate > 0.5 && hardRate > 0.4) targetDifficulty = 'hard';
+    else if (easyRate > 0.5 || mediumRate > 0.4) targetDifficulty = 'medium';
 
     const remainingCount = 10 - recommendations.length;
     if (remainingCount > 0) {

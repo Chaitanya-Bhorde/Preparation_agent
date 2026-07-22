@@ -56,6 +56,8 @@ const SubmissionSchema = new mongoose.Schema(
     executionTime: { type: Number, default: 0 },
     memoryUsed: { type: Number, default: 0 },
     score: { type: Number, default: 0 },
+    problemDifficulty: { type: String, enum: ['easy', 'medium', 'hard'] },
+    problemTags: [String],
   },
   {
     timestamps: true,

@@ -44,6 +44,7 @@ export const runSQLCode = (data) => API.post('/submissions/sql/run', data);
 export const submitSQLCode = (data) => API.post('/submissions/sql/submit', data);
 export const getSubmissions = (params) => API.get('/submissions', { params });
 export const getSubmission = (id) => API.get(`/submissions/${id}`);
+export const getProfile = () => API.get('/profile');
 export const getRecommendations = () => API.get('/recommendations');
 export const addToRevision = (problemId) => API.post('/recommendations/revision', { problemId });
 export const removeFromRevision = (problemId) => API.delete(`/recommendations/revision/${problemId}`);

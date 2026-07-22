@@ -45,6 +45,8 @@ export default function ProblemDetail() {
   const [visibleTestcases, setVisibleTestcases] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [selectedSubmissionLoading, setSelectedSubmissionLoading] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
@@ -81,14 +83,36 @@ export default function ProblemDetail() {
   const loadSubmissions = async () => {
     if (!problem) return;
     setSubmissionsLoading(true);
+    setSelectedSubmission(null);
     try {
-      const { data } = await getSubmissions({ problemId: problem._id, limit: 10 });
+      const { data } = await getSubmissions({ problemId: problem._id, limit: 20 });
       setSubmissions(data.data || []);
     } catch (error) {
       console.error('Failed to load submissions:', error);
     } finally {
       setSubmissionsLoading(false);
     }
+  };
+
+  const viewSubmission = async (submissionId) => {
+    setSelectedSubmissionLoading(true);
+    try {
+      const { data } = await getSubmission(submissionId);
+      if (data.success) {
+        setSelectedSubmission(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load submission:', error);
+    } finally {
+      setSelectedSubmissionLoading(false);
+    }
+  };
+
+  const restoreSubmission = (submissionCode) => {
+    setCode(submissionCode);
+    setActiveTab('description');
+    setBottomTab('result');
+    toast.success('Submission restored to editor');
   };
 
   const getDefaultCode = (lang) => {
@@ -275,8 +299,11 @@ export default function ProblemDetail() {
                     {submissions.map((sub) => {
                       const cfg = getStatusConfig(sub.status);
                       const Icon = cfg.icon;
+                      const isSelected = selectedSubmission && selectedSubmission._id === sub._id;
                       return (
-                        <div key={sub._id} className={`p-3 rounded-lg border ${cfg.bg} border-gray-800`}>
+                        <div key={sub._id}
+                          onClick={() => viewSubmission(sub._id)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-900/20' : `${cfg.bg} border-gray-800 hover:border-gray-700`}`}>
                           <div className="flex items-center gap-2">
                             <Icon className={`w-4 h-4 ${cfg.color}`} />
                             <span className={`text-sm ${cfg.color}`}>{cfg.label}</span>
@@ -288,6 +315,24 @@ export default function ProblemDetail() {
                             <span>{sub.memoryUsed || 0}KB</span>
                             <span className="capitalize">{sub.language}</span>
                           </div>
+                          {isSelected && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              {selectedSubmissionLoading ? (
+                                <div className="text-gray-400 text-center py-2"><Loader2 className="w-4 h-4 animate-spin mx-auto" /></div>
+                              ) : selectedSubmission && selectedSubmission.code && (
+                                <div>
+                                  <pre className="bg-gray-950 p-3 rounded text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-800">
+                                    {selectedSubmission.code}
+                                  </pre>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); restoreSubmission(selectedSubmission.code); }}
+                                    className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded flex items-center gap-1.5">
+                                    Restore to editor
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

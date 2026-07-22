@@ -35,6 +35,7 @@ app.use('/api/submissions', require('./routes/submissions'));
 app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/ats', require('./routes/ats'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/profile', require('./routes/profile'));
 app.use('/api/admin', require('./routes/admin'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });

@@ -25,6 +25,8 @@ exports.runSubmission = async (req, res) => {
       status: 'pending',
       totalTestCases: casesToRun.length,
       type: 'run',
+      problemDifficulty: problem.difficulty,
+      problemTags: problem.tags,
     });
     const signature = problem.functionSignature ? problem.functionSignature[language] : null;
     if (!signature) {
@@ -96,6 +98,8 @@ exports.submitSolution = async (req, res) => {
       status: 'pending',
       totalTestCases: problem.testCases.length,
       type: 'submit',
+      problemDifficulty: problem.difficulty,
+      problemTags: problem.tags,
     });
     const signature = problem.functionSignature ? problem.functionSignature[language] : null;
     if (!signature) {
@@ -287,6 +291,8 @@ exports.runSQL = async (req, res) => {
         memoryUsed: r.memoryUsed,
       })),
       score: Math.round((passedCount / casesToRun.length) * 100),
+      problemDifficulty: problem.difficulty,
+      problemTags: problem.tags,
     });
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
@@ -357,6 +363,8 @@ exports.submitSQL = async (req, res) => {
         memoryUsed: r.memoryUsed,
       })),
       score: Math.round((passedCount / problem.testCases.length) * 100),
+      problemDifficulty: problem.difficulty,
+      problemTags: problem.tags,
     });
     problem.totalSubmissions += 1;
     if (status === 'accepted') problem.acceptedSubmissions += 1;
