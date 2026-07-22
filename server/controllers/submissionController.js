@@ -2,6 +2,7 @@ const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const User = require('../models/User');
 const { runCode, submitCode } = require('../utils/judge0');
+const { executeSQL } = require('../utils/sqlRunner');
 
 exports.runSubmission = async (req, res) => {
   try {
@@ -204,6 +205,170 @@ exports.getSubmission = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     res.status(200).json({ success: true, data: submission });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.runSQL = async (req, res) => {
+  try {
+    const { problemId, code } = req.body;
+    if (!problemId || !code) {
+      return res.status(400).json({ success: false, message: 'Please provide problemId and code' });
+    }
+    const problem = await Problem.findById(problemId);
+    if (!problem) {
+      return res.status(404).json({ success: false, message: 'Problem not found' });
+    }
+    const sampleCases = problem.testCases.filter(tc => tc.isSample);
+    const casesToRun = sampleCases.length > 0 ? sampleCases : problem.testCases.slice(0, 2);
+    const results = [];
+    for (const tc of casesToRun) {
+      const sqlResult = await executeSQL(code);
+      if (!sqlResult.success) {
+        results.push({
+          passed: false,
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || '',
+          actualOutput: sqlResult.error,
+          errorType: 'runtime_error',
+          errorMessage: sqlResult.error,
+          executionTime: 0,
+          memoryUsed: 0,
+          isSample: tc.isSample,
+        });
+      } else {
+        const actualOutput = JSON.stringify(sqlResult.data.rows);
+        const passed = actualOutput === tc.expectedOutput;
+        results.push({
+          passed,
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || '',
+          actualOutput,
+          errorType: passed ? null : 'wrong_answer',
+          errorMessage: passed ? null : `Expected ${tc.expectedOutput} but got ${actualOutput}`,
+          executionTime: 0,
+          memoryUsed: 0,
+          isSample: tc.isSample,
+        });
+      }
+    }
+    const passedCount = results.filter(r => r.passed).length;
+    const status = passedCount === casesToRun.length ? 'accepted' : 'wrong_answer';
+    const submission = await Submission.create({
+      user: req.user.id,
+      problem: problemId,
+      code,
+      language: 'sql',
+      status,
+      type: 'run',
+      passedTestCases: passedCount,
+      totalTestCases: casesToRun.length,
+      testCaseResults: results.map(r => ({
+        passed: r.passed,
+        input: r.input,
+        expectedOutput: r.expectedOutput,
+        actualOutput: r.actualOutput,
+        errorType: r.errorType,
+        errorMessage: r.errorMessage,
+        executionTime: r.executionTime,
+        memoryUsed: r.memoryUsed,
+      })),
+      score: Math.round((passedCount / casesToRun.length) * 100),
+    });
+    res.status(201).json({ success: true, data: submission });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.submitSQL = async (req, res) => {
+  try {
+    const { problemId, code } = req.body;
+    if (!problemId || !code) {
+      return res.status(400).json({ success: false, message: 'Please provide problemId and code' });
+    }
+    const problem = await Problem.findById(problemId);
+    if (!problem) {
+      return res.status(404).json({ success: false, message: 'Problem not found' });
+    }
+    const results = [];
+    for (const tc of problem.testCases) {
+      const sqlResult = await executeSQL(code);
+      if (!sqlResult.success) {
+        results.push({
+          passed: false,
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || '',
+          actualOutput: sqlResult.error,
+          errorType: 'runtime_error',
+          errorMessage: sqlResult.error,
+          executionTime: 0,
+          memoryUsed: 0,
+          isSample: tc.isSample,
+        });
+      } else {
+        const actualOutput = JSON.stringify(sqlResult.data.rows);
+        const passed = actualOutput === tc.expectedOutput;
+        results.push({
+          passed,
+          input: tc.input || '',
+          expectedOutput: tc.isSample ? tc.expectedOutput : '',
+          actualOutput,
+          errorType: passed ? null : 'wrong_answer',
+          errorMessage: passed ? null : `Expected ${tc.expectedOutput} but got ${actualOutput}`,
+          executionTime: 0,
+          memoryUsed: 0,
+          isSample: tc.isSample,
+        });
+      }
+    }
+    const passedCount = results.filter(r => r.passed).length;
+    let status = passedCount === problem.testCases.length ? 'accepted' : 'wrong_answer';
+    const submission = await Submission.create({
+      user: req.user.id,
+      problem: problemId,
+      code,
+      language: 'sql',
+      status,
+      type: 'submit',
+      passedTestCases: passedCount,
+      totalTestCases: problem.testCases.length,
+      testCaseResults: results.map(r => ({
+        passed: r.passed,
+        input: r.input,
+        expectedOutput: r.expectedOutput,
+        actualOutput: r.actualOutput,
+        errorType: r.errorType,
+        errorMessage: r.errorMessage,
+        executionTime: r.executionTime,
+        memoryUsed: r.memoryUsed,
+      })),
+      score: Math.round((passedCount / problem.testCases.length) * 100),
+    });
+    problem.totalSubmissions += 1;
+    if (status === 'accepted') problem.acceptedSubmissions += 1;
+    problem.acceptanceRate = Math.round((problem.acceptedSubmissions / problem.totalSubmissions) * 100);
+    await problem.save();
+    if (status === 'accepted') {
+      const existingAccepted = await Submission.findOne({
+        user: req.user.id,
+        problem: problemId,
+        status: 'accepted',
+        type: 'submit',
+        _id: { $ne: submission._id },
+      });
+      if (!existingAccepted) {
+        await User.findByIdAndUpdate(req.user.id, {
+          $inc: { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 },
+        });
+      } else {
+        await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
+      }
+    } else {
+      await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
+    }
+    res.status(201).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

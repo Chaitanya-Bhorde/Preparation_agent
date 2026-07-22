@@ -1,6 +1,6 @@
 import axios from 'axios';
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -29,6 +29,7 @@ API.interceptors.response.use(
 export const register = (data) => API.post('/auth/register', data);
 export const login = (data) => API.post('/auth/login', data);
 export const logout = () => API.get('/auth/logout');
+export const refreshToken = () => API.get('/auth/refresh');
 export const getMe = () => API.get('/auth/me');
 export const updateProfile = (data) => API.put('/auth/profile', data);
 export const getProblems = (params) => API.get('/problems', { params });
@@ -39,6 +40,8 @@ export const deleteProblem = (id) => API.delete(`/problems/${id}`);
 export const getTags = () => API.get('/problems/tags');
 export const runCode = (data) => API.post('/submissions/run', data);
 export const submitCode = (data) => API.post('/submissions/submit', data);
+export const runSQLCode = (data) => API.post('/submissions/sql/run', data);
+export const submitSQLCode = (data) => API.post('/submissions/sql/submit', data);
 export const getSubmissions = (params) => API.get('/submissions', { params });
 export const getSubmission = (id) => API.get(`/submissions/${id}`);
 export const getRecommendations = () => API.get('/recommendations');

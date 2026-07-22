@@ -1,16 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { getProblem, runCode, submitCode } from '../api';
-import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal } from 'lucide-react';
+import { getProblem, runCode, submitCode, getSubmissions, runSQLCode, submitSQLCode } from '../api';
+import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-const LANGUAGE_VERSIONS = {
-  javascript: '18.15.0',
-  python: '3.10.0',
-  java: '15.0.2',
-  cpp: '10.2.0',
-};
+import { LOADING_SPINNER, DIFFICULTY_COLORS, BUTTON_CLASSES, SELECT_CLASSES } from '../utils/ui';
 
 const STATUS_CONFIG = {
   accepted: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-900/20', label: 'Accepted' },
@@ -18,6 +12,22 @@ const STATUS_CONFIG = {
   compilation_error: { icon: Terminal, color: 'text-orange-400', bg: 'bg-orange-900/20', label: 'Compilation Error' },
   runtime_error: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Runtime Error' },
   time_limit_exceeded: { icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Time Limit Exceeded' },
+};
+
+const LANGUAGES = [
+  { id: 'javascript', label: 'JavaScript' },
+  { id: 'python', label: 'Python' },
+  { id: 'java', label: 'Java' },
+  { id: 'cpp', label: 'C++' },
+  { id: 'c', label: 'C' },
+];
+
+const MONACO_LANG_MAP = {
+  javascript: 'javascript',
+  python: 'python',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
 };
 
 export default function ProblemDetail() {
@@ -30,20 +40,30 @@ export default function ProblemDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [activeTab, setActiveTab] = useState('description');
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+
+  useEffect(() => { loadProblem(); }, [slug]);
 
   useEffect(() => {
-    loadProblem();
-  }, [slug]);
-
-  useEffect(() => {
-    setCode(getDefaultCode(language));
-  }, [language]);
+    if (problem && problem.starterCode) {
+      const starter = problem.starterCode[language];
+      if (starter) setCode(starter);
+      else setCode(getDefaultCode(language));
+    } else {
+      setCode(getDefaultCode(language));
+    }
+  }, [language, problem]);
 
   const loadProblem = async () => {
     try {
       const { data } = await getProblem(slug);
       setProblem(data.data);
-      setCode(getDefaultCode('javascript'));
+      if (data.data && data.data.starterCode && data.data.starterCode.javascript) {
+        setCode(data.data.starterCode.javascript);
+      } else {
+        setCode(getDefaultCode('javascript'));
+      }
     } catch (error) {
       toast.error('Failed to load problem');
     } finally {
@@ -51,39 +71,43 @@ export default function ProblemDetail() {
     }
   };
 
+  const loadSubmissions = async () => {
+    if (!problem) return;
+    setSubmissionsLoading(true);
+    try {
+      const { data } = await getSubmissions({ problemId: problem._id, limit: 10 });
+      setSubmissions(data.data || []);
+    } catch (error) {
+      console.error('Failed to load submissions:', error);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  };
+
   const getDefaultCode = (lang) => {
     const defaults = {
-      javascript: `function solve(input) {\n  return input;\n}\n`,
-      python: `def solve(input):\n    return input\n`,
-      java: `public class Solution {\n    public static int solve(int input) {\n        return input;\n    }\n}`,
-      cpp: `#include <iostream>\nusing namespace std;\n\nint solve(int input) {\n    return input;\n}\n`,
+      javascript: `function solve(input) {\n  // Your code here\n  return input;\n}\n`,
+      python: `def solve(input):\n    # Your code here\n    return input\n`,
+      java: `public class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        String input = sc.nextLine();\n        System.out.println(solve(input));\n        sc.close();\n    }\n}`,
+      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
+      c: `#include <stdio.h>\n#include <string.h>\n\nvoid solve(char* input, char* output) {\n    // Your code here\n    strcpy(output, input);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
     };
     return defaults[lang] || defaults.javascript;
   };
 
   const handleRun = async () => {
-    if (!code.trim()) {
-      toast.error('Please write some code first');
-      return;
-    }
+    if (!code.trim()) { toast.error('Please write some code first'); return; }
     setRunning(true);
     setResult(null);
     try {
-      const { data } = await runCode({
-        problemId: problem._id,
-        code,
-        language,
-      });
+      const isSql = problem.category === 'SQL';
+      const { data } = isSql ? await runSQLCode({ problemId: problem._id, code })
+        : await runCode({ problemId: problem._id, code, language });
       setResult({ ...data.data, mode: 'run' });
-      if (data.data.status === 'accepted') {
-        toast.success('Sample tests passed!');
-      } else if (data.data.status === 'compilation_error') {
-        toast.error('Compilation failed');
-      } else if (data.data.status === 'runtime_error') {
-        toast.error('Runtime error occurred');
-      } else {
-        toast.error('Sample tests failed');
-      }
+      if (data.data.status === 'accepted') toast.success('Sample tests passed!');
+      else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
+      else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
+      else toast.error('Sample tests failed');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to run code');
     } finally {
@@ -92,28 +116,18 @@ export default function ProblemDetail() {
   };
 
   const handleSubmit = async () => {
-    if (!code.trim()) {
-      toast.error('Please write some code first');
-      return;
-    }
+    if (!code.trim()) { toast.error('Please write some code first'); return; }
     setSubmitting(true);
     setResult(null);
     try {
-      const { data } = await submitCode({
-        problemId: problem._id,
-        code,
-        language,
-      });
+      const isSql = problem.category === 'SQL';
+      const { data } = isSql ? await submitSQLCode({ problemId: problem._id, code })
+        : await submitCode({ problemId: problem._id, code, language });
       setResult({ ...data.data, mode: 'submit' });
-      if (data.data.status === 'accepted') {
-        toast.success('All test cases passed!');
-      } else if (data.data.status === 'compilation_error') {
-        toast.error('Compilation failed');
-      } else if (data.data.status === 'runtime_error') {
-        toast.error('Runtime error occurred');
-      } else {
-        toast.error(`${data.data.passedTestCases}/${data.data.totalTestCases} test cases passed`);
-      }
+      if (data.data.status === 'accepted') toast.success('All test cases passed!');
+      else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
+      else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
+      else toast.error(`${data.data.passedTestCases}/${data.data.totalTestCases} test cases passed`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to submit code');
     } finally {
@@ -128,22 +142,22 @@ export default function ProblemDetail() {
     }
   }, [code, problem, submitting, running]);
 
-  const difficultyColor = (d) => {
-    if (d === 'easy') return 'text-green-400 bg-green-900/30';
-    if (d === 'medium') return 'text-yellow-400 bg-yellow-900/30';
-    return 'text-red-400 bg-red-900/30';
-  };
+  const difficultyColor = (d) => DIFFICULTY_COLORS[d] || DIFFICULTY_COLORS.easy;
+  const getStatusConfig = (status) => STATUS_CONFIG[status] || { icon: XCircle, color: 'text-red-400', bg: 'bg-red-900/20', label: status };
 
-  const getStatusConfig = (status) => {
-    return STATUS_CONFIG[status] || { icon: XCircle, color: 'text-red-400', bg: 'bg-red-900/20', label: status };
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'submissions') loadSubmissions();
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading problem...</div>;
+    return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   }
   if (!problem) {
-    return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Problem not found</div>;
+    return <div className={LOADING_SPINNER}><span className="text-gray-400">Problem not found</span></div>;
   }
+
+  const isSQL = problem.category === 'SQL';
 
   return (
     <div className="h-[calc(100vh-57px)] bg-gray-950 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
@@ -151,30 +165,28 @@ export default function ProblemDetail() {
         <div className="flex items-center gap-4 min-w-0">
           <Link to="/problems" className="text-gray-400 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></Link>
           <h1 className="text-white font-semibold truncate">{problem.title}</h1>
-          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${difficultyColor(problem.difficulty)}`}>
-            {problem.difficulty}
-          </span>
+          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${difficultyColor(problem.difficulty)}`}>{problem.difficulty}</span>
+          {isSQL && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-900/30 text-purple-400 shrink-0">SQL</span>}
           <div className="hidden md:flex gap-1 text-xs text-gray-500">
-            {problem.tags?.map((tag) => (
-              <span key={tag} className="bg-gray-800 px-2 py-0.5 rounded">{tag}</span>
-            ))}
+            {problem.tags?.map((tag) => (<span key={tag} className="bg-gray-800 px-2 py-0.5 rounded">{tag}</span>))}
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <select value={language} onChange={(e) => setLanguage(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm">
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="java">Java</option>
-            <option value="cpp">C++</option>
-          </select>
-          <button onClick={handleRun} disabled={running || submitting}
-            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+          {!isSQL && (
+            <select value={language} onChange={(e) => setLanguage(e.target.value)} className={SELECT_CLASSES}>
+              {LANGUAGES.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
+            </select>
+          )}
+          {isSQL && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-900/30 text-purple-400 rounded-lg text-sm">
+              <BookOpen className="w-4 h-4" /> SQL
+            </span>
+          )}
+          <button onClick={handleRun} disabled={running || submitting} className={BUTTON_CLASSES.secondaryCompact}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {running ? 'Running...' : 'Run'}
           </button>
-          <button onClick={handleSubmit} disabled={submitting || running}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+          <button onClick={handleSubmit} disabled={submitting || running} className={BUTTON_CLASSES.primaryCompact}>
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             {submitting ? 'Submitting...' : 'Submit'}
           </button>
@@ -184,13 +196,17 @@ export default function ProblemDetail() {
       <div className="flex flex-1 overflow-hidden">
         <div className="w-1/2 flex flex-col overflow-hidden border-r border-gray-800">
           <div className="flex border-b border-gray-800 shrink-0">
-            <button onClick={() => setActiveTab('description')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              Description
+            <button onClick={() => handleTabChange('description')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <BookOpen className="w-4 h-4" /> Description
             </button>
-            <button onClick={() => setActiveTab('submissions')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'submissions' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              Submissions
+            <button onClick={() => handleTabChange('submissions')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'submissions' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <History className="w-4 h-4" /> Submissions
+            </button>
+            <button onClick={() => handleTabChange('solutions')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'solutions' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <Lightbulb className="w-4 h-4" /> Solutions
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-6">
@@ -206,12 +222,7 @@ export default function ProblemDetail() {
                         <pre className="bg-gray-950 p-2 rounded text-gray-300 text-sm mb-2 overflow-x-auto">{ex.input}</pre>
                         <p className="text-gray-400 text-sm mb-1">Output:</p>
                         <pre className="bg-gray-950 p-2 rounded text-gray-300 text-sm mb-2 overflow-x-auto">{ex.output}</pre>
-                        {ex.explanation && (
-                          <>
-                            <p className="text-gray-400 text-sm mb-1">Explanation:</p>
-                            <p className="text-gray-300 text-sm">{ex.explanation}</p>
-                          </>
-                        )}
+                        {ex.explanation && (<><p className="text-gray-400 text-sm mb-1">Explanation:</p><p className="text-gray-300 text-sm">{ex.explanation}</p></>)}
                       </div>
                     ))}
                   </div>
@@ -225,8 +236,43 @@ export default function ProblemDetail() {
               </>
             )}
             {activeTab === 'submissions' && (
+              <div>
+                {submissionsLoading ? (
+                  <div className="text-gray-400 text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+                ) : submissions.length === 0 ? (
+                  <div className="text-gray-400 text-center py-8">
+                    <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>No submissions yet. Write some code and hit Submit!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {submissions.map((sub) => {
+                      const cfg = getStatusConfig(sub.status);
+                      const Icon = cfg.icon;
+                      return (
+                        <div key={sub._id} className={`p-3 rounded-lg border ${cfg.bg} border-gray-800`}>
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-4 h-4 ${cfg.color}`} />
+                            <span className={`text-sm ${cfg.color}`}>{cfg.label}</span>
+                            <span className="text-gray-500 text-xs ml-auto">{new Date(sub.createdAt).toLocaleString()}</span>
+                          </div>
+                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                            <span>{sub.passedTestCases}/{sub.totalTestCases} passed</span>
+                            <span>{sub.executionTime || 0}ms</span>
+                            <span>{sub.memoryUsed || 0}KB</span>
+                            <span className="capitalize">{sub.language}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            {activeTab === 'solutions' && (
               <div className="text-gray-400 text-center py-8">
-                <p>Submission history will appear here.</p>
+                <Lightbulb className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>Solutions are available after solving the problem.</p>
               </div>
             )}
           </div>
@@ -234,22 +280,39 @@ export default function ProblemDetail() {
 
         <div className="w-1/2 flex flex-col">
           <div className="flex-1">
-            <Editor
-              height="100%"
-              language={language}
-              value={code}
-              onChange={(value) => setCode(value || '')}
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                wordWrap: 'on',
-              }}
-            />
+            {isSQL ? (
+              <div className="h-full flex flex-col">
+                <div className="bg-gray-900 px-4 py-2 border-b border-gray-800 flex items-center gap-2">
+                  <Database className="w-4 h-4 text-purple-400" />
+                  <span className="text-gray-300 text-sm font-medium">SQL Query Editor</span>
+                </div>
+                <textarea
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="flex-1 bg-gray-950 text-gray-300 p-4 font-mono text-sm resize-none focus:outline-none border-none w-full"
+                  placeholder="-- Write your SQL query here"
+                  spellCheck={false}
+                  style={{ fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" }}
+                />
+              </div>
+            ) : (
+              <Editor
+                height="100%"
+                language={MONACO_LANG_MAP[language] || 'javascript'}
+                value={code}
+                onChange={(value) => setCode(value || '')}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: 'on',
+                }}
+              />
+            )}
           </div>
 
           {result && (
@@ -259,30 +322,23 @@ export default function ProblemDetail() {
                   {(() => {
                     const cfg = getStatusConfig(result.status);
                     const Icon = cfg.icon;
-                    return (
-                      <>
-                        <Icon className={`w-5 h-5 ${cfg.color}`} />
-                        <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
-                        <span className="text-gray-500 text-sm ml-auto">
-                          {result.passedTestCases}/{result.totalTestCases} test cases passed
-                        </span>
-                      </>
-                    );
+                    return (<><Icon className={`w-5 h-5 ${cfg.color}`} /><span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
+                      <span className="text-gray-500 text-sm ml-auto">{result.passedTestCases}/{result.totalTestCases} test cases passed</span>
+                      {result.executionTime > 0 && <span className="text-gray-500 text-xs">{result.executionTime}ms</span>}
+                      {result.memoryUsed > 0 && <span className="text-gray-500 text-xs">{result.memoryUsed}KB</span>}
+                    </>);
                   })()}
                 </div>
-
                 {(result.errorMessage || result.errorType) && (
                   <div className="mb-3 p-3 bg-gray-950 rounded-lg border border-gray-800">
                     <p className="text-red-400 text-sm font-medium mb-1">
                       {result.errorType === 'compilation_error' ? 'Compilation Error:' :
                        result.errorType === 'runtime_error' ? 'Runtime Error:' :
-                       result.errorType === 'time_limit_exceeded' ? 'Time Limit Exceeded:' :
-                       'Error:'}
+                       result.errorType === 'time_limit_exceeded' ? 'Time Limit Exceeded:' : 'Error:'}
                     </p>
                     <pre className="text-red-300 text-xs whitespace-pre-wrap font-mono">{result.errorMessage}</pre>
                   </div>
                 )}
-
                 <div className="space-y-1">
                   {result.testCaseResults?.map((tc, idx) => {
                     const isError = tc.errorType && tc.errorType !== 'unknown';
@@ -290,29 +346,15 @@ export default function ProblemDetail() {
                       <div key={idx} className={`p-2 rounded text-sm ${tc.passed ? 'bg-green-900/20' : isError ? 'bg-red-900/20' : 'bg-red-900/20'}`}>
                         <div className="flex items-center gap-2">
                           {tc.passed ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" /> :
-                           isError ? <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" /> :
-                           <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
-                          <span className="text-gray-300 text-xs">
-                            Test Case {idx + 1}
-                            {tc.isSample ? ' (Sample)' : ''}
-                          </span>
-                          {tc.executionTime > 0 && (
-                            <span className="text-gray-500 text-xs ml-auto">{tc.executionTime}ms</span>
-                          )}
+                           isError ? <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
+                          <span className="text-gray-300 text-xs">Test Case {idx + 1}{tc.isSample ? ' (Sample)' : ''}</span>
+                          {tc.executionTime > 0 && <span className="text-gray-500 text-xs ml-auto">{tc.executionTime}ms</span>}
                         </div>
-                        {tc.errorMessage && (
-                          <pre className="mt-1 text-xs text-red-400 font-mono whitespace-pre-wrap">{tc.errorMessage}</pre>
-                        )}
+                        {tc.errorMessage && <pre className="mt-1 text-xs text-red-400 font-mono whitespace-pre-wrap">{tc.errorMessage}</pre>}
                         {!tc.passed && !tc.errorMessage && tc.expectedOutput !== undefined && (
                           <div className="mt-1 text-xs space-y-1">
-                            {tc.expectedOutput && (
-                              <p className="text-gray-400">
-                                Expected: <span className="text-green-400 font-mono">{tc.expectedOutput}</span>
-                              </p>
-                            )}
-                            <p className="text-gray-400">
-                              Got: <span className="text-red-400 font-mono">{tc.actualOutput || '(no output)'}</span>
-                            </p>
+                            {tc.expectedOutput && <p className="text-gray-400">Expected: <span className="text-green-400 font-mono">{tc.expectedOutput}</span></p>}
+                            <p className="text-gray-400">Got: <span className="text-red-400 font-mono">{tc.actualOutput || '(no output)'}</span></p>
                           </div>
                         )}
                       </div>

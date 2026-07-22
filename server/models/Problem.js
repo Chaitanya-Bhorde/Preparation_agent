@@ -3,6 +3,7 @@ const TestCaseSchema = new mongoose.Schema({
   input: { type: String, required: true },
   expectedOutput: { type: String, required: true },
   isSample: { type: Boolean, default: false },
+  isHidden: { type: Boolean, default: false },
   explanation: String,
 });
 const ProblemSchema = new mongoose.Schema(
@@ -28,6 +29,11 @@ const ProblemSchema = new mongoose.Schema(
     },
     tags: [String],
     constraints: String,
+    category: {
+      type: String,
+      enum: ['DSA', 'SQL'],
+      default: 'DSA',
+    },
     examples: [
       {
         input: String,
@@ -36,16 +42,23 @@ const ProblemSchema = new mongoose.Schema(
       },
     ],
     testCases: [TestCaseSchema],
+    starterCode: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' },
+    },
     solution: {
       type: String,
     },
     timeLimit: {
       type: Number,
-      default: 2, 
+      default: 2,
     },
     memoryLimit: {
       type: Number,
-      default: 256, 
+      default: 256,
     },
     totalSubmissions: { type: Number, default: 0 },
     acceptedSubmissions: { type: Number, default: 0 },
