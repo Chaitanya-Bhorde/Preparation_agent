@@ -46,6 +46,9 @@ const UserSchema = new mongoose.Schema(
       hardSolved: { type: Number, default: 0 },
       totalSubmissions: { type: Number, default: 0 },
       streak: { type: Number, default: 0 },
+      dailyGoal: { type: Number, default: 5 },
+      weeklyGoal: { type: Number, default: 35 },
+      lastActiveDate: { type: Date },
     },
     weakTopics: [String],
     revisionQueue: [

@@ -1369,17 +1369,297 @@ int main() {
     },
   },
   {
-    title: 'Employees Earning Above Average',
-    description: 'Given an employees table with columns id, name, department, and salary, write a SQL query to find employees who earn more than the average salary of their department.\n\nReturn the employee name, department, and salary.',
+    title: 'Duplicate Emails',
+    description: 'Write a SQL query to find all duplicate emails in a Person table.\n\nReturn the duplicate emails in ascending order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'group-by'],
+    category: 'SQL',
+    constraints: 'Table: person(id INT, email VARCHAR)',
+    examples: [
+      { input: 'person: (1, "a@b.com"), (2, "c@d.com"), (3, "a@b.com")', output: 'a@b.com' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM person', expectedOutput: '1|a@b.com\n2|c@d.com\n3|a@b.com', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Combine Two Tables',
+    description: 'Write a SQL query to report the first name, last name, city, and state of each person in the Person table. If the address of a person is not present in the Address table, report null instead.\n\nReturn the result table in any order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'joins', 'left-join'],
+    category: 'SQL',
+    constraints: 'Table: person(personId INT, firstName VARCHAR, lastName VARCHAR), address(personId INT, city VARCHAR, state VARCHAR)',
+    examples: [
+      { input: 'person: (1, "John", "Doe"), address: (1, "New York", "NY")', output: 'John, Doe, New York, NY' },
+    ],
+    testCases: [
+      { input: 'SELECT p.firstName, p.lastName, a.city, a.state FROM person p LEFT JOIN address a ON p.personId = a.personId', expectedOutput: 'John|Doe|New York|NY', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Customer Placing the Largest Number of Orders',
+    description: 'Write a SQL query to find the customer number with the largest number of orders. If multiple customers have the same maximum number of orders, return all of them.',
+    difficulty: 'easy',
+    tags: ['SQL', 'group-by', 'order-by'],
+    category: 'SQL',
+    constraints: 'Table: orders(order_number INT, customer_number INT, order_date DATE, amount DECIMAL)',
+    examples: [
+      { input: 'orders: (1, 1, "2024-01-01", 100), (2, 1, "2024-01-15", 200), (3, 2, "2024-01-10", 150)', output: '1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM orders', expectedOutput: '1|1|2024-01-01|100\n2|1|2024-01-15|200\n3|2|2024-01-10|150', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Big Countries',
+    description: 'Write a SQL query to report the name, population, and area of the big countries.\n\nA country is big if it has an area of at least 3 million km^2 or a population of at least 25 million.',
+    difficulty: 'easy',
+    tags: ['SQL', 'where'],
+    category: 'SQL',
+    constraints: 'Table: countries(name VARCHAR, continent VARCHAR, area INT, population INT, gdp INT)',
+    examples: [
+      { input: 'countries: ("Afghanistan", "Asia", 652230, 25500100, 20343000), ("Albania", "Europe", 28748, 2831741, 12960000)', output: 'Afghanistan, Asia, 652230, 25500100, 20343000' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM countries', expectedOutput: 'Afghanistan|Asia|652230|25500100|20343000\nAlbania|Europe|28748|2831741|12960000', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Nth Highest Salary',
+    description: 'Write a SQL query to get the nth highest salary from the Employee table. If there is no nth highest salary, return null.',
     difficulty: 'medium',
-    tags: ['SQL', 'subqueries', 'aggregate'],
+    tags: ['SQL', 'window-functions', 'limit'],
+    category: 'SQL',
+    constraints: 'Table: employee(id INT, salary INT)',
+    examples: [
+      { input: 'employee: (1, 100), (2, 200), (3, 300)', output: '200' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM employee', expectedOutput: '1|100\n2|200\n3|300', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Rank Scores',
+    description: 'Write a SQL query to rank the scores. If there is a tie between two scores, both should have the same rank. After a tie, the next rank should be the next consecutive integer value.',
+    difficulty: 'medium',
+    tags: ['SQL', 'window-functions'],
+    category: 'SQL',
+    constraints: 'Table: scores(id INT, score DECIMAL)',
+    examples: [
+      { input: 'scores: (1, 3.50), (2, 3.65), (3, 4.00), (4, 3.85), (5, 4.00), (6, 3.65)', output: '3.50, 1\n3.65, 1\n4.00, 1\n3.85, 2\n4.00, 1\n3.65, 1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM scores', expectedOutput: '1|3.50\n2|3.65\n3|4.00\n4|3.85\n5|4.00\n6|3.65', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Consecutive Numbers',
+    description: 'Write a SQL query to find all numbers that appear at least 3 times consecutively in the Logs table.',
+    difficulty: 'medium',
+    tags: ['SQL', 'window-functions'],
+    category: 'SQL',
+    constraints: 'Table: logs(id INT, num INT)',
+    examples: [
+      { input: 'logs: (1, 1), (2, 1), (3, 1), (4, 2), (5, 1), (6, 2), (7, 2)', output: '1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM logs', expectedOutput: '1|1\n2|1\n3|1\n4|2\n5|1\n6|2\n7|2', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Average Time of Process per Machine',
+    description: 'Write a SQL query to find the average processing time for each machine. Round the average to 3 decimal places.',
+    difficulty: 'easy',
+    tags: ['SQL', 'joins', 'aggregate'],
+    category: 'SQL',
+    constraints: 'Table: activity(machine_id INT, process_id INT, activity_type VARCHAR, timestamp DECIMAL)',
+    examples: [
+      { input: 'activity: (0, 0, "start", 0.712), (0, 0, "end", 1.520), (0, 1, "start", 3.140), (0, 1, "end", 4.120)', output: '0, 0.894' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM activity', expectedOutput: '0|0|start|0.712\n0|0|end|1.520\n0|1|start|3.140\n0|1|end|4.120', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Not Boring Movies',
+    description: 'Write a SQL query to report the movies with an odd numbered ID and a description that is not "boring". Order the result by rating in descending order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'where', 'order-by'],
+    category: 'SQL',
+    constraints: 'Table: cinema(id INT, movie VARCHAR, description VARCHAR, rating DECIMAL)',
+    examples: [
+      { input: 'cinema: (1, "War", "great 3D", 8.9), (2, "Science", "boring", 8.5), (3, "Irish", "boring", 6.7)', output: 'War, great 3D, 8.9' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM cinema', expectedOutput: '1|War|great 3D|8.9\n2|Science|boring|8.5\n3|Irish|boring|6.7', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Students and Examinations',
+    description: 'Write a SQL query to report the number of times each student attended each exam. Return the result table ordered by student_id and subject_name.',
+    difficulty: 'easy',
+    tags: ['SQL', 'joins', 'group-by'],
+    category: 'SQL',
+    constraints: 'Tables: students(student_id INT, student_name VARCHAR), subjects(subject_name VARCHAR), examinations(student_id INT, subject_name VARCHAR)',
+    examples: [
+      { input: 'students: (1, "Alice"), subjects: ("Math"), examinations: (1, "Math")', output: 'Alice, Math, 1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM students', expectedOutput: '1|Alice', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Managers with 5 or more direct reports',
+    description: 'Write a SQL query to find the managers with at least 5 direct reports. Return the result table in any order.',
+    difficulty: 'medium',
+    tags: ['SQL', 'group-by', 'having', 'self-join'],
+    category: 'SQL',
+    constraints: 'Table: employee(id INT, name VARCHAR, department VARCHAR, manager_id INT)',
+    examples: [
+      { input: 'employee: (1, "Alice", "Engineering", null), (2, "Bob", "Engineering", 1), (3, "Charlie", "Engineering", 1)', output: 'Alice' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM employee', expectedOutput: '1|Alice|Engineering|null\n2|Bob|Engineering|1\n3|Charlie|Engineering|1', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Product Sales Analysis I',
+    description: 'Write a SQL query to report the product_name, year, and price for each sale_id in the Sales table. Return the result table in any order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'joins'],
+    category: 'SQL',
+    constraints: 'Tables: sales(sale_id INT, product_id INT, year INT, quantity INT, price DECIMAL), product(product_id INT, product_name VARCHAR)',
+    examples: [
+      { input: 'sales: (1, 1, 2024, 2, 100), product: (1, "Laptop")', output: 'Laptop, 2024, 100' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM sales', expectedOutput: '1|1|2024|2|100', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Product Sales Analysis II',
+    description: 'Write a SQL query to report the buyer_name and sale_date for each sale_id in the Sales table where the product is "Laptop". Return the result table in any order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'joins', 'where'],
+    category: 'SQL',
+    constraints: 'Tables: sales(sale_id INT, product_id INT, year INT, quantity INT, price DECIMAL), product(product_id INT, product_name VARCHAR)',
+    examples: [
+      { input: 'sales: (1, 1, 2024, 2, 100), product: (1, "Laptop")', output: 'Laptop, 2024, 200' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM sales', expectedOutput: '1|1|2024|2|100', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Product Sales Analysis III',
+    description: 'Write a SQL query to report the first year of every product sold by each seller. Return the result table in any order.',
+    difficulty: 'medium',
+    tags: ['SQL', 'group-by', 'joins'],
+    category: 'SQL',
+    constraints: 'Tables: sales(sale_id INT, product_id INT, year INT, quantity INT, price DECIMAL), product(product_id INT, product_name VARCHAR)',
+    examples: [
+      { input: 'sales: (1, 1, 2024, 2, 100), product: (1, "Laptop")', output: 'Laptop, 2024' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM sales', expectedOutput: '1|1|2024|2|100', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Customer Who Never Order',
+    description: 'Write a SQL query to find all customers who never order anything. Return the result table in any order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'left-join', 'where'],
+    category: 'SQL',
+    constraints: 'Tables: customers(id INT, name VARCHAR), orders(order_id INT, customer_id INT, order_date DATE, amount DECIMAL)',
+    examples: [
+      { input: 'customers: (1, "Alice"), (2, "Bob"), orders: (1, 1, "2024-01-01", 100)', output: 'Bob' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM customers', expectedOutput: '1|Alice\n2|Bob', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Employees With Deductions',
+    description: 'Given an employees table, write a SQL query to find employees whose salary is between 50000 and 100000 (inclusive). Return name and salary ordered by salary descending.',
+    difficulty: 'easy',
+    tags: ['SQL', 'where', 'between'],
     category: 'SQL',
     constraints: 'Table: employees(id INT, name VARCHAR, department VARCHAR, salary DECIMAL)',
     examples: [
-      { input: 'employees: (1, "Alice", "Engineering", 120000), (2, "Bob", "Engineering", 90000), (3, "Charlie", "Marketing", 80000), (4, "Diana", "Marketing", 95000)', output: 'Alice, Engineering, 120000\\nDiana, Marketing, 95000' },
+      { input: 'employees: (1, "Alice", "Engineering", 120000), (2, "Bob", "Engineering", 90000), (3, "Charlie", "Marketing", 80000)', output: 'Bob, 90000\nCharlie, 80000' },
     ],
     testCases: [
-      { input: 'SELECT * FROM employees', expectedOutput: '1|Alice|Engineering|120000\n2|Bob|Engineering|90000\n3|Charlie|Marketing|80000\n4|Diana|Marketing|95000', isSample: true, isHidden: false },
+      { input: 'SELECT * FROM employees', expectedOutput: '1|Alice|Engineering|120000\n2|Bob|Engineering|90000\n3|Charlie|Marketing|80000', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Total Orders Per Customer',
+    description: 'Write a SQL query to find the total number of orders and total amount spent by each customer. Return customer_id, total_orders, total_amount ordered by customer_id.',
+    difficulty: 'easy',
+    tags: ['SQL', 'group-by', 'aggregate', 'count', 'sum'],
+    category: 'SQL',
+    constraints: 'Table: orders(order_id INT, customer_id INT, order_date DATE, amount DECIMAL)',
+    examples: [
+      { input: 'orders: (1, 1, "2024-01-01", 100), (2, 1, "2024-01-15", 200), (3, 2, "2024-01-10", 150)', output: '1, 2, 300\n2, 1, 150' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM orders', expectedOutput: '1|1|2024-01-01|100\n2|1|2024-01-15|200\n3|2|2024-01-10|150', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Salary Greater Than 5th Max',
+    description: 'Write a SQL query to find the 5th highest salary from the Employee table. If there is no 5th highest salary, return null.',
+    difficulty: 'medium',
+    tags: ['SQL', 'limit', 'offset'],
+    category: 'SQL',
+    constraints: 'Table: employee(id INT, name VARCHAR, salary INT)',
+    examples: [
+      { input: 'employee: (1, "Alice", 100000), (2, "Bob", 90000), (3, "Charlie", 80000), (4, "Diana", 70000), (5, "Eve", 60000)', output: '60000' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM employee', expectedOutput: '1|Alice|100000\n2|Bob|90000\n3|Charlie|80000\n4|Diana|70000\n5|Eve|60000', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Recyclable and Low Fat Products',
+    description: 'Write a SQL query to find the ids of products that are both low fat and recyclable. Return the result table in any order.',
+    difficulty: 'easy',
+    tags: ['SQL', 'where'],
+    category: 'SQL',
+    constraints: 'Table: products(product_id INT, low_fats VARCHAR, recyclable VARCHAR)',
+    examples: [
+      { input: 'products: (1, "Y", "Y"), (2, "Y", "N"), (3, "N", "Y")', output: '1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM products', expectedOutput: '1|Y|Y\n2|Y|N\n3|N|Y', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Categories per Product',
+    description: 'Write a SQL query to find the number of products in each category. Return category and count ordered by count descending.',
+    difficulty: 'easy',
+    tags: ['SQL', 'group-by', 'count'],
+    category: 'SQL',
+    constraints: 'Table: products(product_id INT, name VARCHAR, category VARCHAR, price DECIMAL)',
+    examples: [
+      { input: 'products: (1, "Laptop", "Electronics", 1200), (2, "Phone", "Electronics", 800), (3, "Desk", "Furniture", 400)', output: 'Electronics, 2\nFurniture, 1' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM products', expectedOutput: '1|Laptop|Electronics|1200\n2|Phone|Electronics|800\n3|Desk|Furniture|400', isSample: true, isHidden: false },
+    ],
+  },
+  {
+    title: 'Month Over Month Growth',
+    description: 'Write a SQL query to calculate the month over month growth rate of sales. Return month and growth_rate ordered by month.',
+    difficulty: 'medium',
+    tags: ['SQL', 'window-functions', 'lag'],
+    category: 'SQL',
+    constraints: 'Table: sales(sale_id INT, product_id INT, sale_date DATE, quantity INT, amount DECIMAL)',
+    examples: [
+      { input: 'sales: (1, 1, "2024-01-01", 2, 100), (2, 1, "2024-02-01", 3, 150)', output: '2024-01-01, null\n2024-02-01, 50.00' },
+    ],
+    testCases: [
+      { input: 'SELECT * FROM sales', expectedOutput: '1|1|2024-01-01|2|100\n2|1|2024-02-01|3|150', isSample: true, isHidden: false },
     ],
   },
   {

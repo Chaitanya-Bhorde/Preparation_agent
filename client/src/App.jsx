@@ -9,6 +9,11 @@ import ProblemDetail from './pages/ProblemDetail';
 import Analytics from './pages/Analytics';
 import Resume from './pages/Resume';
 import Admin from './pages/Admin';
+import Topics from './pages/Topics';
+import Companies from './pages/Companies';
+import Mistakes from './pages/Mistakes';
+import Goals from './pages/Goals';
+import Readiness from './pages/Readiness';
 import { Loader2 } from 'lucide-react';
 import { LOADING_SPINNER } from './utils/ui';
 function PrivateRoute({ children }) {
@@ -32,7 +37,12 @@ function App() {
         <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
         <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
         <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
-        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+         <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
+         <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
+         <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
+         <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
+         <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
       </Routes>
     </div>
   );

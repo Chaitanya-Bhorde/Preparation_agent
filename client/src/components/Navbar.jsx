@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Code2, LogOut, BarChart3, BookOpen, FileText, Home } from 'lucide-react';
+import { Code2, LogOut, BarChart3, BookOpen, FileText, Home, Layers, Building2, AlertTriangle, Target, Brain } from 'lucide-react';
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -29,6 +29,21 @@ export default function Navbar() {
             </Link>
             <Link to="/resume" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
               <FileText className="w-4 h-4" /> Resume ATS
+            </Link>
+            <Link to="/topics" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
+              <Layers className="w-4 h-4" /> Topics
+            </Link>
+            <Link to="/companies" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
+              <Building2 className="w-4 h-4" /> Companies
+            </Link>
+            <Link to="/mistakes" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
+              <AlertTriangle className="w-4 h-4" /> Mistakes
+            </Link>
+            <Link to="/goals" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
+              <Target className="w-4 h-4" /> Goals
+            </Link>
+            <Link to="/readiness" className="text-gray-300 hover:text-white flex items-center gap-1 text-sm">
+              <Brain className="w-4 h-4" /> Readiness
             </Link>
             {user.role === 'admin' && (
               <Link to="/admin" className="text-purple-400 hover:text-purple-300 flex items-center gap-1 text-sm font-medium">

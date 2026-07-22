@@ -58,6 +58,18 @@ export const analyzeResumeFile = (file) => {
 export const analyzeResumeText = (text) => API.post('/ats/analyze-text', { text });
 export const getAnalytics = () => API.get('/analytics');
 export const getAdminAnalytics = () => API.get('/analytics/admin');
+export const getTopicProgress = () => API.get('/topics/progress');
+export const getTopicDetails = (topic) => API.get(`/topics/${topic}`);
+export const getConceptNotes = () => API.get('/topics/notes/all');
+export const getCompanies = () => API.get('/companies');
+export const getCompanyProblems = (company) => API.get(`/companies/${company}/problems`);
+export const getCompanyInfo = (company) => API.get(`/companies/${company}`);
+export const createMistake = (data) => API.post('/mistakes', data);
+export const getMyMistakes = (params) => API.get('/mistakes', { params });
+export const updateMistakeStatus = (id, status) => API.patch(`/mistakes/${id}`, { status });
+export const updateGoals = (data) => API.patch('/goals', data);
+export const getGoalProgress = () => API.get('/goals/progress');
+export const getInterviewReadiness = () => API.get('/readiness');
 export const getAdminUsers = (params) => API.get('/admin/users', { params });
 export const getAdminUser = (id) => API.get(`/admin/users/${id}`);
 export const updateUserRole = (id, role) => API.put(`/admin/users/${id}/role`, { role });

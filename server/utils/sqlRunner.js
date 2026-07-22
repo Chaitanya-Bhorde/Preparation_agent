@@ -59,29 +59,36 @@ const createInMemoryDB = async () => {
   return db;
 };
 
-exports.executeSQL = async (query) => {
-  try {
-    const db = await createInMemoryDB();
-    let results;
-    const cleanedQuery = query.trim().toLowerCase();
+exports.executeSQL = async (query, schemaSetup = null) => {
+   try {
+     const db = schemaSetup ? await createInMemoryDBFromSchema(schemaSetup) : await createInMemoryDB();
+     let results;
+     const cleanedQuery = query.trim().toLowerCase();
 
-    if (cleanedQuery.startsWith('select') || cleanedQuery.startsWith('with')) {
-      const stmt = db.prepare(query);
-      const cols = stmt.getColumnNames();
-      const rows = [];
-      while (stmt.step()) {
-        rows.push(stmt.getAsObject());
-      }
-      stmt.free();
-      results = { columns: cols, rows, type: 'select' };
-    } else {
-      db.run(query);
-      results = { type: 'modification', affectedRows: db.getRowsModified() };
-    }
+     if (cleanedQuery.startsWith('select') || cleanedQuery.startsWith('with')) {
+       const stmt = db.prepare(query);
+       const cols = stmt.getColumnNames();
+       const rows = [];
+       while (stmt.step()) {
+         rows.push(stmt.getAsObject());
+       }
+       stmt.free();
+       results = { columns: cols, rows, type: 'select' };
+     } else {
+       db.run(query);
+       results = { type: 'modification', affectedRows: db.getRowsModified() };
+     }
 
-    db.close();
-    return { success: true, data: results };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+     db.close();
+     return { success: true, data: results };
+   } catch (error) {
+     return { success: false, error: error.message };
+   }
+ };
+
+ const createInMemoryDBFromSchema = async (schemaSetup) => {
+   const SQL = await initSqlJs();
+   const db = new SQL.Database();
+   db.run(schemaSetup);
+   return db;
+ };

@@ -41,6 +41,7 @@ const ProblemSchema = new mongoose.Schema(
       required: true,
     },
     tags: [String],
+    companies: [String],
     constraints: String,
     category: {
       type: String,

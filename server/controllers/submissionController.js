@@ -239,8 +239,9 @@ exports.runSQL = async (req, res) => {
     const visibleCases = problem.testCases.filter(tc => !tc.isHidden);
     const casesToRun = visibleCases.length > 0 ? visibleCases : problem.testCases.slice(0, 2);
     const results = [];
+    const schemaSetup = problem.schemaSetup || null;
     for (const tc of casesToRun) {
-      const sqlResult = await executeSQL(code);
+      const sqlResult = await executeSQL(code, schemaSetup);
       if (!sqlResult.success) {
         results.push({
           passed: false,
@@ -311,8 +312,9 @@ exports.submitSQL = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
     const results = [];
+    const schemaSetup2 = problem.schemaSetup || null;
     for (const tc of problem.testCases) {
-      const sqlResult = await executeSQL(code);
+      const sqlResult = await executeSQL(code, schemaSetup2);
       if (!sqlResult.success) {
         results.push({
           passed: false,
