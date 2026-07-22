@@ -1,12 +1,15 @@
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
+  const isProduction = process.env.NODE_ENV === 'production';
   const options = {
     expires: new Date(
       Date.now() + process.env.COOKIE_EXPIRE * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
   };
   res.status(statusCode).cookie('token', token, options).json({
     success: true,
@@ -62,6 +65,22 @@ exports.logout = async (req, res) => {
     httpOnly: true,
   });
   res.status(200).json({ success: true, message: 'Logged out successfully' });
+};
+exports.refreshToken = async (req, res) => {
+  const token = req.cookies.token;
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Not authorized, no token' });
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    sendTokenResponse(user, 200, res);
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+  }
 };
 exports.getMe = async (req, res) => {
   try {

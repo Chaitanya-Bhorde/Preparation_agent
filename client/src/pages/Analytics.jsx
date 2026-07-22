@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { getAnalytics } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Code2, Award, Target, Loader2 } from 'lucide-react';
+import { PAGE_CONTAINER, STAT_CARD_CLASSES, LOADING_SPINNER } from '../utils/ui';
 const COLORS = ['#22c55e', '#eab308', '#ef4444'];
-const RADIAN = Math.PI / 180;
+const RADIAN = Math.PI / 2;
 export default function Analytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,9 +22,7 @@ export default function Analytics() {
     }
   };
   if (loading) {
-    return <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-    </div>;
+    return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   }
   const difficultyData = data?.difficultyDistribution ? [
     { name: 'Easy', value: data.difficultyDistribution.easy },
@@ -41,32 +40,31 @@ export default function Analytics() {
     );
   };
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className={PAGE_CONTAINER}>
       <h1 className="text-2xl font-bold text-white mb-6">Your Analytics</h1>
-      {}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Code2 className="w-5 h-5 text-blue-400" />
             <span className="text-gray-400 text-sm">Total Solved</span>
           </div>
           <p className="text-2xl font-bold text-white">{data?.overallStats?.totalSolved || 0}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-5 h-5 text-green-400" />
             <span className="text-gray-400 text-sm">Acceptance Rate</span>
           </div>
           <p className="text-2xl font-bold text-white">{data?.overallStats?.acceptanceRate || 0}%</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Award className="w-5 h-5 text-purple-400" />
             <span className="text-gray-400 text-sm">Total Submissions</span>
           </div>
           <p className="text-2xl font-bold text-white">{data?.overallStats?.totalSubmissions || 0}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Target className="w-5 h-5 text-yellow-400" />
             <span className="text-gray-400 text-sm">Your Rank</span>
@@ -75,7 +73,6 @@ export default function Analytics() {
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {}
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <h2 className="text-lg font-semibold text-white mb-4">Difficulty Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -95,7 +92,6 @@ export default function Analytics() {
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-red-500"></div><span className="text-gray-400 text-sm">Hard: {data?.difficultyDistribution?.hard || 0}</span></div>
           </div>
         </div>
-        {}
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <h2 className="text-lg font-semibold text-white mb-4">Topic Performance</h2>
           <ResponsiveContainer width="100%" height={300}>
@@ -109,7 +105,6 @@ export default function Analytics() {
           </ResponsiveContainer>
         </div>
       </div>
-      {}
       <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
         <h2 className="text-lg font-semibold text-white mb-4">Daily Activity (Last 30 Days)</h2>
         <ResponsiveContainer width="100%" height={300}>

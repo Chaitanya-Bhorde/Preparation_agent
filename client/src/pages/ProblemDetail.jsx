@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { getProblem, runCode, submitCode, getSubmissions, runSQLCode, submitSQLCode } from '../api';
-import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LOADING_SPINNER, DIFFICULTY_COLORS, BUTTON_CLASSES, SELECT_CLASSES } from '../utils/ui';
 
@@ -40,6 +40,9 @@ export default function ProblemDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [activeTab, setActiveTab] = useState('description');
+  const [bottomTab, setBottomTab] = useState('testcase');
+  const [customTestcases, setCustomTestcases] = useState([]);
+  const [visibleTestcases, setVisibleTestcases] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
 
@@ -59,6 +62,10 @@ export default function ProblemDetail() {
     try {
       const { data } = await getProblem(slug);
       setProblem(data.data);
+      if (data.data && data.data.testCases) {
+        const visible = data.data.testCases.filter(tc => !tc.isHidden);
+        setVisibleTestcases(visible.map((tc, i) => ({ ...tc, id: `sample-${i}`, editable: false })));
+      }
       if (data.data && data.data.starterCode && data.data.starterCode.javascript) {
         setCode(data.data.starterCode.javascript);
       } else {
@@ -95,15 +102,30 @@ export default function ProblemDetail() {
     return defaults[lang] || defaults.javascript;
   };
 
+  const addCustomTestcase = () => {
+    setCustomTestcases([...customTestcases, { input: '', expectedOutput: '', id: `custom-${Date.now()}`, isSample: false, isHidden: false }]);
+    setBottomTab('testcase');
+  };
+
+  const updateCustomTestcase = (id, field, value) => {
+    setCustomTestcases(customTestcases.map(tc => tc.id === id ? { ...tc, [field]: value } : tc));
+  };
+
+  const removeCustomTestcase = (id) => {
+    setCustomTestcases(customTestcases.filter(tc => tc.id !== id));
+  };
+
   const handleRun = async () => {
     if (!code.trim()) { toast.error('Please write some code first'); return; }
     setRunning(true);
     setResult(null);
+    setBottomTab('result');
     try {
       const isSql = problem.category === 'SQL';
       const { data } = isSql ? await runSQLCode({ problemId: problem._id, code })
         : await runCode({ problemId: problem._id, code, language });
-      setResult({ ...data.data, mode: 'run' });
+      const runResult = { ...data.data, mode: 'run' };
+      setResult(runResult);
       if (data.data.status === 'accepted') toast.success('Sample tests passed!');
       else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
       else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
@@ -119,11 +141,13 @@ export default function ProblemDetail() {
     if (!code.trim()) { toast.error('Please write some code first'); return; }
     setSubmitting(true);
     setResult(null);
+    setBottomTab('result');
     try {
       const isSql = problem.category === 'SQL';
       const { data } = isSql ? await submitSQLCode({ problemId: problem._id, code })
         : await submitCode({ problemId: problem._id, code, language });
-      setResult({ ...data.data, mode: 'submit' });
+      const submitResult = { ...data.data, mode: 'submit' };
+      setResult(submitResult);
       if (data.data.status === 'accepted') toast.success('All test cases passed!');
       else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
       else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
@@ -149,6 +173,8 @@ export default function ProblemDetail() {
     setActiveTab(tab);
     if (tab === 'submissions') loadSubmissions();
   };
+
+  const runTestCaseInputs = [...visibleTestcases, ...customTestcases];
 
   if (loading) {
     return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
@@ -279,11 +305,11 @@ export default function ProblemDetail() {
         </div>
 
         <div className="w-1/2 flex flex-col">
-          <div className="flex-1">
+          <div className="flex-1 min-h-0">
             {isSQL ? (
               <div className="h-full flex flex-col">
                 <div className="bg-gray-900 px-4 py-2 border-b border-gray-800 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-purple-400" />
+                  <BookOpen className="w-4 h-4 text-purple-400" />
                   <span className="text-gray-300 text-sm font-medium">SQL Query Editor</span>
                 </div>
                 <textarea
@@ -315,55 +341,131 @@ export default function ProblemDetail() {
             )}
           </div>
 
-          {result && (
-            <div className="border-t border-gray-800 bg-gray-900 overflow-y-auto shrink-0" style={{ maxHeight: '40%' }}>
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  {(() => {
-                    const cfg = getStatusConfig(result.status);
-                    const Icon = cfg.icon;
-                    return (<><Icon className={`w-5 h-5 ${cfg.color}`} /><span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
-                      <span className="text-gray-500 text-sm ml-auto">{result.passedTestCases}/{result.totalTestCases} test cases passed</span>
-                      {result.executionTime > 0 && <span className="text-gray-500 text-xs">{result.executionTime}ms</span>}
-                      {result.memoryUsed > 0 && <span className="text-gray-500 text-xs">{result.memoryUsed}KB</span>}
-                    </>);
-                  })()}
-                </div>
-                {(result.errorMessage || result.errorType) && (
-                  <div className="mb-3 p-3 bg-gray-950 rounded-lg border border-gray-800">
-                    <p className="text-red-400 text-sm font-medium mb-1">
-                      {result.errorType === 'compilation_error' ? 'Compilation Error:' :
-                       result.errorType === 'runtime_error' ? 'Runtime Error:' :
-                       result.errorType === 'time_limit_exceeded' ? 'Time Limit Exceeded:' : 'Error:'}
-                    </p>
-                    <pre className="text-red-300 text-xs whitespace-pre-wrap font-mono">{result.errorMessage}</pre>
-                  </div>
-                )}
-                <div className="space-y-1">
-                  {result.testCaseResults?.map((tc, idx) => {
-                    const isError = tc.errorType && tc.errorType !== 'unknown';
-                    return (
-                      <div key={idx} className={`p-2 rounded text-sm ${tc.passed ? 'bg-green-900/20' : isError ? 'bg-red-900/20' : 'bg-red-900/20'}`}>
-                        <div className="flex items-center gap-2">
-                          {tc.passed ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" /> :
-                           isError ? <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
-                          <span className="text-gray-300 text-xs">Test Case {idx + 1}{tc.isSample ? ' (Sample)' : ''}</span>
-                          {tc.executionTime > 0 && <span className="text-gray-500 text-xs ml-auto">{tc.executionTime}ms</span>}
+          <div className="border-t border-gray-800 bg-gray-900 flex flex-col shrink-0" style={{ maxHeight: '40%' }}>
+            <div className="flex border-b border-gray-800 shrink-0">
+              <button onClick={() => setBottomTab('testcase')}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'testcase' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                Testcase
+              </button>
+              <button onClick={() => setBottomTab('result')}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'result' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                Test Result
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {bottomTab === 'testcase' && (
+                <div className="space-y-3">
+                  {runTestCaseInputs.length === 0 && (
+                    <div className="text-gray-500 text-sm text-center py-4">No test cases available.</div>
+                  )}
+                  {runTestCaseInputs.map((tc, idx) => (
+                    <div key={tc.id} className="bg-gray-950 rounded-lg border border-gray-800 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-400 font-medium">Case {idx + 1}{tc.isSample ? ' (Sample)' : ''}</span>
+                        {!tc.editable && (
+                          <button onClick={() => removeCustomTestcase(tc.id)} className="text-gray-600 hover:text-red-400">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">Input</label>
+                          <textarea
+                            value={tc.input}
+                            onChange={(e) => updateCustomTestcase(tc.id, 'input', e.target.value)}
+                            className="w-full bg-gray-900 text-gray-300 text-sm font-mono p-2 rounded border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
+                            rows={1}
+                            readOnly={tc.editable}
+                          />
                         </div>
-                        {tc.errorMessage && <pre className="mt-1 text-xs text-red-400 font-mono whitespace-pre-wrap">{tc.errorMessage}</pre>}
-                        {!tc.passed && !tc.errorMessage && tc.expectedOutput !== undefined && (
-                          <div className="mt-1 text-xs space-y-1">
-                            {tc.expectedOutput && <p className="text-gray-400">Expected: <span className="text-green-400 font-mono">{tc.expectedOutput}</span></p>}
-                            <p className="text-gray-400">Got: <span className="text-red-400 font-mono">{tc.actualOutput || '(no output)'}</span></p>
+                        {tc.editable && (
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Expected Output</label>
+                            <textarea
+                              value={tc.expectedOutput}
+                              onChange={(e) => updateCustomTestcase(tc.id, 'expectedOutput', e.target.value)}
+                              className="w-full bg-gray-900 text-gray-300 text-sm font-mono p-2 rounded border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
+                              rows={1}
+                            />
                           </div>
                         )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
+                  <button onClick={addCustomTestcase} className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 py-2">
+                    <Plus className="w-4 h-4" /> Add custom test case
+                  </button>
                 </div>
-              </div>
+              )}
+              {bottomTab === 'result' && (
+                <div>
+                  {!result ? (
+                    <div className="text-gray-500 text-sm text-center py-4">
+                      Click <span className="text-blue-400">Run</span> or <span className="text-green-400">Submit</span> to see test results
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        {(() => {
+                          const cfg = getStatusConfig(result.status);
+                          const Icon = cfg.icon;
+                          return (<><Icon className={`w-5 h-5 ${cfg.color}`} /><span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
+                            <span className="text-gray-500 text-sm ml-auto">{result.passedTestCases}/{result.totalTestCases} test cases passed</span>
+                            {result.executionTime > 0 && <span className="text-gray-500 text-xs">{result.executionTime}ms</span>}
+                            {result.memoryUsed > 0 && <span className="text-gray-500 text-xs">{result.memoryUsed}KB</span>}
+                          </>);
+                        })()}
+                      </div>
+                      {(result.errorMessage || result.errorType) && (
+                        <div className="mb-3 p-3 bg-gray-950 rounded-lg border border-gray-800">
+                          <p className="text-red-400 text-sm font-medium mb-1">
+                            {result.errorType === 'compilation_error' ? 'Compilation Error:' :
+                             result.errorType === 'runtime_error' ? 'Runtime Error:' :
+                             result.errorType === 'time_limit_exceeded' ? 'Time Limit Exceeded:' : 'Error:'}
+                          </p>
+                          <pre className="text-red-300 text-xs whitespace-pre-wrap font-mono">{result.errorMessage}</pre>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        {result.testCaseResults?.map((tc, idx) => {
+                          const isError = tc.errorType && tc.errorType !== 'unknown';
+                          const isHidden = !tc.isSample && result.mode === 'submit';
+                          return (
+                            <div key={idx} className={`p-2 rounded text-sm ${tc.passed ? 'bg-green-900/20' : isError ? 'bg-red-900/20' : 'bg-red-900/20'}`}>
+                              <div className="flex items-center gap-2">
+                                {tc.passed ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" /> :
+                                 isError ? <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
+                                <span className="text-gray-300 text-xs">
+                                  {isHidden ? `Test Case ${idx + 1} (Hidden)` : `Test Case ${idx + 1}${tc.isSample ? ' (Sample)' : ''}`}
+                                </span>
+                                {tc.executionTime > 0 && <span className="text-gray-500 text-xs ml-auto">{tc.executionTime}ms</span>}
+                              </div>
+                              {isHidden ? (
+                                <div className="mt-1 text-xs text-gray-500">
+                                  {tc.passed ? 'Passed' : 'Failed'}
+                                </div>
+                              ) : (
+                                <>
+                                  {tc.errorMessage && <pre className="mt-1 text-xs text-red-400 font-mono whitespace-pre-wrap">{tc.errorMessage}</pre>}
+                                  {!tc.passed && !tc.errorMessage && (
+                                    <div className="mt-1 text-xs space-y-1">
+                                      {tc.expectedOutput && <p className="text-gray-400">Expected: <span className="text-green-400 font-mono">{tc.expectedOutput}</span></p>}
+                                      <p className="text-gray-400">Got: <span className="text-red-400 font-mono">{tc.actualOutput || '(no output)'}</span></p>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

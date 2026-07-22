@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getRecommendations } from '../api';
-import { Code2, TrendingUp, BookOpen, Award, Zap, ArrowRight, Plus } from 'lucide-react';
+import { Code2, TrendingUp, BookOpen, Award, Zap, ArrowRight, Plus, Loader2 } from 'lucide-react';
+import { PAGE_CONTAINER, STAT_CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES, DIFFICULTY_COLORS } from '../utils/ui';
 export default function Dashboard() {
   const { user } = useAuth();
   const [recs, setRecs] = useState(null);
@@ -21,28 +22,28 @@ export default function Dashboard() {
     }
   };
   const difficultyColor = (d) => {
-    if (d === 'easy') return 'text-green-400 bg-green-900/30';
-    if (d === 'medium') return 'text-yellow-400 bg-yellow-900/30';
-    return 'text-red-400 bg-red-900/30';
+    return DIFFICULTY_COLORS[d] || DIFFICULTY_COLORS.easy;
   };
+  if (loading) {
+    return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
+  }
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className={PAGE_CONTAINER}>
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
           Welcome back, {user?.name?.split(' ')[0] || 'Student'}!
         </h1>
         <p className="text-blue-100 text-lg">Continue your placement preparation journey. Stay consistent!</p>
       </div>
-      {}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Code2 className="w-5 h-5 text-blue-400" />
             <span className="text-gray-400 text-sm">Solved</span>
           </div>
           <p className="text-2xl font-bold text-white">{user?.stats?.totalSolved || 0}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-5 h-5 text-green-400" />
             <span className="text-gray-400 text-sm">Acceptance</span>
@@ -53,14 +54,14 @@ export default function Dashboard() {
               : 0}%
           </p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Award className="w-5 h-5 text-purple-400" />
             <span className="text-gray-400 text-sm">ATS Score</span>
           </div>
           <p className="text-2xl font-bold text-white">{user?.profile?.atsScore || 0}</p>
         </div>
-        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
+        <div className={STAT_CARD_CLASSES}>
           <div className="flex items-center gap-3 mb-2">
             <Zap className="w-5 h-5 text-yellow-400" />
             <span className="text-gray-400 text-sm">Streak</span>
@@ -69,7 +70,6 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {}
         <div className="lg:col-span-2">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
             <div className="flex items-center justify-between mb-4">
@@ -99,15 +99,14 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="text-gray-400 text-center py-8">
-                <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Solve some problems to get personalized recommendations</p>
+              <div className={EMPTY_STATE_CLASSES}>
+                <Plus className="w-8 h-8 mx-auto mb-2 opacity-50 text-gray-500" />
+                <p className="text-gray-500">Solve some problems to get personalized recommendations</p>
                 <Link to="/problems" className="text-blue-400 hover:text-blue-300 text-sm mt-2 inline-block">Browse Problems</Link>
               </div>
             )}
           </div>
         </div>
-        {}
         <div className="space-y-6">
           {recs?.weakTopics?.length > 0 && (
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">

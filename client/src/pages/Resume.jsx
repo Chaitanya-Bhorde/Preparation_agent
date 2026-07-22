@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { analyzeResumeText, analyzeResumeFile } from '../api';
 import { Upload, FileText, AlertCircle, CheckCircle, TrendingUp, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PAGE_CONTAINER_NARROW, CARD_CLASSES, INPUT_CLASSES, BUTTON_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
 const categoryLabels = {
   contact_structure: 'Contact & Structure',
   experience: 'Work Experience',
@@ -37,8 +38,7 @@ export default function Resume() {
       toast.success('Resume analyzed!');
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to analyze resume. Try pasting text instead.';
-      // Format multiline error messages for better display
-      const formattedMessage = message.includes('\n') 
+      const formattedMessage = message.includes('\n')
         ? message.split('\n').map((line, i) => i === 0 ? line : `  ${line}`).join('\n')
         : message;
       toast.error(formattedMessage, { duration: 6000 });
@@ -86,13 +86,12 @@ export default function Resume() {
     return 'bg-red-500';
   };
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className={PAGE_CONTAINER_NARROW}>
       <h1 className="text-2xl font-bold text-white mb-2">Resume ATS Analyzer</h1>
       <p className="text-gray-400 mb-8">Strict deterministic scoring based on rubric. Upload your resume to get scored.</p>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {}
         <div className="space-y-6">
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+          <div className={CARD_CLASSES}>
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
               <Upload className="w-5 h-5 text-blue-400" /> Upload Resume
             </h2>
@@ -103,31 +102,29 @@ export default function Resume() {
               <input ref={fileRef} type="file" accept=".pdf,.docx,.txt" onChange={handleFileUpload} className="hidden" />
             </div>
           </div>
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+          <div className={CARD_CLASSES}>
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-400" /> Or Paste Resume Text
             </h2>
             <textarea value={text} onChange={(e) => setText(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white text-sm h-40 focus:outline-none focus:border-blue-500"
+              className={INPUT_CLASSES.replace('h-40', 'h-40')}
               placeholder="Paste your resume content here including education, skills, projects, experience..." />
             <button onClick={handleTextAnalyze} disabled={loading || !text.trim()}
-              className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+              className={BUTTON_CLASSES.primary + ' mt-3 w-full'}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               {loading ? 'Analyzing...' : 'Analyze'}
             </button>
           </div>
         </div>
-        {}
         <div className="space-y-4">
           {loading && (
-            <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 flex items-center justify-center">
+            <div className={LOADING_SPINNER}>
               <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
             </div>
           )}
           {result && !loading && (
             <>
-              {}
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <div className={CARD_CLASSES}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-white font-semibold">ATS Score</h2>
                   <span className={`text-3xl font-bold ${getScoreColor(result.total_score)}`}>
@@ -139,8 +136,7 @@ export default function Resume() {
                     style={{ width: `${result.total_score}%` }}></div>
                 </div>
               </div>
-              {}
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <div className={CARD_CLASSES}>
                 <h2 className="text-white font-semibold mb-4">Category Breakdown</h2>
                 <div className="space-y-3">
                   {Object.keys(categoryLabels).map((key) => {
@@ -161,8 +157,7 @@ export default function Resume() {
                   })}
                 </div>
               </div>
-              {}
-              <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <div className={CARD_CLASSES}>
                 <h2 className="text-white font-semibold mb-3">Detailed Reasoning</h2>
                 <div className="space-y-2 text-sm">
                   {Object.keys(categoryLabels).map((key) => (
@@ -173,9 +168,8 @@ export default function Resume() {
                   ))}
                 </div>
               </div>
-              {}
               {result.top_3_improvements?.length > 0 && (
-                <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                <div className={CARD_CLASSES}>
                   <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-yellow-400" /> Top 3 Improvements
                   </h2>
@@ -192,7 +186,7 @@ export default function Resume() {
             </>
           )}
           {!result && !loading && (
-            <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 text-center">
+            <div className={EMPTY_STATE_CLASSES}>
               <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500">Upload or paste your resume to get scored</p>
             </div>

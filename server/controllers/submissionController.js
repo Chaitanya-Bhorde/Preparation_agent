@@ -14,16 +14,23 @@ exports.runSubmission = async (req, res) => {
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
+    const visibleCases = problem.testCases.filter(tc => !tc.isHidden);
+    const casesToRun = visibleCases.length > 0 ? visibleCases : problem.testCases.slice(0, 2);
+
     const submission = await Submission.create({
       user: req.user.id,
       problem: problemId,
       code,
       language,
       status: 'pending',
-      totalTestCases: problem.testCases.filter(tc => tc.isSample).length || Math.min(problem.testCases.length, 2),
+      totalTestCases: casesToRun.length,
       type: 'run',
     });
-    const results = await runCode(code, language, problem.testCases);
+    const signature = problem.functionSignature ? problem.functionSignature[language] : null;
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Function signature not found for selected language' });
+    }
+    const results = await runCode(code, language, problem.testCases, signature);
     const passedCount = results.filter((r) => r.passed).length;
     let status = 'accepted';
     let errorType = null;
@@ -46,13 +53,14 @@ exports.runSubmission = async (req, res) => {
     submission.testCaseResults = results.map((r, idx) => ({
       testCase: problem.testCases[idx]?._id || null,
       passed: r.passed,
-      input: r.input || problem.testCases[idx]?.input || '',
-      expectedOutput: r.expectedOutput || '',
+      input: r.isSample ? (r.input || problem.testCases[idx]?.input || '') : '',
+      expectedOutput: r.isSample ? r.expectedOutput : '',
       actualOutput: r.output || '',
       executionTime: r.executionTime || 0,
       memoryUsed: r.memoryUsed || 0,
       errorType: r.errorType || null,
       errorMessage: r.error || null,
+      isSample: r.isSample || false,
     }));
     submission.passedTestCases = passedCount;
     submission.executionTime = Math.max(...results.map((r) => r.executionTime || 0));
@@ -89,7 +97,11 @@ exports.submitSolution = async (req, res) => {
       totalTestCases: problem.testCases.length,
       type: 'submit',
     });
-    const results = await submitCode(code, language, problem.testCases);
+    const signature = problem.functionSignature ? problem.functionSignature[language] : null;
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Function signature not found for selected language' });
+    }
+    const results = await submitCode(code, language, problem.testCases, signature);
     const passedCount = results.filter((r) => r.passed).length;
     let status = 'accepted';
     let errorType = null;
@@ -112,13 +124,14 @@ exports.submitSolution = async (req, res) => {
     submission.testCaseResults = results.map((r, idx) => ({
       testCase: problem.testCases[idx]?._id || null,
       passed: r.passed,
-      input: r.input || problem.testCases[idx]?.input || '',
+      input: r.isSample ? (r.input || problem.testCases[idx]?.input || '') : '',
       expectedOutput: r.isSample ? r.expectedOutput : '',
       actualOutput: r.output || '',
       executionTime: r.executionTime || 0,
       memoryUsed: r.memoryUsed || 0,
       errorType: r.errorType || null,
       errorMessage: r.error || null,
+      isSample: r.isSample || false,
     }));
     submission.passedTestCases = passedCount;
     submission.executionTime = Math.max(...results.map((r) => r.executionTime || 0));
@@ -140,7 +153,6 @@ exports.submitSolution = async (req, res) => {
         _id: { $ne: submission._id },
       });
       if (!existingAccepted) {
-        const updateObj = { 'stats.totalSubmissions': 1 };
         const solvedIncrement = problem.difficulty === 'easy' ? { 'stats.easySolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
           : problem.difficulty === 'medium' ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
           : { 'stats.hardSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 };
@@ -220,8 +232,8 @@ exports.runSQL = async (req, res) => {
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
-    const sampleCases = problem.testCases.filter(tc => tc.isSample);
-    const casesToRun = sampleCases.length > 0 ? sampleCases : problem.testCases.slice(0, 2);
+    const visibleCases = problem.testCases.filter(tc => !tc.isHidden);
+    const casesToRun = visibleCases.length > 0 ? visibleCases : problem.testCases.slice(0, 2);
     const results = [];
     for (const tc of casesToRun) {
       const sqlResult = await executeSQL(code);
@@ -312,7 +324,7 @@ exports.submitSQL = async (req, res) => {
         const passed = actualOutput === tc.expectedOutput;
         results.push({
           passed,
-          input: tc.input || '',
+          input: tc.isSample ? tc.input || '' : '',
           expectedOutput: tc.isSample ? tc.expectedOutput : '',
           actualOutput,
           errorType: passed ? null : 'wrong_answer',

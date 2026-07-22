@@ -212,14 +212,20 @@ exports.analyzeResume = (text) => {
   };
 };
 
-const extractPdfText = async (fileBuffer) => {
+const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
   try {
     const data = await pdfParse(fileBuffer);
-    if (data.text && data.text.trim().length >= 100) {
-      return data.text.trim();
+    const text = data.text || '';
+    const trimmedText = text.trim();
+    console.log(`PDF text extraction (${originalname}): extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
+    if (trimmedText.length >= 100) {
+      return trimmedText;
+    }
+    if (trimmedText.length > 0) {
+      console.log(`PDF extraction warning (${originalname}): extracted text is short (${trimmedText.length} chars), may need OCR`);
     }
   } catch (pdfError) {
-    console.log('pdf-parse failed, trying OCR fallback:', pdfError.message);
+    console.log(`pdf-parse failed for ${originalname}:`, pdfError.message);
   }
   try {
     const tempPdfPath = path.join(os.tmpdir(), `temp_${Date.now()}.pdf`);
@@ -235,45 +241,53 @@ const extractPdfText = async (fileBuffer) => {
       if (images[0].path && fs.existsSync(images[0].path)) {
         fs.unlinkSync(images[0].path);
       }
-      if (result.data.text && result.data.text.trim().length >= 100) {
-        console.log(`OCR fallback succeeded with confidence: ${result.data.confidence}%`);
-        return result.data.text.trim();
+      const ocrText = (result.data.text || '').trim();
+      console.log(`OCR fallback succeeded for ${originalname}: ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
+      if (ocrText.length >= 100) {
+        return ocrText;
       }
+      console.log(`OCR extraction warning (${originalname}): OCR text too short (${ocrText.length} chars)`);
     }
   } catch (ocrError) {
-    console.log('PDF OCR fallback also failed:', ocrError.message);
+    console.log(`PDF OCR fallback failed for ${originalname}:`, ocrError.message);
   }
-  return '';
+  throw new Error('PDF_EXTRACTION_FAILED');
 };
 
 exports.extractResumeText = async (fileBuffer, mimeType, originalname) => {
-  const ext = originalname.split('.').pop().toLowerCase();
+  const ext = (originalname || 'file').split('.').pop().toLowerCase();
   try {
     let text = '';
     if (ext === 'pdf') {
-      text = await extractPdfText(fileBuffer);
+      text = await extractPdfText(fileBuffer, originalname);
     } else if (ext === 'docx') {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       text = result.value;
+      console.log(`DOCX extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
     } else if (ext === 'doc') {
       const extractor = new WordExtractor();
       const doc = await extractor.extractBuffer(fileBuffer);
       text = doc.getBody();
+      console.log(`DOC extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
     } else if (ext === 'txt') {
       text = fileBuffer.toString('utf-8');
+      console.log(`TXT extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
     } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
       const worker = await createWorker('eng');
       const result = await worker.recognize(fileBuffer);
       await worker.terminate();
       text = result.data.text;
+      console.log(`Image OCR extraction (${originalname}): extracted ${text.length} chars, confidence: ${result.data.confidence}%`);
     } else {
       throw new Error('UNSUPPORTED_FORMAT');
     }
 
-    if (!text || text.trim().length < 100) {
+    const trimmedText = text.trim();
+    if (!trimmedText || trimmedText.length < 100) {
+      console.log(`Extraction warning (${originalname}): text too short (${trimmedText.length} chars)`);
       throw new Error('PARSE_FAILURE');
     }
-    return text.trim();
+    return trimmedText;
   } catch (error) {
     if (error.message === 'PARSE_FAILURE' || error.message === 'UNSUPPORTED_FORMAT') {
       throw error;

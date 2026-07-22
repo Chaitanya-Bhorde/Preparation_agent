@@ -1,4 +1,16 @@
 const mongoose = require('mongoose');
+
+const FunctionParamSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { type: String, required: true },
+}, { _id: false });
+
+const FunctionSignatureSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  params: [FunctionParamSchema],
+  returnType: { type: String, required: true },
+}, { _id: false });
+
 const TestCaseSchema = new mongoose.Schema({
   input: { type: String, required: true },
   expectedOutput: { type: String, required: true },
@@ -6,6 +18,7 @@ const TestCaseSchema = new mongoose.Schema({
   isHidden: { type: Boolean, default: false },
   explanation: String,
 });
+
 const ProblemSchema = new mongoose.Schema(
   {
     title: {
@@ -42,6 +55,19 @@ const ProblemSchema = new mongoose.Schema(
       },
     ],
     testCases: [TestCaseSchema],
+    functionSignature: {
+      java: FunctionSignatureSchema,
+      cpp: FunctionSignatureSchema,
+      python: FunctionSignatureSchema,
+      javascript: FunctionSignatureSchema,
+    },
+    driverTemplate: {
+      javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
+      c: { type: String, default: '' },
+    },
     starterCode: {
       javascript: { type: String, default: '' },
       python: { type: String, default: '' },
@@ -73,10 +99,12 @@ const ProblemSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
 ProblemSchema.pre('save', function () {
   this.slug = this.title
     .toLowerCase()
     .replace(/[^a-zA-Z0-9]/g, '-')
     .replace(/-+/g, '-');
 });
+
 module.exports = mongoose.model('Problem', ProblemSchema);

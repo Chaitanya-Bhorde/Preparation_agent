@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { buildFullSubmissionCode } = require('./codeGenerator');
 
 const LANGUAGE_IDS = {
   javascript: 63,
@@ -31,13 +32,18 @@ const JUDGE0_STATUS = {
 const JUDGE0_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
 
+const judge0Headers = {
+  'Content-Type': 'application/json',
+};
+
+if (JUDGE0_API_KEY) {
+  judge0Headers['X-RapidAPI-Key'] = JUDGE0_API_KEY;
+  judge0Headers['X-RapidAPI-Host'] = 'judge0-ce.p.rapidapi.com';
+}
+
 const judge0Client = axios.create({
   baseURL: JUDGE0_URL,
-  headers: {
-    'X-RapidAPI-Key': JUDGE0_API_KEY,
-    'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com',
-    'Content-Type': 'application/json',
-  },
+  headers: judge0Headers,
 });
 
 const createJudge0Submission = async (sourceCode, languageId, stdin) => {
@@ -50,40 +56,52 @@ const createJudge0Submission = async (sourceCode, languageId, stdin) => {
   return response.data.token;
 };
 
-const pollJudge0Result = (token, maxRetries = 15, intervalMs = 2000) => {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const poll = async () => {
-      attempts++;
-      try {
-        const response = await judge0Client.get(`/submissions/${token}`, {
-          params: {
-            base64_encoded: false,
-            fields: 'stdout,stderr,status_id,status,time,memory,stdin,expected_output,compile_output,message',
-          },
-        });
-        const data = response.data;
-        if (data.status_id >= 3) {
-          resolve(data);
-        } else if (attempts >= maxRetries) {
-          resolve({
-            status_id: 13,
-            status: { description: 'Internal Error' },
-            stdout: null,
-            stderr: null,
-            compile_output: 'Execution timed out after multiple polling attempts.',
-            time: null,
-            memory: null,
-          });
-        } else {
-          setTimeout(poll, intervalMs);
-        }
-      } catch (error) {
-        reject(error);
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const pollJudge0Result = async (token, maxRetries = 15, intervalMs = 1500) => {
+  let attempts = 0;
+  while (attempts < maxRetries) {
+    attempts++;
+    try {
+      const response = await judge0Client.get(`/submissions/${token}`, {
+        params: {
+          base64_encoded: false,
+          fields: 'stdout,stderr,status_id,status,time,memory,stdin,expected_output,compile_output,message',
+        },
+      });
+      const data = response.data;
+      if (data.status_id >= 3) {
+        return data;
       }
-    };
-    poll();
-  });
+      if (data.status_id === 1 || data.status_id === 2) {
+        await delay(intervalMs);
+        continue;
+      }
+      return data;
+    } catch (error) {
+      if (attempts >= maxRetries) {
+        return {
+          status_id: 13,
+          status: { description: 'Internal Error' },
+          stdout: null,
+          stderr: null,
+          compile_output: 'Execution timed out after multiple polling attempts.',
+          time: null,
+          memory: null,
+        };
+      }
+      await delay(intervalMs);
+    }
+  }
+  return {
+    status_id: 13,
+    status: { description: 'Internal Error' },
+    stdout: null,
+    stderr: null,
+    compile_output: 'Execution timed out after multiple polling attempts.',
+    time: null,
+    memory: null,
+  };
 };
 
 const formatError = (data) => {
@@ -91,10 +109,13 @@ const formatError = (data) => {
     return { type: 'compilation_error', message: data.compile_output || data.stderr || 'Compilation failed with no output.' };
   }
   if (data.status_id === 5) {
-    return { type: 'time_limit_exceeded', message: `Execution timed out (${data.time || 'N/A'}s)` };
+    return { type: 'time_limit_exceeded', message: `Time limit exceeded (${data.time || 'N/A'}s)` };
   }
   if (data.status_id >= 7 && data.status_id <= 12) {
     return { type: 'runtime_error', message: data.stderr || data.message || JUDGE0_STATUS[data.status_id] };
+  }
+  if (data.status_id === 4) {
+    return { type: 'wrong_answer', message: `Wrong Answer: expected "${(data.expected_output || '').trim()}" but got "${(data.stdout || '').trim()}"` };
   }
   return null;
 };
@@ -112,9 +133,11 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
       const passed = stdOut === (expectedOutput || '').trim();
       return {
         passed,
+        input: input || '',
         output: stdOut,
         expectedOutput: expectedOutput || '',
         error: null,
+        errorType: null,
         status: JUDGE0_STATUS[result.status_id],
         status_id: result.status_id,
         executionTime: result.time || 0,
@@ -125,7 +148,8 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
 
     const errorInfo = formatError(result);
     return {
-      passed: false,
+      passed: result.status_id === 4 ? stdOut === (expectedOutput || '').trim() : false,
+      input: input || '',
       output: stdOut,
       expectedOutput: expectedOutput || '',
       error: errorInfo ? errorInfo.message : JUDGE0_STATUS[result.status_id],
@@ -139,6 +163,7 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
   } catch (err) {
     return {
       passed: false,
+      input: input || '',
       output: '',
       expectedOutput: expectedOutput || '',
       error: `Judge0 connection error: ${err.message}`,
@@ -152,29 +177,31 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
   }
 };
 
-exports.runCode = async (sourceCode, language, testCases) => {
+exports.runCode = async (sourceCode, language, testCases, signature) => {
   const languageId = LANGUAGE_IDS[language];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
-  const sampleCases = testCases.filter((tc) => tc.isSample);
+  const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
+  const sampleCases = testCases.filter((tc) => !tc.isHidden);
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
   const results = [];
   for (const testCase of casesToRun) {
-    const result = await executeSingleCase(sourceCode, languageId, testCase.input, testCase.expectedOutput, true);
+    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput, testCase.isSample);
     results.push(result);
   }
   return results;
 };
 
-exports.submitCode = async (sourceCode, language, testCases) => {
+exports.submitCode = async (sourceCode, language, testCases, signature) => {
   const languageId = LANGUAGE_IDS[language];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
+  const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
   const results = [];
   for (const testCase of testCases) {
-    const result = await executeSingleCase(sourceCode, languageId, testCase.input, testCase.expectedOutput, testCase.isSample);
+    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput, testCase.isSample);
     results.push(result);
   }
   return results;

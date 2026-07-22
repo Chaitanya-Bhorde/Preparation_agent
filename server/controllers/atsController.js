@@ -32,6 +32,12 @@ exports.analyzeResumeFile = async (req, res) => {
       data: { ...result, fileUrl },
     });
   } catch (error) {
+    if (error.message === 'PDF_EXTRACTION_FAILED') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'PDF extraction failed completely - the document appears to be image-only or corrupted. Please use a text-based PDF, DOCX, or paste your resume text directly.' 
+      });
+    }
     if (error.message === 'PARSE_FAILURE') {
       return res.status(400).json({ 
         success: false, 
@@ -39,7 +45,7 @@ exports.analyzeResumeFile = async (req, res) => {
       });
     }
     if (error.message === 'UNSUPPORTED_FORMAT') {
-      return res.status(400).json({ success: false, message: 'Unsupported file format. Please upload PDF, DOCX, DOC, TXT, RTF, or image files.' });
+      return res.status(400).json({ success: false, message: 'Unsupported file format. Please upload PDF, DOCX, DOC, TXT, or image files.' });
     }
     console.error('Resume analysis error:', error);
     res.status(500).json({ success: false, message: 'An error occurred while analyzing the resume. Please try again.' });

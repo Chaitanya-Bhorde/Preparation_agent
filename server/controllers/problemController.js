@@ -1,5 +1,7 @@
 const Problem = require('../models/Problem');
 const Submission = require('../models/Submission');
+const { generateStarterCode } = require('../utils/codeGenerator');
+
 exports.getProblems = async (req, res) => {
   try {
     const { difficulty, tags, search, status: solvedStatus, category, page = 1, limit = 20 } = req.query;
@@ -15,7 +17,7 @@ exports.getProblems = async (req, res) => {
     }
     const total = await Problem.countDocuments(query);
     let problems = await Problem.find(query)
-      .select('-testCases -solution')
+      .select('-testCases -solution -driverTemplate')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
@@ -61,10 +63,11 @@ exports.getProblems = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.getProblem = async (req, res) => {
   try {
     const problem = await Problem.findOne({ slug: req.params.slug })
-      .select('-testCases.expectedOutput -solution');
+      .select('-testCases.expectedOutput -solution -driverTemplate');
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
@@ -83,11 +86,27 @@ exports.getProblem = async (req, res) => {
       }).select('status');
       if (attempted) userStatus = 'attempted';
     }
-    res.status(200).json({ success: true, data: { ...problem.toObject(), userStatus } });
+    const problemObj = problem.toObject();
+    if (problemObj.starterCode) {
+      const generatedStarter = {};
+      for (const lang of ['javascript', 'python', 'java', 'cpp', 'c']) {
+        const sig = problemObj.functionSignature?.[lang];
+        if (sig) {
+          generatedStarter[lang] = generateStarterCode(sig, lang);
+        } else if (problemObj.starterCode[lang]) {
+          generatedStarter[lang] = problemObj.starterCode[lang];
+        } else {
+          generatedStarter[lang] = generateStarterCode(null, lang);
+        }
+      }
+      problemObj.starterCode = generatedStarter;
+    }
+    res.status(200).json({ success: true, data: { ...problemObj, userStatus } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.createProblem = async (req, res) => {
   try {
     req.body.createdBy = req.user.id;
@@ -97,6 +116,7 @@ exports.createProblem = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.updateProblem = async (req, res) => {
   try {
     const problem = await Problem.findByIdAndUpdate(req.params.id, req.body, {
@@ -111,6 +131,7 @@ exports.updateProblem = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.deleteProblem = async (req, res) => {
   try {
     const problem = await Problem.findByIdAndUpdate(req.params.id, { isActive: false });
@@ -122,6 +143,7 @@ exports.deleteProblem = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.getTags = async (req, res) => {
   try {
     const tags = await Problem.distinct('tags');

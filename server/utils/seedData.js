@@ -4,13 +4,7 @@ dotenv.config();
 const Problem = require('../models/Problem');
 const connectDB = require('../config/db');
 
-const starterCode = {
-  javascript: `function solve(input) {\n  // Your code here\n  return input;\n}\n`,
-  python: `def solve(input):\n    # Your code here\n    return input\n`,
-  java: `public class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        String input = sc.nextLine();\n        System.out.println(solve(input));\n        sc.close();\n    }\n}`,
-  cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-  c: `#include <stdio.h>\n#include <string.h>\n\nvoid solve(char* input, char* output) {\n    // Your code here\n    strcpy(output, input);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
-};
+const DRIVER_PLACEHOLDER = '// USER_FUNCTION_PLACEHOLDER';
 
 const problems = [
   {
@@ -25,16 +19,85 @@ const problems = [
       { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
     ],
     testCases: [
-      { input: '2 7 11 15\n9', expectedOutput: '0 1', isSample: true },
-      { input: '3 2 4\n6', expectedOutput: '1 2', isSample: true },
-      { input: '3 3\n6', expectedOutput: '0 1' },
+      { input: '2 7 11 15\n9', expectedOutput: '0 1', isSample: true, isHidden: false },
+      { input: '3 2 4\n6', expectedOutput: '1 2', isSample: true, isHidden: false },
+      { input: '3 3\n6', expectedOutput: '0 1', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function twoSum(nums, target) {\n    const map = new Map();\n    for (let i = 0; i < nums.length; i++) {\n        const complement = target - nums[i];\n        if (map.has(complement)) return [map.get(complement), i];\n        map.set(nums[i], i);\n    }\n    return [];\n}\n\n// Read input\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nlet lines = [];\nrl.on('line', (line) => lines.push(line));\nrl.on('close', () => {\n    const nums = lines[0].split(' ').map(Number);\n    const target = parseInt(lines[1]);\n    const result = twoSum(nums, target);\n    console.log(result.join(' '));\n});`,
-      python: `def two_sum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n    return []\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    target = int(input())\n    result = two_sum(nums, target)\n    print(' '.join(map(str, result)))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        String[] lines = input.split("\\n");\n        String[] numStrs = lines[0].split(" ");\n        int[] nums = new int[numStrs.length];\n        for (int i = 0; i < numStrs.length; i++) nums[i] = Integer.parseInt(numStrs[i]);\n        int target = Integer.parseInt(lines[1]);\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int complement = target - nums[i];\n            if (map.containsKey(complement)) {\n                return map.get(complement) + " " + i;\n            }\n            map.put(nums[i], i);\n        }\n        return "";\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        StringBuilder sb = new StringBuilder();\n        while (sc.hasNextLine()) sb.append(sc.nextLine()).append("\\n");\n        sc.close();\n        System.out.println(solve(sb.toString().trim()));\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <unordered_map>\n#include <sstream>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num, target;\n    while (ss >> num) nums.push_back(num);\n    target = nums.back();\n    nums.pop_back();\n    unordered_map<int, int> map;\n    for (int i = 0; i < nums.size(); i++) {\n        int complement = target - nums[i];\n        if (map.count(complement)) {\n            return to_string(map[complement]) + " " + to_string(i);\n        }\n        map[nums[i]] = i;\n    }\n    return "";\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    string line2;\n    getline(cin, line2);\n    input += "\\n" + line2;\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0, target;\n    char* token = strtok(input, " \\n");\n    while (token) {\n        nums[n++] = atoi(token);\n        token = strtok(NULL, " \\n");\n    }\n    target = nums[n-1];\n    n--;\n    for (int i = 0; i < n; i++) {\n        for (int j = i+1; j < n; j++) {\n            if (nums[i] + nums[j] == target) {\n                sprintf(output, "%d %d", i, j);\n                return;\n            }\n        }\n    }\n    output[0] = '\\0';\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    char line2[10000];\n    fgets(line2, 10000, stdin);\n    strcat(input, line2);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'twoSum', params: [{ name: 'nums', type: 'number[]' }, { name: 'target', type: 'number' }], returnType: 'number[]' },
+      python: { name: 'two_sum', params: [{ name: 'nums', type: 'List[int]' }, { name: 'target', type: 'int' }], returnType: 'List[int]' },
+      java: { name: 'twoSum', params: [{ name: 'nums', type: 'int[]' }, { name: 'target', type: 'int' }], returnType: 'int[]' },
+      cpp: { name: 'twoSum', params: [{ name: 'nums', type: 'vector<int>' }, { name: 'target', type: 'int' }], returnType: 'vector<int>' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+let lines = [];
+rl.on('line', (line) => lines.push(line));
+rl.on('close', () => {
+    const nums = lines[0].split(' ').map(Number);
+    const target = parseInt(lines[1]);
+    const result = ${DRIVER_PLACEHOLDER}(nums, target);
+    console.log(result.join(' '));
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    lines = sys.stdin.read().strip().split('\\n')
+    nums = list(map(int, lines[0].split()))
+    target = int(lines[1])
+    result = ${DRIVER_PLACEHOLDER}(nums, target)
+    print(' '.join(map(str, result)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] line1 = sc.nextLine().split(" ");
+        int[] nums = new int[line1.length];
+        for (int i = 0; i < line1.length; i++) nums[i] = Integer.parseInt(line1[i]);
+        int target = Integer.parseInt(sc.nextLine());
+        int[] result = ${DRIVER_PLACEHOLDER}(nums, target);
+        StringBuilder sb = new StringBuilder();
+        for (int v : result) sb.append(v).append(" ");
+        System.out.println(sb.toString().trim());
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    int target;
+    cin >> target;
+    vector<int> result = ${DRIVER_PLACEHOLDER}(nums, target);
+    for (int i = 0; i < result.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << result[i];
+    }
+    cout << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[10000], n = 0, target;
+    char line[100000];
+    fgets(line, 100000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    target = nums[n-1];
+    n--;
+    int* result = ${DRIVER_PLACEHOLDER}(nums, n, target);
+    if (result) printf("%d %d\\n", result[0], result[1]);
+    return 0;
+}`,
     },
   },
   {
@@ -49,16 +112,55 @@ const problems = [
       { input: 's = ["H","a","n","n","a","h"]', output: '["h","a","n","n","a","H"]' },
     ],
     testCases: [
-      { input: 'hello', expectedOutput: 'olleh', isSample: true },
-      { input: 'Hannah', expectedOutput: 'hannaH', isSample: true },
-      { input: 'a', expectedOutput: 'a' },
+      { input: 'hello', expectedOutput: 'olleh', isSample: true, isHidden: false },
+      { input: 'Hannah', expectedOutput: 'hannaH', isSample: true, isHidden: false },
+      { input: 'a', expectedOutput: 'a', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function reverseString(s) {\n    let left = 0, right = s.length - 1;\n    while (left < right) {\n        [s[left], s[right]] = [s[right], s[left]];\n        left++;\n        right--;\n    }\n    return s;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    console.log(reverseString(line.split('')).join(''));\n    rl.close();\n});`,
-      python: `def reverse_string(s):\n    return s[::-1]\n\nif __name__ == "__main__":\n    s = input().strip()\n    print(reverse_string(s))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        return new StringBuilder(input).reverse().toString();\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <algorithm>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    reverse(input.begin(), input.end());\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n\nvoid solve(char* input, char* output) {\n    int n = strlen(input);\n    for (int i = 0; i < n; i++) {\n        output[i] = input[n-1-i];\n    }\n    output[n] = '\\0';\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'reverseString', params: [{ name: 's', type: 'string' }], returnType: 'string' },
+      python: { name: 'reverse_string', params: [{ name: 's', type: 'str' }], returnType: 'str' },
+      java: { name: 'reverseString', params: [{ name: 's', type: 'String' }], returnType: 'String' },
+      cpp: { name: 'reverseString', params: [{ name: 's', type: 'string' }], returnType: 'string' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(${DRIVER_PLACEHOLDER}(line));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    s = sys.stdin.read().strip()
+    print(${DRIVER_PLACEHOLDER}(s))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine();
+        System.out.println(${DRIVER_PLACEHOLDER}(s));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string s;
+    getline(cin, s);
+    cout << ${DRIVER_PLACEHOLDER}(s) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+int main() {
+    char s[100000];
+    fgets(s, 100000, stdin);
+    s[strcspn(s, "\\n")] = 0;
+    ${DRIVER_PLACEHOLDER}(s);
+    printf("%s\\n", s);
+    return 0;
+}`,
     },
   },
   {
@@ -73,16 +175,55 @@ const problems = [
       { input: 's = "race a car"', output: 'false' },
     ],
     testCases: [
-      { input: 'A man, a plan, a canal: Panama', expectedOutput: 'true', isSample: true },
-      { input: 'race a car', expectedOutput: 'false', isSample: true },
-      { input: ' ', expectedOutput: 'true' },
+      { input: 'A man, a plan, a canal: Panama', expectedOutput: 'true', isSample: true, isHidden: false },
+      { input: 'race a car', expectedOutput: 'false', isSample: true, isHidden: false },
+      { input: ' ', expectedOutput: 'true', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function isPalindrome(s) {\n    const cleaned = s.toLowerCase().replace(/[^a-z0-9]/g, '');\n    let left = 0, right = cleaned.length - 1;\n    while (left < right) {\n        if (cleaned[left] !== cleaned[right]) return false;\n        left++;\n        right--;\n    }\n    return true;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    console.log(isPalindrome(line));\n    rl.close();\n});`,
-      python: `def is_palindrome(s):\n    cleaned = ''.join(c.lower() for c in s if c.isalnum())\n    return cleaned == cleaned[::-1]\n\nif __name__ == "__main__":\n    s = input().strip()\n    print(str(is_palindrome(s)).lower())`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String cleaned = input.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();\n        int left = 0, right = cleaned.length() - 1;\n        while (left < right) {\n            if (cleaned.charAt(left) != cleaned.charAt(right)) return "false";\n            left++;\n            right--;\n        }\n        return "true";\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <string>\n#include <algorithm>\n#include <cctype>\nusing namespace std;\n\nstring solve(string input) {\n    string cleaned;\n    for (char c : input) {\n        if (isalnum(c)) cleaned += tolower(c);\n    }\n    int left = 0, right = cleaned.length() - 1;\n    while (left < right) {\n        if (cleaned[left] != cleaned[right]) return "false";\n        left++;\n        right--;\n    }\n    return "true";\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <ctype.h>\n\nvoid solve(char* input, char* output) {\n    char cleaned[10000];\n    int j = 0;\n    for (int i = 0; input[i]; i++) {\n        if (isalnum(input[i])) cleaned[j++] = tolower(input[i]);\n    }\n    cleaned[j] = '\\0';\n    int left = 0, right = j - 1;\n    while (left < right) {\n        if (cleaned[left] != cleaned[right]) {\n            strcpy(output, "false");\n            return;\n        }\n        left++;\n        right--;\n    }\n    strcpy(output, "true");\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'isPalindrome', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'is_palindrome', params: [{ name: 's', type: 'str' }], returnType: 'bool' },
+      java: { name: 'isPalindrome', params: [{ name: 's', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'isPalindrome', params: [{ name: 's', type: 'string' }], returnType: 'bool' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(${DRIVER_PLACEHOLDER}(line));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    s = sys.stdin.read().strip()
+    print(${DRIVER_PLACEHOLDER}(s))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine();
+        System.out.println(${DRIVER_PLACEHOLDER}(s));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string s;
+    getline(cin, s);
+    cout << (${DRIVER_PLACEHOLDER}(s) ? "true" : "false") << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+int main() {
+    char s[100000];
+    fgets(s, 100000, stdin);
+    s[strcspn(s, "\\n")] = 0;
+    printf("%s\\n", ${DRIVER_PLACEHOLDER}(s) ? "true" : "false");
+    return 0;
+}`,
     },
   },
   {
@@ -98,17 +239,55 @@ const problems = [
       { input: 's = "(]"', output: 'false' },
     ],
     testCases: [
-      { input: '()', expectedOutput: 'true', isSample: true },
-      { input: '()[]{}', expectedOutput: 'true', isSample: true },
-      { input: '(]', expectedOutput: 'false', isSample: true },
-      { input: '([)]', expectedOutput: 'false' },
+      { input: '()', expectedOutput: 'true', isSample: true, isHidden: false },
+      { input: '()[]{}', expectedOutput: 'true', isSample: true, isHidden: false },
+      { input: '(]', expectedOutput: 'false', isSample: true, isHidden: false },
+      { input: '([)]', expectedOutput: 'false', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function isValid(s) {\n    const stack = [];\n    const map = { ')': '(', '}': '{', ']': '[' };\n    for (const c of s) {\n        if (!map[c]) {\n            stack.push(c);\n        } else if (stack.pop() !== map[c]) {\n            return false;\n        }\n    }\n    return stack.length === 0;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    console.log(isValid(line));\n    rl.close();\n});`,
-      python: `def is_valid(s):\n    stack = []\n    mapping = {')': '(', '}': '{', ']': '['}\n    for c in s:\n        if c in mapping:\n            if not stack or stack.pop() != mapping[c]:\n                return False\n        else:\n            stack.append(c)\n    return not stack\n\nif __name__ == "__main__":\n    s = input().strip()\n    print(str(is_valid(s)).lower())`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        Stack<Character> stack = new Stack<>();\n        Map<Character, Character> map = new HashMap<>();\n        map.put(')', '(');\n        map.put('}', '{');\n        map.put(']', '[');\n        for (char c : input.toCharArray()) {\n            if (map.containsKey(c)) {\n                if (stack.isEmpty() || stack.pop() != map.get(c)) return "false";\n            } else {\n                stack.push(c);\n            }\n        }\n        return stack.isEmpty() ? "true" : "false";\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <stack>\n#include <unordered_map>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    stack<char> st;\n    unordered_map<char, char> map = {{')', '('}, {'}', '{'}, {']', '['}};\n    for (char c : input) {\n        if (map.count(c)) {\n            if (st.empty() || st.top() != map[c]) return "false";\n            st.pop();\n        } else {\n            st.push(c);\n        }\n    }\n    return st.empty() ? "true" : "false";\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n\nvoid solve(char* input, char* output) {\n    char stack[10000];\n    int top = -1;\n    for (int i = 0; input[i]; i++) {\n        char c = input[i];\n        if (c == '(' || c == '{' || c == '[') {\n            stack[++top] = c;\n        } else {\n            if (top == -1) { strcpy(output, "false"); return; }\n            char expected;\n            if (c == ')') expected = '(';\n            else if (c == '}') expected = '{';\n            else expected = '[';\n            if (stack[top--] != expected) { strcpy(output, "false"); return; }\n        }\n    }\n    strcpy(output, top == -1 ? "true" : "false");\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'isValid', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'is_valid', params: [{ name: 's', type: 'str' }], returnType: 'bool' },
+      java: { name: 'isValid', params: [{ name: 's', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'isValid', params: [{ name: 's', type: 'string' }], returnType: 'bool' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(${DRIVER_PLACEHOLDER}(line));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    s = sys.stdin.read().strip()
+    print(${DRIVER_PLACEHOLDER}(s))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine();
+        System.out.println(${DRIVER_PLACEHOLDER}(s));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string s;
+    getline(cin, s);
+    cout << (${DRIVER_PLACEHOLDER}(s) ? "true" : "false") << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+int main() {
+    char s[100000];
+    fgets(s, 100000, stdin);
+    s[strcspn(s, "\\n")] = 0;
+    printf("%s\\n", ${DRIVER_PLACEHOLDER}(s) ? "true" : "false");
+    return 0;
+}`,
     },
   },
   {
@@ -123,16 +302,65 @@ const problems = [
       { input: 'nums = [1]', output: '1' },
     ],
     testCases: [
-      { input: '-2 1 -3 4 -1 2 1 -5 4', expectedOutput: '6', isSample: true },
-      { input: '1', expectedOutput: '1', isSample: true },
-      { input: '5 4 -1 7 8', expectedOutput: '23' },
+      { input: '-2 1 -3 4 -1 2 1 -5 4', expectedOutput: '6', isSample: true, isHidden: false },
+      { input: '1', expectedOutput: '1', isSample: true, isHidden: false },
+      { input: '5 4 -1 7 8', expectedOutput: '23', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function maxSubArray(nums) {\n    let maxSum = nums[0], currentSum = nums[0];\n    for (let i = 1; i < nums.length; i++) {\n        currentSum = Math.max(nums[i], currentSum + nums[i]);\n        maxSum = Math.max(maxSum, currentSum);\n    }\n    return maxSum;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const nums = line.split(' ').map(Number);\n    console.log(maxSubArray(nums));\n    rl.close();\n});`,
-      python: `def max_sub_array(nums):\n    max_sum = current_sum = nums[0]\n    for num in nums[1:]:\n        current_sum = max(num, current_sum + num)\n        max_sum = max(max_sum, current_sum)\n    return max_sum\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    print(max_sub_array(nums))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        int[] nums = new int[parts.length];\n        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);\n        int maxSum = nums[0], currentSum = nums[0];\n        for (int i = 1; i < nums.length; i++) {\n            currentSum = Math.max(nums[i], currentSum + nums[i]);\n            maxSum = Math.max(maxSum, currentSum);\n        }\n        return String.valueOf(maxSum);\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num;\n    while (ss >> num) nums.push_back(num);\n    int maxSum = nums[0], currentSum = nums[0];\n    for (int i = 1; i < nums.size(); i++) {\n        currentSum = max(nums[i], currentSum + nums[i]);\n        maxSum = max(maxSum, currentSum);\n    }\n    return to_string(maxSum);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " "); }\n    int maxSum = nums[0], currentSum = nums[0];\n    for (int i = 1; i < n; i++) {\n        currentSum = nums[i] > currentSum + nums[i] ? nums[i] : currentSum + nums[i];\n        maxSum = maxSum > currentSum ? maxSum : currentSum;\n    }\n    sprintf(output, "%d", maxSum);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'maxSubArray', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number' },
+      python: { name: 'max_sub_array', params: [{ name: 'nums', type: 'List[int]' }], returnType: 'int' },
+      java: { name: 'maxSubArray', params: [{ name: 'nums', type: 'int[]' }], returnType: 'int' },
+      cpp: { name: 'maxSubArray', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const nums = line.split(' ').map(Number);
+    console.log(${DRIVER_PLACEHOLDER}(nums));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    nums = list(map(int, sys.stdin.read().strip().split()))
+    print(${DRIVER_PLACEHOLDER}(nums))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        System.out.println(${DRIVER_PLACEHOLDER}(nums));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    cout << ${DRIVER_PLACEHOLDER}(nums) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(nums, n));
+    return 0;
+}`,
     },
   },
   {
@@ -147,15 +375,79 @@ const problems = [
       { input: 'nums = [-1,1,0,-3,3]', output: '[0,0,9,0,0]' },
     ],
     testCases: [
-      { input: '1 2 3 4', expectedOutput: '24 12 8 6', isSample: true },
-      { input: '-1 1 0 -3 3', expectedOutput: '0 0 9 0 0', isSample: true },
+      { input: '1 2 3 4', expectedOutput: '24 12 8 6', isSample: true, isHidden: false },
+      { input: '-1 1 0 -3 3', expectedOutput: '0 0 9 0 0', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function productExceptSelf(nums) {\n    const n = nums.length;\n    const result = new Array(n).fill(1);\n    let prefix = 1;\n    for (let i = 0; i < n; i++) {\n        result[i] = prefix;\n        prefix *= nums[i];\n    }\n    let suffix = 1;\n    for (let i = n - 1; i >= 0; i--) {\n        result[i] *= suffix;\n        suffix *= nums[i];\n    }\n    return result;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const nums = line.split(' ').map(Number);\n    console.log(productExceptSelf(nums).join(' '));\n    rl.close();\n});`,
-      python: `def product_except_self(nums):\n    n = len(nums)\n    result = [1] * n\n    prefix = 1\n    for i in range(n):\n        result[i] = prefix\n        prefix *= nums[i]\n    suffix = 1\n    for i in range(n-1, -1, -1):\n        result[i] *= suffix\n        suffix *= nums[i]\n    return result\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    print(' '.join(map(str, product_except_self(nums))))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        int n = parts.length;\n        int[] nums = new int[n];\n        for (int i = 0; i < n; i++) nums[i] = Integer.parseInt(parts[i]);\n        int[] result = new int[n];\n        java.util.Arrays.fill(result, 1);\n        int prefix = 1;\n        for (int i = 0; i < n; i++) { result[i] = prefix; prefix *= nums[i]; }\n        int suffix = 1;\n        for (int i = n-1; i >= 0; i--) { result[i] *= suffix; suffix *= nums[i]; }\n        StringBuilder sb = new StringBuilder();\n        for (int v : result) sb.append(v).append(" ");\n        return sb.toString().trim();\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num;\n    while (ss >> num) nums.push_back(num);\n    int n = nums.size();\n    vector<int> result(n, 1);\n    int prefix = 1;\n    for (int i = 0; i < n; i++) { result[i] = prefix; prefix *= nums[i]; }\n    int suffix = 1;\n    for (int i = n-1; i >= 0; i--) { result[i] *= suffix; suffix *= nums[i]; }\n    stringstream out;\n    for (int v : result) out << v << " ";\n    string res = out.str();\n    if (!res.empty()) res.pop_back();\n    return res;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " "); }\n    int result[10000];\n    for (int i = 0; i < n; i++) result[i] = 1;\n    int prefix = 1;\n    for (int i = 0; i < n; i++) { result[i] = prefix; prefix *= nums[i]; }\n    int suffix = 1;\n    for (int i = n-1; i >= 0; i--) { result[i] *= suffix; suffix *= nums[i]; }\n    char temp[100];\n    output[0] = '\\0';\n    for (int i = 0; i < n; i++) {\n        sprintf(temp, "%d ", result[i]);\n        strcat(output, temp);\n    }\n    int len = strlen(output);\n    if (len > 0) output[len-1] = '\\0';\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'productExceptSelf', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number[]' },
+      python: { name: 'product_except_self', params: [{ name: 'nums', type: 'List[int]' }], returnType: 'List[int]' },
+      java: { name: 'productExceptSelf', params: [{ name: 'nums', type: 'int[]' }], returnType: 'int[]' },
+      cpp: { name: 'productExceptSelf', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'vector<int>' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const nums = line.split(' ').map(Number);
+    const result = ${DRIVER_PLACEHOLDER}(nums);
+    console.log(result.join(' '));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    nums = list(map(int, sys.stdin.read().strip().split()))
+    result = ${DRIVER_PLACEHOLDER}(nums)
+    print(' '.join(map(str, result)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        int[] result = ${DRIVER_PLACEHOLDER}(nums);
+        StringBuilder sb = new StringBuilder();
+        for (int v : result) sb.append(v).append(" ");
+        System.out.println(sb.toString().trim());
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    vector<int> result = ${DRIVER_PLACEHOLDER}(nums);
+    for (int i = 0; i < result.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << result[i];
+    }
+    cout << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    int* result = ${DRIVER_PLACEHOLDER}(nums, n);
+    for (int i = 0; i < n; i++) {
+        if (i > 0) printf(" ");
+        printf("%d", result[i]);
+    }
+    printf("\\n");
+    return 0;
+}`,
     },
   },
   {
@@ -170,16 +462,54 @@ const problems = [
       { input: 's = "bbbbb"', output: '1' },
     ],
     testCases: [
-      { input: 'abcabcbb', expectedOutput: '3', isSample: true },
-      { input: 'bbbbb', expectedOutput: '1', isSample: true },
-      { input: 'pwwkew', expectedOutput: '3' },
+      { input: 'abcabcbb', expectedOutput: '3', isSample: true, isHidden: false },
+      { input: 'bbbbb', expectedOutput: '1', isSample: true, isHidden: false },
+      { input: 'pwwkew', expectedOutput: '3', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function lengthOfLongestSubstring(s) {\n    const map = new Map();\n    let maxLen = 0, left = 0;\n    for (let right = 0; right < s.length; right++) {\n        if (map.has(s[right])) {\n            left = Math.max(left, map.get(s[right]) + 1);\n        }\n        map.set(s[right], right);\n        maxLen = Math.max(maxLen, right - left + 1);\n    }\n    return maxLen;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    console.log(lengthOfLongestSubstring(line));\n    rl.close();\n});`,
-      python: `def length_of_longest_substring(s):\n    char_map = {}\n    max_len = left = 0\n    for right, c in enumerate(s):\n        if c in char_map:\n            left = max(left, char_map[c] + 1)\n        char_map[c] = right\n        max_len = max(max_len, right - left + 1)\n    return max_len\n\nif __name__ == "__main__":\n    s = input().strip()\n    print(length_of_longest_substring(s))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        Map<Character, Integer> map = new HashMap<>();\n        int maxLen = 0, left = 0;\n        for (int right = 0; right < input.length(); right++) {\n            char c = input.charAt(right);\n            if (map.containsKey(c)) {\n                left = Math.max(left, map.get(c) + 1);\n            }\n            map.put(c, right);\n            maxLen = Math.max(maxLen, right - left + 1);\n        }\n        return String.valueOf(maxLen);\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <string>\n#include <unordered_map>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    unordered_map<char, int> map;\n    int maxLen = 0, left = 0;\n    for (int right = 0; right < input.length(); right++) {\n        if (map.count(input[right])) {\n            left = max(left, map[input[right]] + 1);\n        }\n        map[input[right]] = right;\n        maxLen = max(maxLen, right - left + 1);\n    }\n    return to_string(maxLen);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n\nvoid solve(char* input, char* output) {\n    int lastSeen[256];\n    for (int i = 0; i < 256; i++) lastSeen[i] = -1;\n    int maxLen = 0, left = 0;\n    for (int right = 0; input[right]; right++) {\n        if (lastSeen[(unsigned char)input[right]] >= left) {\n            left = lastSeen[(unsigned char)input[right]] + 1;\n        }\n        lastSeen[(unsigned char)input[right]] = right;\n        int len = right - left + 1;\n        if (len > maxLen) maxLen = len;\n    }\n    sprintf(output, "%d", maxLen);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'lengthOfLongestSubstring', params: [{ name: 's', type: 'string' }], returnType: 'number' },
+      python: { name: 'length_of_longest_substring', params: [{ name: 's', type: 'str' }], returnType: 'int' },
+      java: { name: 'lengthOfLongestSubstring', params: [{ name: 's', type: 'String' }], returnType: 'int' },
+      cpp: { name: 'lengthOfLongestSubstring', params: [{ name: 's', type: 'string' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(${DRIVER_PLACEHOLDER}(line));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    s = sys.stdin.read().strip()
+    print(${DRIVER_PLACEHOLDER}(s))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine();
+        System.out.println(${DRIVER_PLACEHOLDER}(s));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string s;
+    getline(cin, s);
+    cout << ${DRIVER_PLACEHOLDER}(s) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+int main() {
+    char s[100000];
+    fgets(s, 100000, stdin);
+    s[strcspn(s, "\\n")] = 0;
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(s));
+    return 0;
+}`,
     },
   },
   {
@@ -194,15 +524,73 @@ const problems = [
       { input: 'nums = [-1,0,3,5,9,12], target = 2', output: '-1', explanation: '2 does not exist in nums so return -1' },
     ],
     testCases: [
-      { input: '-1 0 3 5 9 12\n9', expectedOutput: '4', isSample: true },
-      { input: '-1 0 3 5 9 12\n2', expectedOutput: '-1', isSample: true },
+      { input: '-1 0 3 5 9 12\n9', expectedOutput: '4', isSample: true, isHidden: false },
+      { input: '-1 0 3 5 9 12\n2', expectedOutput: '-1', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function binarySearch(nums, target) {\n    let left = 0, right = nums.length - 1;\n    while (left <= right) {\n        const mid = Math.floor((left + right) / 2);\n        if (nums[mid] === target) return mid;\n        if (nums[mid] < target) left = mid + 1;\n        else right = mid - 1;\n    }\n    return -1;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nlet lines = [];\nrl.on('line', (line) => lines.push(line));\nrl.on('close', () => {\n    const nums = lines[0].split(' ').map(Number);\n    const target = parseInt(lines[1]);\n    console.log(binarySearch(nums, target));\n});`,
-      python: `def binary_search(nums, target):\n    left, right = 0, len(nums) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if nums[mid] == target:\n            return mid\n        elif nums[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    target = int(input())\n    print(binary_search(nums, target))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String[] lines = input.split("\\n");\n        String[] parts = lines[0].split(" ");\n        int[] nums = new int[parts.length];\n        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);\n        int target = Integer.parseInt(lines[1]);\n        int left = 0, right = nums.length - 1;\n        while (left <= right) {\n            int mid = left + (right - left) / 2;\n            if (nums[mid] == target) return String.valueOf(mid);\n            if (nums[mid] < target) left = mid + 1;\n            else right = mid - 1;\n        }\n        return "-1";\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        StringBuilder sb = new StringBuilder();\n        while (sc.hasNextLine()) sb.append(sc.nextLine()).append("\\n");\n        sc.close();\n        System.out.println(solve(sb.toString().trim()));\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num;\n    while (ss >> num) nums.push_back(num);\n    int target = nums.back();\n    nums.pop_back();\n    int left = 0, right = nums.size() - 1;\n    while (left <= right) {\n        int mid = left + (right - left) / 2;\n        if (nums[mid] == target) return to_string(mid);\n        if (nums[mid] < target) left = mid + 1;\n        else right = mid - 1;\n    }\n    return "-1";\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    string line2;\n    getline(cin, line2);\n    input += "\\n" + line2;\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0, target;\n    char* token = strtok(input, " \\n");\n    while (token) {\n        nums[n++] = atoi(token);\n        token = strtok(NULL, " \\n");\n    }\n    target = nums[n-1];\n    n--;\n    int left = 0, right = n - 1;\n    while (left <= right) {\n        int mid = left + (right - left) / 2;\n        if (nums[mid] == target) { sprintf(output, "%d", mid); return; }\n        if (nums[mid] < target) left = mid + 1;\n        else right = mid - 1;\n    }\n    strcpy(output, "-1");\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    char line2[10000];\n    fgets(line2, 10000, stdin);\n    strcat(input, line2);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'search', params: [{ name: 'nums', type: 'number[]' }, { name: 'target', type: 'number' }], returnType: 'number' },
+      python: { name: 'search', params: [{ name: 'nums', type: 'List[int]' }, { name: 'target', type: 'int' }], returnType: 'int' },
+      java: { name: 'search', params: [{ name: 'nums', type: 'int[]' }, { name: 'target', type: 'int' }], returnType: 'int' },
+      cpp: { name: 'search', params: [{ name: 'nums', type: 'vector<int>' }, { name: 'target', type: 'int' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+let lines = [];
+rl.on('line', (line) => lines.push(line));
+rl.on('close', () => {
+    const nums = lines[0].split(' ').map(Number);
+    const target = parseInt(lines[1]);
+    console.log(${DRIVER_PLACEHOLDER}(nums, target));
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    lines = sys.stdin.read().strip().split('\\n')
+    nums = list(map(int, lines[0].split()))
+    target = int(lines[1])
+    print(${DRIVER_PLACEHOLDER}(nums, target))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        int target = Integer.parseInt(sc.nextLine());
+        System.out.println(${DRIVER_PLACEHOLDER}(nums, target));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    int target;
+    cin >> target;
+    cout << ${DRIVER_PLACEHOLDER}(nums, target) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[100000], n = 0, target;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    target = nums[n-1];
+    n--;
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(nums, n, target));
+    return 0;
+}`,
     },
   },
   {
@@ -217,15 +605,64 @@ const problems = [
       { input: 'height = [1,1]', output: '1' },
     ],
     testCases: [
-      { input: '1 8 6 2 5 4 8 3 7', expectedOutput: '49', isSample: true },
-      { input: '1 1', expectedOutput: '1', isSample: true },
+      { input: '1 8 6 2 5 4 8 3 7', expectedOutput: '49', isSample: true, isHidden: false },
+      { input: '1 1', expectedOutput: '1', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function maxArea(height) {\n    let left = 0, right = height.length - 1;\n    let maxWater = 0;\n    while (left < right) {\n        const width = right - left;\n        const h = Math.min(height[left], height[right]);\n        maxWater = Math.max(maxWater, width * h);\n        if (height[left] < height[right]) left++;\n        else right--;\n    }\n    return maxWater;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const height = line.split(' ').map(Number);\n    console.log(maxArea(height));\n    rl.close();\n});`,
-      python: `def max_area(height):\n    left, right = 0, len(height) - 1\n    max_water = 0\n    while left < right:\n        width = right - left\n        h = min(height[left], height[right])\n        max_water = max(max_water, width * h)\n        if height[left] < height[right]:\n            left += 1\n        else:\n            right -= 1\n    return max_water\n\nif __name__ == "__main__":\n    height = list(map(int, input().split()))\n    print(max_area(height))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        int[] height = new int[parts.length];\n        for (int i = 0; i < parts.length; i++) height[i] = Integer.parseInt(parts[i]);\n        int left = 0, right = height.length - 1, maxWater = 0;\n        while (left < right) {\n            int width = right - left;\n            int h = Math.min(height[left], height[right]);\n            maxWater = Math.max(maxWater, width * h);\n            if (height[left] < height[right]) left++;\n            else right--;\n        }\n        return String.valueOf(maxWater);\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> height;\n    int h;\n    while (ss >> h) height.push_back(h);\n    int left = 0, right = height.size() - 1, maxWater = 0;\n    while (left < right) {\n        int width = right - left;\n        int minH = min(height[left], height[right]);\n        maxWater = max(maxWater, width * minH);\n        if (height[left] < height[right]) left++;\n        else right--;\n    }\n    return to_string(maxWater);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int height[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { height[n++] = atoi(token); token = strtok(NULL, " "); }\n    int left = 0, right = n - 1, maxWater = 0;\n    while (left < right) {\n        int width = right - left;\n        int minH = height[left] < height[right] ? height[left] : height[right];\n        int area = width * minH;\n        if (area > maxWater) maxWater = area;\n        if (height[left] < height[right]) left++;\n        else right--;\n    }\n    sprintf(output, "%d", maxWater);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'maxArea', params: [{ name: 'height', type: 'number[]' }], returnType: 'number' },
+      python: { name: 'max_area', params: [{ name: 'height', type: 'List[int]' }], returnType: 'int' },
+      java: { name: 'maxArea', params: [{ name: 'height', type: 'int[]' }], returnType: 'int' },
+      cpp: { name: 'maxArea', params: [{ name: 'height', type: 'vector<int>' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const height = line.split(' ').map(Number);
+    console.log(${DRIVER_PLACEHOLDER}(height));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    height = list(map(int, sys.stdin.read().strip().split()))
+    print(${DRIVER_PLACEHOLDER}(height))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] height = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) height[i] = Integer.parseInt(parts[i]);
+        System.out.println(${DRIVER_PLACEHOLDER}(height));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> height;
+    int h;
+    while (ss >> h) height.push_back(h);
+    cout << ${DRIVER_PLACEHOLDER}(height) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int height[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { height[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(height, n));
+    return 0;
+}`,
     },
   },
   {
@@ -240,16 +677,52 @@ const problems = [
       { input: 'n = 3', output: '3', explanation: 'There are three ways:\n1. 1 step + 1 step + 1 step\n2. 1 step + 2 steps\n3. 2 steps + 1 step' },
     ],
     testCases: [
-      { input: '2', expectedOutput: '2', isSample: true },
-      { input: '3', expectedOutput: '3', isSample: true },
-      { input: '5', expectedOutput: '8' },
+      { input: '2', expectedOutput: '2', isSample: true, isHidden: false },
+      { input: '3', expectedOutput: '3', isSample: true, isHidden: false },
+      { input: '5', expectedOutput: '8', isHidden: true },
     ],
-    starterCode: {
-      javascript: `function climbStairs(n) {\n    if (n <= 2) return n;\n    let a = 1, b = 2;\n    for (let i = 3; i <= n; i++) {\n        const c = a + b;\n        a = b;\n        b = c;\n    }\n    return b;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    console.log(climbStairs(parseInt(line)));\n    rl.close();\n});`,
-      python: `def climb_stairs(n):\n    if n <= 2:\n        return n\n    a, b = 1, 2\n    for _ in range(3, n + 1):\n        a, b = b, a + b\n    return b\n\nif __name__ == "__main__":\n    n = int(input().strip())\n    print(climb_stairs(n))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        int n = Integer.parseInt(input.trim());\n        if (n <= 2) return String.valueOf(n);\n        int a = 1, b = 2;\n        for (int i = 3; i <= n; i++) {\n            int c = a + b;\n            a = b;\n            b = c;\n        }\n        return String.valueOf(b);\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    int n = stoi(input);\n    if (n <= 2) return to_string(n);\n    int a = 1, b = 2;\n    for (int i = 3; i <= n; i++) {\n        int c = a + b;\n        a = b;\n        b = c;\n    }\n    return to_string(b);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int n = atoi(input);\n    if (n <= 2) { sprintf(output, "%d", n); return; }\n    int a = 1, b = 2;\n    for (int i = 3; i <= n; i++) {\n        int c = a + b;\n        a = b;\n        b = c;\n    }\n    sprintf(output, "%d", b);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'climbStairs', params: [{ name: 'n', type: 'number' }], returnType: 'number' },
+      python: { name: 'climb_stairs', params: [{ name: 'n', type: 'int' }], returnType: 'int' },
+      java: { name: 'climbStairs', params: [{ name: 'n', type: 'int' }], returnType: 'int' },
+      cpp: { name: 'climbStairs', params: [{ name: 'n', type: 'int' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    console.log(${DRIVER_PLACEHOLDER}(parseInt(line)));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    n = int(sys.stdin.read().strip())
+    print(${DRIVER_PLACEHOLDER}(n))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = Integer.parseInt(sc.nextLine());
+        System.out.println(${DRIVER_PLACEHOLDER}(n));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+using namespace std;
+int main() {
+    int n;
+    cin >> n;
+    cout << ${DRIVER_PLACEHOLDER}(n) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+int main() {
+    int n;
+    scanf("%d", &n);
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(n));
+    return 0;
+}`,
     },
   },
   {
@@ -264,15 +737,65 @@ const problems = [
       { input: 'grid = [\n  ["1","1","0","0","0"],\n  ["1","1","0","0","0"],\n  ["0","0","1","0","0"],\n  ["0","0","0","1","1"]\n]', output: '3' },
     ],
     testCases: [
-      { input: '11110\n11010\n11000\n00000', expectedOutput: '1', isSample: true },
-      { input: '11000\n11000\n00100\n00011', expectedOutput: '3', isSample: true },
+      { input: '11110\n11010\n11000\n00000', expectedOutput: '1', isSample: true, isHidden: false },
+      { input: '11000\n11000\n00100\n00011', expectedOutput: '3', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function numIslands(grid) {\n    if (!grid || grid.length === 0) return 0;\n    let count = 0;\n    const rows = grid.length, cols = grid[0].length;\n    function dfs(r, c) {\n        if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] === '0') return;\n        grid[r][c] = '0';\n        dfs(r+1, c); dfs(r-1, c); dfs(r, c+1); dfs(r, c-1);\n    }\n    for (let r = 0; r < rows; r++) {\n        for (let c = 0; c < cols; c++) {\n            if (grid[r][c] === '1') { count++; dfs(r, c); }\n        }\n    }\n    return count;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nlet grid = [];\nrl.on('line', (line) => { if (line.trim()) grid.push(line.trim().split('')); });\nrl.on('close', () => console.log(numIslands(grid)));`,
-      python: `def num_islands(grid):\n    if not grid:\n        return 0\n    rows, cols = len(grid), len(grid[0])\n    count = 0\n    def dfs(r, c):\n        if r < 0 or r >= rows or c < 0 or c >= cols or grid[r][c] == '0':\n            return\n        grid[r][c] = '0'\n        dfs(r+1, c); dfs(r-1, c); dfs(r, c+1); dfs(r, c-1)\n    for r in range(rows):\n        for c in range(cols):\n            if grid[r][c] == '1':\n                count += 1\n                dfs(r, c)\n    return count\n\nif __name__ == "__main__":\n    import sys\n    grid = [list(line.strip()) for line in sys.stdin if line.strip()]\n    print(num_islands(grid))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        String[] lines = input.split("\\n");\n        int rows = lines.length, cols = lines[0].length();\n        char[][] grid = new char[rows][cols];\n        for (int i = 0; i < rows; i++) grid[i] = lines[i].toCharArray();\n        int count = 0;\n        for (int r = 0; r < rows; r++) {\n            for (int c = 0; c < cols; c++) {\n                if (grid[r][c] == '1') { count++; dfs(grid, r, c, rows, cols); }\n            }\n        }\n        return String.valueOf(count);\n    }\n    static void dfs(char[][] grid, int r, int c, int rows, int cols) {\n        if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] == '0') return;\n        grid[r][c] = '0';\n        dfs(grid, r+1, c, rows, cols);\n        dfs(grid, r-1, c, rows, cols);\n        dfs(grid, r, c+1, rows, cols);\n        dfs(grid, r, c-1, rows, cols);\n    }\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        StringBuilder sb = new StringBuilder();\n        while (sc.hasNextLine()) sb.append(sc.nextLine()).append("\\n");\n        sc.close();\n        System.out.println(solve(sb.toString().trim()));\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <string>\n#include <sstream>\nusing namespace std;\n\nvoid dfs(vector<vector<char>>& grid, int r, int c, int rows, int cols) {\n    if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] == '0') return;\n    grid[r][c] = '0';\n    dfs(grid, r+1, c, rows, cols);\n    dfs(grid, r-1, c, rows, cols);\n    dfs(grid, r, c+1, rows, cols);\n    dfs(grid, r, c-1, rows, cols);\n}\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<vector<char>> grid;\n    string line;\n    while (ss >> line) {\n        grid.push_back(vector<char>(line.begin(), line.end()));\n    }\n    int rows = grid.size(), cols = grid[0].size(), count = 0;\n    for (int r = 0; r < rows; r++) {\n        for (int c = 0; c < cols; c++) {\n            if (grid[r][c] == '1') { count++; dfs(grid, r, c, rows, cols); }\n        }\n    }\n    return to_string(count);\n}\n\nint main() {\n    string input, line;\n    while (getline(cin, line)) input += line + "\\n";\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n\nchar grid[300][300];\nint rows, cols;\n\nvoid dfs(int r, int c) {\n    if (r < 0 || r >= rows || c < 0 || c >= cols || grid[r][c] == '0') return;\n    grid[r][c] = '0';\n    dfs(r+1, c); dfs(r-1, c); dfs(r, c+1); dfs(r, c-1);\n}\n\nvoid solve(char* input, char* output) {\n    rows = 0;\n    char* line = strtok(input, "\\n");\n    while (line) {\n        strcpy(grid[rows], line);\n        rows++;\n        line = strtok(NULL, "\\n");\n    }\n    cols = strlen(grid[0]);\n    int count = 0;\n    for (int r = 0; r < rows; r++) {\n        for (int c = 0; c < cols; c++) {\n            if (grid[r][c] == '1') { count++; dfs(r, c); }\n        }\n    }\n    sprintf(output, "%d", count);\n}\n\nint main() {\n    char input[100000];\n    char output[10000];\n    char line[10000];\n    input[0] = '\\0';\n    while (fgets(line, 10000, stdin) && line[0] != '\\n') {\n        line[strcspn(line, "\\n")] = 0;\n        if (strlen(line) > 0) {\n            strcat(input, line);\n            strcat(input, "\\n");\n        }\n    }\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'numIslands', params: [{ name: 'grid', type: 'string[][]' }], returnType: 'number' },
+      python: { name: 'num_islands', params: [{ name: 'grid', type: 'List[List[str]]' }], returnType: 'int' },
+      java: { name: 'numIslands', params: [{ name: 'grid', type: 'char[][]' }], returnType: 'int' },
+      cpp: { name: 'numIslands', params: [{ name: 'grid', type: 'vector<vector<char>>' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+let grid = [];
+rl.on('line', (line) => { if (line.trim()) grid.push(line.trim().split('')); });
+rl.on('close', () => console.log(${DRIVER_PLACEHOLDER}(grid)));`,
+      python: `import sys
+if __name__ == "__main__":
+    grid = [list(line.strip()) for line in sys.stdin if line.strip()]
+    print(${DRIVER_PLACEHOLDER}(grid))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        List<char[]> gridList = new ArrayList<>();
+        while (sc.hasNextLine()) {
+            String line = sc.nextLine();
+            if (!line.isEmpty()) gridList.add(line.toCharArray());
+        }
+        char[][] grid = gridList.toArray(new char[0][]);
+        System.out.println(${DRIVER_PLACEHOLDER}(grid));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <string>
+using namespace std;
+int main() {
+    vector<vector<char>> grid;
+    string line;
+    while (cin >> line) {
+        grid.push_back(vector<char>(line.begin(), line.end()));
+    }
+    cout << ${DRIVER_PLACEHOLDER}(grid) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <string.h>
+int main() {
+    char grid[300][300];
+    int rows = 0;
+    while (fgets(grid[rows], 300, stdin) && grid[rows][0] != '\\n') {
+        int len = strlen(grid[rows]);
+        if (len > 0 && grid[rows][len-1] == '\\n') grid[rows][len-1] = 0;
+        rows++;
+    }
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(grid, rows));
+    return 0;
+}`,
     },
   },
   {
@@ -287,15 +810,64 @@ const problems = [
       { input: 'height = [4,2,0,3,2,5]', output: '9' },
     ],
     testCases: [
-      { input: '0 1 0 2 1 0 1 3 2 1 2 1', expectedOutput: '6', isSample: true },
-      { input: '4 2 0 3 2 5', expectedOutput: '9', isSample: true },
+      { input: '0 1 0 2 1 0 1 3 2 1 2 1', expectedOutput: '6', isSample: true, isHidden: false },
+      { input: '4 2 0 3 2 5', expectedOutput: '9', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function trap(height) {\n    let left = 0, right = height.length - 1;\n    let leftMax = 0, rightMax = 0, water = 0;\n    while (left < right) {\n        if (height[left] < height[right]) {\n            if (height[left] >= leftMax) leftMax = height[left];\n            else water += leftMax - height[left];\n            left++;\n        } else {\n            if (height[right] >= rightMax) rightMax = height[right];\n            else water += rightMax - height[right];\n            right--;\n        }\n    }\n    return water;\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const height = line.split(' ').map(Number);\n    console.log(trap(height));\n    rl.close();\n});`,
-      python: `def trap(height):\n    left, right = 0, len(height) - 1\n    left_max = right_max = water = 0\n    while left < right:\n        if height[left] < height[right]:\n            if height[left] >= left_max:\n                left_max = height[left]\n            else:\n                water += left_max - height[left]\n            left += 1\n        else:\n            if height[right] >= right_max:\n                right_max = height[right]\n            else:\n                water += right_max - height[right]\n            right -= 1\n    return water\n\nif __name__ == "__main__":\n    height = list(map(int, input().split()))\n    print(trap(height))`,
-      java: `public class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        int[] height = new int[parts.length];\n        for (int i = 0; i < parts.length; i++) height[i] = Integer.parseInt(parts[i]);\n        int left = 0, right = height.length - 1, leftMax = 0, rightMax = 0, water = 0;\n        while (left < right) {\n            if (height[left] < height[right]) {\n                if (height[left] >= leftMax) leftMax = height[left];\n                else water += leftMax - height[left];\n                left++;\n            } else {\n                if (height[right] >= rightMax) rightMax = height[right];\n                else water += rightMax - height[right];\n                right--;\n            }\n        }\n        return String.valueOf(water);\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> height;\n    int h;\n    while (ss >> h) height.push_back(h);\n    int left = 0, right = height.size() - 1, leftMax = 0, rightMax = 0, water = 0;\n    while (left < right) {\n        if (height[left] < height[right]) {\n            if (height[left] >= leftMax) leftMax = height[left];\n            else water += leftMax - height[left];\n            left++;\n        } else {\n            if (height[right] >= rightMax) rightMax = height[right];\n            else water += rightMax - height[right];\n            right--;\n        }\n    }\n    return to_string(water);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nvoid solve(char* input, char* output) {\n    int height[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { height[n++] = atoi(token); token = strtok(NULL, " "); }\n    int left = 0, right = n - 1, leftMax = 0, rightMax = 0, water = 0;\n    while (left < right) {\n        if (height[left] < height[right]) {\n            if (height[left] >= leftMax) leftMax = height[left];\n            else water += leftMax - height[left];\n            left++;\n        } else {\n            if (height[right] >= rightMax) rightMax = height[right];\n            else water += rightMax - height[right];\n            right--;\n        }\n    }\n    sprintf(output, "%d", water);\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'trap', params: [{ name: 'height', type: 'number[]' }], returnType: 'number' },
+      python: { name: 'trap', params: [{ name: 'height', type: 'List[int]' }], returnType: 'int' },
+      java: { name: 'trap', params: [{ name: 'height', type: 'int[]' }], returnType: 'int' },
+      cpp: { name: 'trap', params: [{ name: 'height', type: 'vector<int>' }], returnType: 'int' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const height = line.split(' ').map(Number);
+    console.log(${DRIVER_PLACEHOLDER}(height));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    height = list(map(int, sys.stdin.read().strip().split()))
+    print(${DRIVER_PLACEHOLDER}(height))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] height = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) height[i] = Integer.parseInt(parts[i]);
+        System.out.println(${DRIVER_PLACEHOLDER}(height));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> height;
+    int h;
+    while (ss >> h) height.push_back(h);
+    cout << ${DRIVER_PLACEHOLDER}(height) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int height[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { height[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    printf("%d\\n", ${DRIVER_PLACEHOLDER}(height, n));
+    return 0;
+}`,
     },
   },
   {
@@ -310,14 +882,78 @@ const problems = [
       { input: 'lists = []', output: '[]' },
     ],
     testCases: [
-      { input: '1 4 5 1 3 4 2 6', expectedOutput: '1 1 2 3 4 4 5 6', isSample: true },
+      { input: '1 4 5 1 3 4 2 6', expectedOutput: '1 1 2 3 4 4 5 6', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function mergeKLists(lists) {\n    const flat = lists.reduce((acc, list) => acc.concat(list), []);\n    return flat.sort((a, b) => a - b);\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const nums = line.split(' ').map(Number);\n    console.log(nums.sort((a, b) => a - b).join(' '));\n    rl.close();\n});`,
-      python: `def merge_k_lists(lists):\n    flat = [num for sublist in lists for num in sublist]\n    return sorted(flat)\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    print(' '.join(map(str, sorted(nums))))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        List<Integer> nums = new ArrayList<>();\n        for (String p : parts) nums.add(Integer.parseInt(p));\n        Collections.sort(nums);\n        StringBuilder sb = new StringBuilder();\n        for (int n : nums) sb.append(n).append(" ");\n        return sb.toString().trim();\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num;\n    while (ss >> num) nums.push_back(num);\n    sort(nums.begin(), nums.end());\n    stringstream out;\n    for (int n : nums) out << n << " ";\n    string res = out.str();\n    if (!res.empty()) res.pop_back();\n    return res;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nint cmp(const void* a, const void* b) { return *(int*)a - *(int*)b; }\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " "); }\n    qsort(nums, n, sizeof(int), cmp);\n    char temp[100];\n    output[0] = '\\0';\n    for (int i = 0; i < n; i++) { sprintf(temp, "%d ", nums[i]); strcat(output, temp); }\n    int len = strlen(output);\n    if (len > 0) output[len-1] = '\\0';\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'mergeKLists', params: [{ name: 'lists', type: 'number[][]' }], returnType: 'number[]' },
+      python: { name: 'merge_k_lists', params: [{ name: 'lists', type: 'List[List[int]]' }], returnType: 'List[int]' },
+      java: { name: 'mergeKLists', params: [{ name: 'lists', type: 'int[][]' }], returnType: 'int[]' },
+      cpp: { name: 'mergeKLists', params: [{ name: 'lists', type: 'vector<vector<int>>' }], returnType: 'vector<int>' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const nums = line.split(' ').map(Number);
+    const result = ${DRIVER_PLACEHOLDER}(nums);
+    console.log(result.join(' '));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    nums = list(map(int, sys.stdin.read().strip().split()))
+    result = ${DRIVER_PLACEHOLDER}(nums)
+    print(' '.join(map(str, result)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        int[] result = ${DRIVER_PLACEHOLDER}(nums);
+        StringBuilder sb = new StringBuilder();
+        for (int v : result) sb.append(v).append(" ");
+        System.out.println(sb.toString().trim());
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    vector<int> result = ${DRIVER_PLACEHOLDER}(nums);
+    for (int i = 0; i < result.size(); i++) {
+        if (i > 0) cout << " ";
+        cout << result[i];
+    }
+    cout << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    int* result = ${DRIVER_PLACEHOLDER}(nums, n);
+    for (int i = 0; i < n; i++) {
+        if (i > 0) printf(" ");
+        printf("%d", result[i]);
+    }
+    printf("\\n");
+    return 0;
+}`,
     },
   },
   {
@@ -331,14 +967,63 @@ const problems = [
       { input: 'MedianFinder mf = new MedianFinder();\nmf.addNum(1);\nmf.addNum(2);\nmf.findMedian();\nmf.addNum(3);\nmf.findMedian();', output: '1.5\n2.0' },
     ],
     testCases: [
-      { input: '1 2 3 4 5', expectedOutput: '3', isSample: true },
+      { input: '1 2 3 4 5', expectedOutput: '3', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `function findMedian(nums) {\n    nums.sort((a, b) => a - b);\n    const n = nums.length;\n    if (n % 2 === 0) return (nums[n/2 - 1] + nums[n/2]) / 2;\n    return nums[Math.floor(n/2)];\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const nums = line.split(' ').map(Number);\n    console.log(findMedian(nums));\n    rl.close();\n});`,
-      python: `def find_median(nums):\n    nums.sort()\n    n = len(nums)\n    if n % 2 == 0:\n        return (nums[n//2 - 1] + nums[n//2]) / 2\n    return float(nums[n//2])\n\nif __name__ == "__main__":\n    nums = list(map(int, input().split()))\n    print(find_median(nums))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        List<Integer> nums = new ArrayList<>();\n        for (String p : parts) nums.add(Integer.parseInt(p));\n        Collections.sort(nums);\n        int n = nums.size();\n        if (n % 2 == 0) {\n            double median = (nums.get(n/2 - 1) + nums.get(n/2)) / 2.0;\n            if (median == (int)median) return String.valueOf((int)median);\n            return String.valueOf(median);\n        }\n        return String.valueOf(nums.get(n/2));\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <vector>\n#include <sstream>\n#include <algorithm>\nusing namespace std;\n\nstring solve(string input) {\n    stringstream ss(input);\n    vector<int> nums;\n    int num;\n    while (ss >> num) nums.push_back(num);\n    sort(nums.begin(), nums.end());\n    int n = nums.size();\n    if (n % 2 == 0) {\n        double median = (nums[n/2 - 1] + nums[n/2]) / 2.0;\n        if (median == (int)median) return to_string((int)median);\n        return to_string(median);\n    }\n    return to_string(nums[n/2]);\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\nint cmp(const void* a, const void* b) { return *(int*)a - *(int*)b; }\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " "); }\n    qsort(nums, n, sizeof(int), cmp);\n    if (n % 2 == 0) {\n        double median = (nums[n/2 - 1] + nums[n/2]) / 2.0;\n        if (median == (int)median) sprintf(output, "%d", (int)median);\n        else sprintf(output, "%.1f", median);\n    } else {\n        sprintf(output, "%d", nums[n/2]);\n    }\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'findMedian', params: [{ name: 'nums', type: 'number[]' }], returnType: 'number' },
+      python: { name: 'find_median', params: [{ name: 'nums', type: 'List[int]' }], returnType: 'float' },
+      java: { name: 'findMedian', params: [{ name: 'nums', type: 'int[]' }], returnType: 'double' },
+      cpp: { name: 'findMedian', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'double' },
+    },
+    driverTemplate: {
+      javascript: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const nums = line.split(' ').map(Number);
+    console.log(${DRIVER_PLACEHOLDER}(nums));
+    rl.close();
+});`,
+      python: `import sys
+if __name__ == "__main__":
+    nums = list(map(int, sys.stdin.read().strip().split()))
+    print(${DRIVER_PLACEHOLDER}(nums))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        System.out.println(${DRIVER_PLACEHOLDER}(nums));
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <vector>
+#include <sstream>
+using namespace std;
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    vector<int> nums;
+    int num;
+    while (ss >> num) nums.push_back(num);
+    cout << ${DRIVER_PLACEHOLDER}(nums) << endl;
+    return 0;
+}`,
+      c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+    int nums[100000], n = 0;
+    char line[1000000];
+    fgets(line, 1000000, stdin);
+    char* token = strtok(line, " \\n");
+    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " \\n"); }
+    printf("%f\\n", ${DRIVER_PLACEHOLDER}(nums, n));
+    return 0;
+}`,
     },
   },
   {
@@ -352,14 +1037,162 @@ const problems = [
       { input: 'LRUCache lru = new LRUCache(2);\nlru.put(1, 1);\nlru.put(2, 2);\nlru.get(1);\nlru.put(3, 3);\nlru.get(2);', output: '1\n-1' },
     ],
     testCases: [
-      { input: '2 1 1 2 2 1 3 3 2', expectedOutput: '1 -1', isSample: true },
+      { input: '2 1 1 2 2 1 3 3 2', expectedOutput: '1 -1', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: `class LRUCache {\n    constructor(capacity) {\n        this.capacity = capacity;\n        this.cache = new Map();\n    }\n    get(key) {\n        if (!this.cache.has(key)) return -1;\n        const value = this.cache.get(key);\n        this.cache.delete(key);\n        this.cache.set(key, value);\n        return value;\n    }\n    put(key, value) {\n        if (this.cache.has(key)) this.cache.delete(key);\n        else if (this.cache.size >= this.capacity) {\n            const firstKey = this.cache.keys().next().value;\n            this.cache.delete(firstKey);\n        }\n        this.cache.set(key, value);\n    }\n}\n\nconst readline = require('readline');\nconst rl = readline.createInterface({ input: process.stdin });\nrl.on('line', (line) => {\n    const parts = line.split(' ').map(Number);\n    const cap = parts[0];\n    const cache = new LRUCache(cap);\n    const results = [];\n    for (let i = 1; i < parts.length; i += 2) {\n        if (parts[i+1] === undefined) {\n            results.push(cache.get(parts[i]));\n            i--;\n        } else {\n            cache.put(parts[i], parts[i+1]);\n        }\n    }\n    console.log(results.join(' '));\n    rl.close();\n});`,
-      python: `class LRUCache:\n    def __init__(self, capacity):\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.order.remove(key)\n        self.order.append(key)\n        return self.cache[key]\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        elif len(self.cache) >= self.capacity:\n            oldest = self.order.pop(0)\n            del self.cache[oldest]\n        self.cache[key] = value\n        self.order.append(key)\n\nif __name__ == "__main__":\n    parts = list(map(int, input().split()))\n    cap = parts[0]\n    cache = LRUCache(cap)\n    results = []\n    i = 1\n    while i < len(parts):\n        if i + 1 < len(parts) and i % 2 == 1:\n            cache.put(parts[i], parts[i+1])\n            i += 2\n        else:\n            results.append(cache.get(parts[i]))\n            i += 1\n    print(' '.join(map(str, results)))`,
-      java: `import java.util.*;\n\npublic class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split(" ");\n        int cap = Integer.parseInt(parts[0]);\n        LinkedHashMap<Integer, Integer> cache = new LinkedHashMap<>(cap, 0.75f, true) {\n            protected boolean removeEldestEntry(Map.Entry eldest) {\n                return size() > cap;\n            }\n        };\n        StringBuilder sb = new StringBuilder();\n        for (int i = 1; i < parts.length; i += 2) {\n            int key = Integer.parseInt(parts[i]);\n            if (i + 1 < parts.length && i % 2 == 1) {\n                cache.put(key, Integer.parseInt(parts[i+1]));\n            } else {\n                sb.append(cache.getOrDefault(key, -1)).append(" ");\n                i--;\n            }\n        }\n        return sb.toString().trim();\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        System.out.println(solve(sc.nextLine()));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <unordered_map>\n#include <list>\n#include <sstream>\nusing namespace std;\n\nclass LRUCache {\n    int cap;\n    list<pair<int,int>> items;\n    unordered_map<int, list<pair<int,int>>::iterator> map;\npublic:\n    LRUCache(int capacity) : cap(capacity) {}\n    int get(int key) {\n        if (!map.count(key)) return -1;\n        items.splice(items.begin(), items, map[key]);\n        return map[key]->second;\n    }\n    void put(int key, int value) {\n        if (map.count(key)) {\n            items.splice(items.begin(), items, map[key]);\n            map[key]->second = value;\n        } else {\n            if (items.size() >= cap) {\n                map.erase(items.back().first);\n                items.pop_back();\n            }\n            items.push_front({key, value});\n            map[key] = items.begin();\n        }\n    }\n};\n\nstring solve(string input) {\n    stringstream ss(input);\n    int cap, key, val;\n    ss >> cap;\n    LRUCache cache(cap);\n    stringstream out;\n    while (ss >> key) {\n        if (ss >> val) cache.put(key, val);\n        else { out << cache.get(key) << " "; break; }\n    }\n    string res = out.str();\n    if (!res.empty()) res.pop_back();\n    return res;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n#include <stdlib.h>\n\ntypedef struct { int key, val; } Pair;\n\nvoid solve(char* input, char* output) {\n    int nums[10000], n = 0;\n    char* token = strtok(input, " ");\n    while (token) { nums[n++] = atoi(token); token = strtok(NULL, " "); }\n    int cap = nums[0];\n    Pair cache[10000];\n    int size = 0, order[10000], orderSize = 0;\n    char temp[100];\n    output[0] = '\\0';\n    for (int i = 1; i < n; i++) {\n        int key = nums[i];\n        if (i + 1 < n && i % 2 == 1) {\n            int val = nums[i+1];\n            int found = -1;\n            for (int j = 0; j < size; j++) if (cache[j].key == key) { found = j; break; }\n            if (found >= 0) {\n                cache[found].val = val;\n                int idx = -1;\n                for (int j = 0; j < orderSize; j++) if (order[j] == found) { idx = j; break; }\n                for (int j = idx; j < orderSize-1; j++) order[j] = order[j+1];\n                orderSize--;\n                order[orderSize++] = found;\n            } else {\n                if (size >= cap) {\n                    int evict = order[0];\n                    for (int j = 0; j < orderSize-1; j++) order[j] = order[j+1];\n                    orderSize--;\n                    cache[evict] = cache[size-1];\n                    size--;\n                    for (int j = 0; j < orderSize; j++) if (order[j] == size) order[j] = evict;\n                }\n                cache[size].key = key;\n                cache[size].val = val;\n                order[orderSize++] = size;\n                size++;\n            }\n            i++;\n        } else {\n            int found = -1;\n            for (int j = 0; j < size; j++) if (cache[j].key == key) { found = j; break; }\n            if (found >= 0) {\n                sprintf(temp, "%d ", cache[found].val);\n                strcat(output, temp);\n                int idx = -1;\n                for (int j = 0; j < orderSize; j++) if (order[j] == found) { idx = j; break; }\n                for (int j = idx; j < orderSize-1; j++) order[j] = order[j+1];\n                orderSize--;\n                order[orderSize++] = found;\n            } else {\n                strcat(output, "-1 ");\n            }\n        }\n    }\n    int len = strlen(output);\n    if (len > 0) output[len-1] = '\\0';\n}\n\nint main() {\n    char input[10000];\n    char output[10000];\n    fgets(input, 10000, stdin);\n    input[strcspn(input, "\\n")] = 0;\n    solve(input, output);\n    printf("%s\\n", output);\n    return 0;\n}`,
+    functionSignature: {
+      javascript: { name: 'LRUCache', params: [{ name: 'capacity', type: 'number' }], returnType: 'object' },
+      python: { name: 'LRUCache', params: [{ name: 'capacity', type: 'int' }], returnType: 'object' },
+      java: { name: 'LRUCache', params: [{ name: 'capacity', type: 'int' }], returnType: 'void' },
+      cpp: { name: 'LRUCache', params: [{ name: 'capacity', type: 'int' }], returnType: 'void' },
+    },
+    driverTemplate: {
+      javascript: `class LRUCache {
+    constructor(capacity) {
+        this.capacity = capacity;
+        this.cache = new Map();
+    }
+    get(key) {
+        if (!this.cache.has(key)) return -1;
+        const value = this.cache.get(key);
+        this.cache.delete(key);
+        this.cache.set(key, value);
+        return value;
+    }
+    put(key, value) {
+        if (this.cache.has(key)) this.cache.delete(key);
+        else if (this.cache.size >= this.capacity) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+        this.cache.set(key, value);
+    }
+}
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+    const parts = line.split(' ').map(Number);
+    const cap = parts[0];
+    const cache = new LRUCache(cap);
+    const results = [];
+    for (let i = 1; i < parts.length; i += 2) {
+        if (parts[i+1] === undefined) {
+            results.push(cache.get(parts[i]));
+            i--;
+        } else {
+            cache.put(parts[i], parts[i+1]);
+        }
+    }
+    console.log(results.join(' '));
+    rl.close();
+});`,
+      python: `class LRUCache:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.cache = {}
+        self.order = []
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        self.order.remove(key)
+        self.order.append(key)
+        return self.cache[key]
+    def put(self, key, value):
+        if key in self.cache:
+            self.order.remove(key)
+        elif len(self.cache) >= self.capacity:
+            oldest = self.order.pop(0)
+            del self.cache[oldest]
+        self.cache[key] = value
+        self.order.append(key)
+
+if __name__ == "__main__":
+    import sys
+    parts = list(map(int, sys.stdin.read().strip().split()))
+    cap = parts[0]
+    cache = LRUCache(cap)
+    results = []
+    i = 1
+    while i < len(parts):
+        if i + 1 < len(parts) and i % 2 == 1:
+            cache.put(parts[i], parts[i+1])
+            i += 2
+        else:
+            results.append(cache.get(parts[i]))
+            i += 1
+    print(' '.join(map(str, results)))`,
+      java: `import java.util.*;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String[] parts = sc.nextLine().split(" ");
+        int cap = Integer.parseInt(parts[0]);
+        LinkedHashMap<Integer, Integer> cache = new LinkedHashMap<>(cap, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry eldest) {
+                return size() > cap;
+            }
+        };
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i < parts.length; i += 2) {
+            int key = Integer.parseInt(parts[i]);
+            if (i + 1 < parts.length && i % 2 == 1) {
+                cache.put(key, Integer.parseInt(parts[i+1]));
+            } else {
+                sb.append(cache.getOrDefault(key, -1)).append(" ");
+                i--;
+            }
+        }
+        System.out.println(sb.toString().trim());
+        sc.close();
+    }
+}`,
+      cpp: `#include <iostream>
+#include <unordered_map>
+#include <list>
+#include <sstream>
+using namespace std;
+class LRUCache {
+    int cap;
+    list<pair<int,int>> items;
+    unordered_map<int, list<pair<int,int>>::iterator> map;
+public:
+    LRUCache(int capacity) : cap(capacity) {}
+    int get(int key) {
+        if (!map.count(key)) return -1;
+        items.splice(items.begin(), items, map[key]);
+        return map[key]->second;
+    }
+    void put(int key, int value) {
+        if (map.count(key)) {
+            items.splice(items.begin(), items, map[key]);
+            map[key]->second = value;
+        } else {
+            if (items.size() >= cap) {
+                map.erase(items.back().first);
+                items.pop_back();
+            }
+            items.push_front({key, value});
+            map[key] = items.begin();
+        }
+    }
+};
+int main() {
+    string line;
+    getline(cin, line);
+    stringstream ss(line);
+    int cap, key, val;
+    ss >> cap;
+    LRUCache cache(cap);
+    stringstream out;
+    while (ss >> key) {
+        if (ss >> val) cache.put(key, val);
+        else { out << cache.get(key) << " "; break; }
+    }
+    string res = out.str();
+    if (!res.empty()) res.pop_back();
+    cout << res << endl;
+    return 0;
+}`,
+      c: ``,
     },
   },
   {
@@ -375,13 +1208,6 @@ const problems = [
     testCases: [
       { input: 'SELECT * FROM employees', expectedOutput: '1|Alice|Engineering|120000\n2|Bob|Engineering|90000\n3|Charlie|Marketing|80000\n4|Diana|Marketing|95000', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: '-- Write your SQL query here',
-      python: '-- Write your SQL query here',
-      java: '-- Write your SQL query here',
-      cpp: '-- Write your SQL query here',
-      c: '-- Write your SQL query here',
-    },
   },
   {
     title: 'Department Top Salaries',
@@ -396,13 +1222,6 @@ const problems = [
     testCases: [
       { input: 'SELECT * FROM employees', expectedOutput: '1|Alice|Engineering|120000\n2|Bob|Engineering|120000\n3|Charlie|Marketing|80000', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: '-- Write your SQL query here',
-      python: '-- Write your SQL query here',
-      java: '-- Write your SQL query here',
-      cpp: '-- Write your SQL query here',
-      c: '-- Write your SQL query here',
-    },
   },
   {
     title: 'Order Summary with Running Total',
@@ -417,13 +1236,6 @@ const problems = [
     testCases: [
       { input: 'SELECT * FROM orders', expectedOutput: '1|1|2024-01-01|100\n2|1|2024-01-15|200\n3|2|2024-01-10|150', isSample: true, isHidden: false },
     ],
-    starterCode: {
-      javascript: '-- Write your SQL query here',
-      python: '-- Write your SQL query here',
-      java: '-- Write your SQL query here',
-      cpp: '-- Write your SQL query here',
-      c: '-- Write your SQL query here',
-    },
   },
 ];
 

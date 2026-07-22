@@ -9,15 +9,17 @@ import ProblemDetail from './pages/ProblemDetail';
 import Analytics from './pages/Analytics';
 import Resume from './pages/Resume';
 import Admin from './pages/Admin';
+import { Loader2 } from 'lucide-react';
+import { LOADING_SPINNER } from './utils/ui';
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading...</div>;
+  if (loading) return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   return user ? children : <Navigate to="/login" />;
 }
 function App() {
   const { user, loading } = useAuth();
   if (loading) {
-    return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading...</div>;
+    return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   }
   return (
     <div className="min-h-screen bg-gray-950">
