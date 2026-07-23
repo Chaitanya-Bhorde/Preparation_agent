@@ -48,8 +48,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     setUser(null);
   };
+  const refreshUser = async () => {
+    await loadUser();
+    window.dispatchEvent(new Event('profile-updated'));
+  };
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, loadUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, loadUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -48,14 +48,16 @@ export const getProfile = () => API.get('/profile');
 export const getRecommendations = () => API.get('/recommendations');
 export const addToRevision = (problemId) => API.post('/recommendations/revision', { problemId });
 export const removeFromRevision = (problemId) => API.delete(`/recommendations/revision/${problemId}`);
-export const analyzeResumeFile = (file) => {
+export const analyzeResumeFile = (file, role) => {
   const formData = new FormData();
   formData.append('resume', file);
+  if (role) formData.append('role', role);
   return API.post('/ats/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
-export const analyzeResumeText = (text) => API.post('/ats/analyze-text', { text });
+export const getRoleRequirements = () => API.get('/role-requirements');
+export const matchJD = (resumeText, jobDescription) => API.post('/jd-match/match', { resumeText, jobDescription });
 export const getAnalytics = () => API.get('/analytics');
 export const getAdminAnalytics = () => API.get('/analytics/admin');
 export const getTopicProgress = () => API.get('/topics/progress');
@@ -81,4 +83,8 @@ export const uploadProfilePicture = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+export const saveDraft = (data) => API.post('/drafts', data);
+export const getDraft = (params) => API.get('/drafts', { params });
+export const getAllDrafts = () => API.get('/drafts/all');
+export const deleteDraft = (data) => API.delete('/drafts', { data });
 export default API;

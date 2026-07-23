@@ -19,6 +19,17 @@ const TestCaseSchema = new mongoose.Schema({
   explanation: String,
 });
 
+const SqlColumnSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { type: String, required: true },
+}, { _id: false });
+
+const SqlTableSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  columns: [SqlColumnSchema],
+  sampleData: [mongoose.Schema.Types.Mixed],
+}, { _id: false });
+
 const ProblemSchema = new mongoose.Schema(
   {
     title: {
@@ -95,6 +106,12 @@ const ProblemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    // SQL-specific fields
+    sqlSchema: {
+      tables: [SqlTableSchema],
+    },
+    expectedResultSet: [mongoose.Schema.Types.Mixed],
+    schemaSetup: { type: String, default: '' },
   },
   {
     timestamps: true,

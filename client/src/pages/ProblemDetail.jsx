@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { getProblem, runCode, submitCode, getSubmissions, runSQLCode, submitSQLCode } from '../api';
+import { getProblem, runCode, submitCode, getSubmissions, runSQLCode, submitSQLCode, getDraft, saveDraft, getSubmission, getAnalytics, getTopicProgress, getGoalProgress } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LOADING_SPINNER, DIFFICULTY_COLORS, BUTTON_CLASSES, SELECT_CLASSES } from '../utils/ui';
@@ -32,6 +33,7 @@ const MONACO_LANG_MAP = {
 
 export default function ProblemDetail() {
   const { slug } = useParams();
+  const { user } = useAuth();
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [code, setCode] = useState('');
@@ -47,31 +49,55 @@ export default function ProblemDetail() {
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [selectedSubmissionLoading, setSelectedSubmissionLoading] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftFound, setDraftFound] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
+  // Load draft on mount / when problem/language changes (only once per problem load)
   useEffect(() => {
-    if (problem && problem.starterCode) {
-      const starter = problem.starterCode[language];
-      if (starter) setCode(starter);
-      else setCode(getDefaultCode(language));
-    } else {
-      setCode(getDefaultCode(language));
+    if (!problem || !user || initialized) return;
+    let cancelled = false;
+    async function loadDraft() {
+      try {
+        const { data } = await getDraft({ problemId: problem._id, language });
+        if (!cancelled && data.success && data.data && data.data.code) {
+          setCode(data.data.code);
+          setDraftFound(true);
+        }
+      } catch (error) {
+        console.error('Failed to load draft:', error);
+      } finally {
+        if (!cancelled) {
+          setDraftLoaded(true);
+          setInitialized(true);
+        }
+      }
     }
-  }, [language, problem]);
+    loadDraft();
+    return () => { cancelled = true; };
+  }, [problem ? problem._id : null, language, user, initialized]);
+
+  // Fallback to starter/default code only if no draft was found
+  useEffect(() => {
+    if (!problem || !user) return;
+    if (!draftLoaded) return;
+    if (draftFound) return;
+    const starter = problem.starterCode?.[language] || getDefaultCode(language);
+    setCode(starter);
+  }, [language, problem, user, draftLoaded, draftFound]);
 
   const loadProblem = async () => {
     try {
       const { data } = await getProblem(slug);
       setProblem(data.data);
+      setDraftLoaded(false);
+      setDraftFound(false);
+      setInitialized(false);
       if (data.data && data.data.testCases) {
         const visible = data.data.testCases.filter(tc => !tc.isHidden);
         setVisibleTestcases(visible.map((tc, i) => ({ ...tc, id: `sample-${i}`, editable: false })));
-      }
-      if (data.data && data.data.starterCode && data.data.starterCode.javascript) {
-        setCode(data.data.starterCode.javascript);
-      } else {
-        setCode(getDefaultCode('javascript'));
       }
     } catch (error) {
       toast.error('Failed to load problem');
@@ -172,8 +198,18 @@ export default function ProblemDetail() {
         : await submitCode({ problemId: problem._id, code, language });
       const submitResult = { ...data.data, mode: 'submit' };
       setResult(submitResult);
-      if (data.data.status === 'accepted') toast.success('All test cases passed!');
-      else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
+      if (data.data.status === 'accepted') {
+        toast.success('All test cases passed!');
+        // Trigger immediate refresh of dashboard/profile stats
+        try {
+          const { getMe, getAnalytics, getTopicProgress, getGoalProgress } = await import('../api');
+          await Promise.all([getMe(), getAnalytics(), getTopicProgress(), getGoalProgress()]);
+          // The api client uses cached responses, so we dispatch storage event to notify other tabs/components
+          window.dispatchEvent(new Event('profile-updated'));
+        } catch (e) {
+          console.error('Failed to refresh stats after submit:', e);
+        }
+      } else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
       else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
       else toast.error(`${data.data.passedTestCases}/${data.data.totalTestCases} test cases passed`);
     } catch (error) {
@@ -199,6 +235,27 @@ export default function ProblemDetail() {
   };
 
   const runTestCaseInputs = [...visibleTestcases, ...customTestcases];
+
+  // Use a ref to store timeout ID
+  const saveTimerRef = { current: null };
+
+  useEffect(() => {
+    if (!problem || !user || !initialized) return;
+    if (!code) return;
+    // Debounced auto-save (2 seconds of inactivity)
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await saveDraft({ problemId: problem._id, language, code });
+      } catch (error) {
+        console.error('Auto-save draft failed:', error);
+      }
+    }, 2000);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [code, problem, language, user, initialized]);
 
   if (loading) {
     return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
@@ -263,6 +320,50 @@ export default function ProblemDetail() {
             {activeTab === 'description' && (
               <>
                 <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">{problem.description}</div>
+                
+                {/* SQL Schema Tables: Rendered as HTML tables like LeetCode */}
+                {isSQL && problem.sqlSchema?.tables?.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-white font-semibold mb-3">Schema</h3>
+                    {problem.sqlSchema.tables.map((table, tIdx) => (
+                      <div key={tIdx} className="mb-4">
+                        <h4 className="text-blue-400 font-medium text-sm mb-2">Table: {table.name}</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse bg-gray-900 rounded-lg border border-gray-700 text-sm">
+                            <thead>
+                              <tr className="bg-gray-800">
+                                {table.columns.map((col, cIdx) => (
+                                  <th key={cIdx} className="px-3 py-2 text-left text-gray-300 font-medium border-b border-gray-700 whitespace-nowrap">
+                                    {col.name}
+                                    <span className="text-gray-500 ml-1 text-xs">({col.type})</span>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {table.sampleData?.length > 0 ? table.sampleData.map((row, rIdx) => (
+                                <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/30'}>
+                                  {table.columns.map((col, cIdx) => (
+                                    <td key={cIdx} className="px-3 py-2 text-gray-300 border-t border-gray-800 whitespace-nowrap">
+                                      {row[col.name] !== null && row[col.name] !== undefined ? String(row[col.name]) : <span className="text-gray-600 italic">null</span>}
+                                    </td>
+                                  ))}
+                                </tr>
+                              )) : (
+                                <tr>
+                                  <td colSpan={table.columns.length} className="px-3 py-2 text-gray-500 text-center border-t border-gray-800">
+                                    No sample data
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {problem.examples?.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-white font-semibold mb-3">Examples</h3>
@@ -281,6 +382,37 @@ export default function ProblemDetail() {
                   <div className="mt-6">
                     <h3 className="text-white font-semibold mb-2">Constraints</h3>
                     <pre className="text-gray-300 text-sm whitespace-pre-wrap">{problem.constraints}</pre>
+                  </div>
+                )}
+
+                {/* Expected Result Set for SQL: Shown as rendered table */}
+                {isSQL && problem.expectedResultSet?.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-white font-semibold mb-3">Expected Output</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse bg-gray-900 rounded-lg border border-gray-700 text-sm">
+                        <thead>
+                          <tr className="bg-gray-800">
+                            {Object.keys(problem.expectedResultSet[0]).map((key, kIdx) => (
+                              <th key={kIdx} className="px-3 py-2 text-left text-gray-300 font-medium border-b border-gray-700 whitespace-nowrap">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {problem.expectedResultSet.map((row, rIdx) => (
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/30'}>
+                              {Object.keys(problem.expectedResultSet[0]).map((key, cIdx) => (
+                                <td key={cIdx} className="px-3 py-2 text-gray-300 border-t border-gray-800 whitespace-nowrap">
+                                  {row[key] !== null && row[key] !== undefined ? String(row[key]) : <span className="text-gray-600 italic">null</span>}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </>

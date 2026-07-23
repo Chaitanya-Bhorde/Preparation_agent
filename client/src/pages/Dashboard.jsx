@@ -5,12 +5,17 @@ import { getRecommendations } from '../api';
 import { Code2, TrendingUp, BookOpen, Award, Zap, ArrowRight, Plus, Loader2 } from 'lucide-react';
 import { PAGE_CONTAINER, STAT_CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES, DIFFICULTY_COLORS } from '../utils/ui';
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [recs, setRecs] = useState(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     loadRecommendations();
   }, []);
+  useEffect(() => {
+    const handler = () => { loadRecommendations(); refreshUser(); };
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
+  }, [refreshUser]);
   const loadRecommendations = async () => {
     try {
       const { data } = await getRecommendations();

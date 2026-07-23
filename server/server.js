@@ -34,6 +34,8 @@ app.use('/api/problems', require('./routes/problems'));
 app.use('/api/submissions', require('./routes/submissions'));
 app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/ats', require('./routes/ats'));
+app.use('/api/role-requirements', require('./routes/roleRequirements'));
+app.use('/api/jd-match', require('./routes/jdMatch'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/admin', require('./routes/admin'));
@@ -42,6 +44,7 @@ app.use('/api/companies', require('./routes/companies'));
 app.use('/api/mistakes', require('./routes/mistakes'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/readiness', require('./routes/readiness'));
+app.use('/api/drafts', require('./routes/drafts'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });
 });

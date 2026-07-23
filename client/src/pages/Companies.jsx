@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getCompanies, getCompanyProblems, getCompanyInfo } from '../api';
 import { PAGE_CONTAINER, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
-import { Building2, ChevronRight, Loader2, BookOpen, BarChart3 } from 'lucide-react';
+import { Building2, ChevronRight, Loader2, BookOpen, BarChart3, HelpCircle } from 'lucide-react';
 export default function Companies() {
   const [companies, setCompanies] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -65,20 +65,41 @@ export default function Companies() {
                   </div>
                 )}
               </div>
-              <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+               <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2"><BookOpen className="w-4 h-4 text-blue-400" /> Problems ({problems.length})</h3>
-                <div className="space-y-2">
-                  {problems.map((p) => (
-                    <Link key={p._id} to={`/problems/${p.slug}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-800 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-300 text-sm">{p.title}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${p.difficulty === 'easy' ? 'bg-green-900/30 text-green-400' : p.difficulty === 'medium' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}`}>{p.difficulty}</span>
-                      </div>
-                      {p.category === 'SQL' && <span className="text-xs text-purple-400">SQL</span>}
-                    </Link>
-                  ))}
-                </div>
+                {problems.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No active problems assigned for this company yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {problems.map((p) => (
+                      <Link key={p._id} to={`/problems/${p.slug}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-300 text-sm">{p.title}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${p.difficulty === 'easy' ? 'bg-green-900/30 text-green-400' : p.difficulty === 'medium' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-red-900/30 text-red-400'}`}>{p.difficulty}</span>
+                        </div>
+                        {p.category === 'SQL' && <span className="text-xs text-purple-400">SQL</span>}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
+              {info.info?.interviewQuestions?.length > 0 && (
+                <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+                  <h3 className="text-white font-semibold mb-3 flex items-center gap-2"><HelpCircle className="w-4 h-4 text-purple-400" /> Interview Questions</h3>
+                  <div className="space-y-3">
+                    {info.info.interviewQuestions.map((q, i) => (
+                      <div key={i} className="p-3 rounded-lg bg-gray-800/50">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-gray-200 text-sm font-medium">{q.question}</span>
+                          <span className="text-xs text-gray-400">{q.difficulty}</span>
+                        </div>
+                        {q.hint && <p className="text-gray-500 text-xs mb-1">Hint: {q.hint}</p>}
+                        <p className="text-gray-400 text-xs">Expected: {q.expectedAnswer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className={EMPTY_STATE_CLASSES}>

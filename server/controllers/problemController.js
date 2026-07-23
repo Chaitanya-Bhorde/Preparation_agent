@@ -15,6 +15,34 @@ exports.getProblems = async (req, res) => {
         { tags: { $regex: search, $options: 'i' } },
       ];
     }
+
+    if (solvedStatus) {
+      const userSubmissions = await Submission.find({
+        user: req.user.id,
+        type: 'submit',
+      }).select('problem status');
+
+      const solvedIds = new Set();
+      const submittedIds = new Set();
+
+      userSubmissions.forEach((sub) => {
+        const pid = sub.problem.toString();
+        submittedIds.add(pid);
+        if (sub.status === 'accepted') {
+          solvedIds.add(pid);
+        }
+      });
+
+      if (solvedStatus === 'solved') {
+        query._id = { $in: Array.from(solvedIds) };
+      } else if (solvedStatus === 'attempted') {
+        const attemptedOnly = Array.from(submittedIds).filter((id) => !solvedIds.has(id));
+        query._id = { $in: attemptedOnly };
+      } else if (solvedStatus === 'unsolved') {
+        query._id = { $nin: Array.from(submittedIds) };
+      }
+    }
+
     const total = await Problem.countDocuments(query);
     let problems = await Problem.find(query)
       .select('-testCases -solution -driverTemplate')
@@ -22,31 +50,21 @@ exports.getProblems = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    const userSubmissions = await Submission.find({
+    const pageSubmissions = await Submission.find({
       user: req.user.id,
-      problem: { $in: problems.map(p => p._id) },
+      type: 'submit',
+      problem: { $in: problems.map((p) => p._id) },
     }).select('problem status');
 
     const problemStatusMap = {};
-    userSubmissions.forEach(sub => {
+    pageSubmissions.forEach((sub) => {
       const pid = sub.problem.toString();
       if (!problemStatusMap[pid] || (sub.status === 'accepted' && problemStatusMap[pid] !== 'accepted')) {
         problemStatusMap[pid] = sub.status === 'accepted' ? 'solved' : 'attempted';
       }
     });
 
-    if (solvedStatus === 'solved') {
-      const solvedIds = Object.keys(problemStatusMap).filter(k => problemStatusMap[k] === 'solved');
-      problems = problems.filter(p => solvedIds.includes(p._id.toString()));
-    } else if (solvedStatus === 'attempted') {
-      const attemptedIds = Object.keys(problemStatusMap).filter(k => problemStatusMap[k] === 'attempted');
-      problems = problems.filter(p => attemptedIds.includes(p._id.toString()));
-    } else if (solvedStatus === 'unsolved') {
-      const allIds = Object.keys(problemStatusMap);
-      problems = problems.filter(p => !allIds.includes(p._id.toString()));
-    }
-
-    const data = problems.map(p => ({
+    const data = problems.map((p) => ({
       ...p.toObject(),
       userStatus: problemStatusMap[p._id.toString()] || 'unsolved',
     }));
@@ -75,6 +93,7 @@ exports.getProblem = async (req, res) => {
       user: req.user.id,
       problem: problem._id,
       status: 'accepted',
+      type: 'submit',
     }).select('status');
     let userStatus = 'unsolved';
     if (solved) {
@@ -83,6 +102,7 @@ exports.getProblem = async (req, res) => {
       const attempted = await Submission.findOne({
         user: req.user.id,
         problem: problem._id,
+        type: 'submit',
       }).select('status');
       if (attempted) userStatus = 'attempted';
     }

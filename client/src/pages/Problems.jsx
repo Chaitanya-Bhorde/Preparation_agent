@@ -16,7 +16,15 @@ export default function Problems() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   useEffect(() => { loadTags(); }, []);
-  useEffect(() => { loadProblems(); }, [page, difficulty, selectedTag, solvedStatus, category]);
+  useEffect(() => { loadProblems(); }, [page, difficulty, selectedTag, solvedStatus, category, search]);
+
+  // Listen for profile-updated events to refresh problem list (e.g., after submitting a solution)
+  useEffect(() => {
+    const handler = () => { loadProblems(); };
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
+  }, [page, difficulty, selectedTag, solvedStatus, category, search]);
+
   const loadTags = async () => {
     try { const { data } = await getTags(); setTags(data.data || []); }
     catch (error) { console.error('Failed to load tags:', error); }
@@ -30,7 +38,9 @@ export default function Problems() {
       if (solvedStatus) params.status = solvedStatus;
       if (category) params.category = category;
       if (search) params.search = search;
+      console.log('[PROBLEM_BANK] Fetching problems with params:', JSON.stringify(params));
       const { data } = await getProblems(params);
+      console.log('[PROBLEM_BANK] Response:', JSON.stringify({ count: data.data?.length, total: data.total, totalPages: data.totalPages }));
       setProblems(data.data || []);
       setTotalPages(data.totalPages || 1);
     } catch (error) { console.error('Failed to load problems:', error); }

@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
-import { analyzeResumeText, analyzeResumeFile } from '../api';
-import { Upload, FileText, AlertCircle, CheckCircle, TrendingUp, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { analyzeResumeFile, getRoleRequirements, matchJD } from '../api';
+import { Upload, FileText, AlertCircle, TrendingUp, Loader2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { PAGE_CONTAINER_NARROW, CARD_CLASSES, INPUT_CLASSES, BUTTON_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
+import { PAGE_CONTAINER_NARROW, CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
 const categoryLabels = {
   contact_structure: 'Contact & Structure',
   experience: 'Work Experience',
@@ -11,6 +11,7 @@ const categoryLabels = {
   achievements: 'Quantifiable Achievements',
   education: 'Education',
   keyword_density: 'SDE Keyword Density',
+  role_fit: 'Role Fit',
 };
 const categoryMax = {
   contact_structure: 10,
@@ -20,24 +21,42 @@ const categoryMax = {
   achievements: 10,
   education: 10,
   keyword_density: 5,
+  role_fit: 100,
 };
 export default function Resume() {
-  const [text, setText] = useState('');
   const [file, setFile] = useState(null);
+  const [resumeText, setResumeText] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [jdText, setJdText] = useState('');
+  const [jdMatch, setJdMatch] = useState(null);
+  const [jdLoading, setJdLoading] = useState(false);
   const fileRef = useRef();
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const { data } = await getRoleRequirements();
+        setRoles(data.data || []);
+      } catch (error) {
+        console.error('Failed to load role requirements', error);
+      }
+    };
+    loadRoles();
+  }, []);
   const handleFileUpload = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
     setFile(f);
     setLoading(true);
     try {
-      const { data } = await analyzeResumeFile(f);
+      const { data } = await analyzeResumeFile(f, selectedRole || undefined);
       setResult(data.data);
+      setResumeText(data.data?.resumeText || '');
       toast.success('Resume analyzed!');
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to analyze resume. Try pasting text instead.';
+      const message = error.response?.data?.message || 'Failed to analyze resume';
       const formattedMessage = message.includes('\n')
         ? message.split('\n').map((line, i) => i === 0 ? line : `  ${line}`).join('\n')
         : message;
@@ -46,21 +65,21 @@ export default function Resume() {
       setLoading(false);
     }
   };
-  const handleTextAnalyze = async () => {
-    if (!text.trim()) {
-      toast.error('Please paste your resume text');
+
+  const handleJDMatch = async () => {
+    if (!jdText.trim()) {
+      toast.error('Please paste a job description');
       return;
     }
-    setLoading(true);
+    setJdLoading(true);
     try {
-      const { data } = await analyzeResumeText(text);
-      setResult(data.data);
-      toast.success('Resume analyzed!');
+      const { data } = await matchJD(resumeText || '', jdText);
+      setJdMatch(data.data);
+      toast.success('JD match computed!');
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to analyze resume';
-      toast.error(message);
+      toast.error(error.response?.data?.message || 'Failed to match JD');
     } finally {
-      setLoading(false);
+      setJdLoading(false);
     }
   };
   const getScoreColor = (score) => {
@@ -93,27 +112,24 @@ export default function Resume() {
         <div className="space-y-6">
           <div className={CARD_CLASSES}>
             <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <Upload className="w-5 h-5 text-blue-400" /> Target Role
+            </h2>
+            <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="bg-gray-900 rounded-xl p-6 border border-gray-800 text-white w-full">
+              <option value="">Select a role (optional)</option>
+              {roles.map((r) => (
+                <option key={r.role} value={r.role}>{r.role}</option>
+              ))}
+            </select>
+          </div>
+          <div className={CARD_CLASSES}>
+            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
               <Upload className="w-5 h-5 text-blue-400" /> Upload Resume
             </h2>
-            <div onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
               <FileText className="w-10 h-10 text-gray-500 mx-auto mb-3" />
               <p className="text-gray-400 text-sm">{file ? file.name : 'Click to upload PDF/DOCX/TXT'}</p>
               <input ref={fileRef} type="file" accept=".pdf,.docx,.txt" onChange={handleFileUpload} className="hidden" />
             </div>
-          </div>
-          <div className={CARD_CLASSES}>
-            <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-400" /> Or Paste Resume Text
-            </h2>
-            <textarea value={text} onChange={(e) => setText(e.target.value)}
-              className={INPUT_CLASSES.replace('h-40', 'h-40')}
-              placeholder="Paste your resume content here including education, skills, projects, experience..." />
-            <button onClick={handleTextAnalyze} disabled={loading || !text.trim()}
-              className={BUTTON_CLASSES.primary + ' mt-3 w-full'}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-              {loading ? 'Analyzing...' : 'Analyze'}
-            </button>
           </div>
         </div>
         <div className="space-y-4">
@@ -132,25 +148,24 @@ export default function Resume() {
                   </span>
                 </div>
                 <div className="w-full bg-gray-800 rounded-full h-3">
-                  <div className={`h-3 rounded-full transition-all duration-500 ${getScoreBg(result.total_score)}`}
-                    style={{ width: `${result.total_score}%` }}></div>
+                  <div className={`h-3 rounded-full transition-all duration-500 ${getScoreBg(result.total_score)}`} style={{ width: `${result.total_score}%` }}></div>
                 </div>
               </div>
               <div className={CARD_CLASSES}>
                 <h2 className="text-white font-semibold mb-4">Category Breakdown</h2>
                 <div className="space-y-3">
                   {Object.keys(categoryLabels).map((key) => {
-                    const score = result.category_scores?.[key] || 0;
+                    if (key === 'role_fit' && !result.role_fit) return null;
+                    const score = key === 'role_fit' ? result.role_fit?.score || 0 : result.category_scores?.[key] || 0;
                     const max = categoryMax[key];
                     return (
                       <div key={key}>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-400">{categoryLabels[key]}</span>
-                          <span className={getCategoryColor(score, max)}>{score}/{max}</span>
+                          <span className={getCategoryColor(score, max)}>{score}{key === 'role_fit' ? '%' : `/${max}`}</span>
                         </div>
                         <div className="w-full bg-gray-800 rounded-full h-2">
-                          <div className={`h-2 rounded-full ${getCategoryBar(score, max)}`}
-                            style={{ width: `${(score / max) * 100}%` }}></div>
+                          <div className={`h-2 rounded-full ${getCategoryBar(score, max)}`} style={{ width: `${(score / max) * 100}%` }}></div>
                         </div>
                       </div>
                     );
@@ -160,12 +175,17 @@ export default function Resume() {
               <div className={CARD_CLASSES}>
                 <h2 className="text-white font-semibold mb-3">Detailed Reasoning</h2>
                 <div className="space-y-2 text-sm">
-                  {Object.keys(categoryLabels).map((key) => (
-                    <div key={key} className="flex gap-2">
-                      <span className="text-gray-500 min-w-[130px]">{categoryLabels[key]}:</span>
-                      <span className="text-gray-300">{result.reasoning?.[key] || 'N/A'}</span>
-                    </div>
-                  ))}
+                  {Object.keys(categoryLabels).map((key) => {
+                    if (key === 'role_fit' && !result.role_fit) return null;
+                    return (
+                      <div key={key} className="flex gap-2">
+                        <span className="text-gray-500 min-w-[130px]">{categoryLabels[key]}:</span>
+                        <span className="text-gray-300">
+                          {key === 'role_fit' ? result.reasoning?.role_fit || 'N/A' : result.reasoning?.[key] || 'N/A'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               {result.top_3_improvements?.length > 0 && (
@@ -183,12 +203,55 @@ export default function Resume() {
                   </ol>
                 </div>
               )}
+              {result.rewriteSuggestions?.length > 0 && (
+                <div className={CARD_CLASSES}>
+                  <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" /> AI Resume Rewriter
+                  </h2>
+                  <div className="space-y-3">
+                    {result.rewriteSuggestions.map((s, idx) => (
+                      <div key={idx} className="text-sm text-gray-300">
+                        <div className="mb-1">
+                          <span className="text-red-400 font-semibold">Original:</span> {s.original}
+                        </div>
+                        <div className="mb-1">
+                          <span className="text-green-400 font-semibold">Suggested:</span> {s.suggested}
+                        </div>
+                        <div className="text-gray-500 text-xs">{s.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className={CARD_CLASSES}>
+                <h2 className="text-white font-semibold mb-3">JD Match</h2>
+                <textarea value={jdText} onChange={(e) => setJdText(e.target.value)} placeholder="Paste a job description to calculate match percentage" className={INPUT_CLASSES.replace('h-40', 'h-32')} />
+                <button onClick={handleJDMatch} disabled={jdLoading || !resumeText || !jdText.trim()} className={BUTTON_CLASSES.primary + ' mt-3 w-full'}>
+                  {jdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                  {jdLoading ? 'Matching...' : 'Match JD'}
+                </button>
+                {jdMatch && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-400">JD Match</span>
+                      <span className={getCategoryColor(jdMatch.score, 100)}>{jdMatch.score}%</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div className={`h-2 rounded-full ${getCategoryBar(jdMatch.score, 100)}`} style={{ width: `${jdMatch.score}%` }}></div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-400">
+                      <div>Matched: {jdMatch.matchedKeywords?.join(', ')}</div>
+                      <div>Missing: {jdMatch.missingKeywords?.join(', ')}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
           {!result && !loading && (
             <div className={EMPTY_STATE_CLASSES}>
               <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500">Upload or paste your resume to get scored</p>
+              <p className="text-gray-500">Upload your resume to get scored</p>
             </div>
           )}
         </div>

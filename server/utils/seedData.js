@@ -1381,6 +1381,26 @@ int main() {
     testCases: [
       { input: 'SELECT * FROM person', expectedOutput: '1|a@b.com\n2|c@d.com\n3|a@b.com', isSample: true, isHidden: false },
     ],
+    sqlSchema: {
+      tables: [
+        {
+          name: 'person',
+          columns: [
+            { name: 'id', type: 'INT' },
+            { name: 'email', type: 'VARCHAR' },
+          ],
+          sampleData: [
+            { id: 1, email: 'a@b.com' },
+            { id: 2, email: 'c@d.com' },
+            { id: 3, email: 'a@b.com' },
+          ],
+        },
+      ],
+    },
+    expectedResultSet: [
+      { email: 'a@b.com' },
+    ],
+    schemaSetup: 'CREATE TABLE person (id INT, email VARCHAR); INSERT INTO person VALUES (1, \'a@b.com\'), (2, \'c@d.com\'), (3, \'a@b.com\');',
   },
   {
     title: 'Combine Two Tables',

@@ -1,4 +1,5 @@
 const pdfParse = require('pdf-parse');
+const pdfjsLib = require('pdfjs-dist');
 const mammoth = require('mammoth');
 const WordExtractor = require('word-extractor');
 const { createWorker } = require('tesseract.js');
@@ -7,15 +8,38 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-exports.analyzeResume = (text) => {
+// --- Debug logging configuration ---
+// Set DEBUG_PDF_EXTRACTION=1 in environment to enable verbose PDF extraction logging
+const DEBUG_PDF = process.env.DEBUG_PDF_EXTRACTION === '1' || process.env.DEBUG_PDF_EXTRACTION === 'true';
+
+const logDebug = (...args) => {
+  if (DEBUG_PDF) {
+    console.log('[PDF-DEBUG]', ...args);
+  }
+};
+
+// Log which PDF libraries are available and their versions
+const PDF_LIBRARY_INFO = {
+  'pdfjs-dist': (() => { try { return require('pdfjs-dist/package.json').version; } catch { return 'unknown'; } })(),
+  'pdf-parse': (() => { try { return require('pdf-parse/package.json').version; } catch { return 'unknown'; } })(),
+  'pdf2pic': (() => { try { return require('pdf2pic/package.json').version; } catch { return 'unknown'; } })(),
+  'tesseract.js': (() => { try { return require('tesseract.js/package.json').version; } catch { return 'unknown'; } })(),
+};
+
+console.log('[PDF-LIBRARY] Available PDF libraries and versions:', PDF_LIBRARY_INFO);
+
+// Minimum text length threshold for valid extraction (reduced from 100 to handle short but valid resumes)
+const MIN_TEXT_LENGTH = 50;
+
+exports.analyzeResume = (text, roleRequirements = null) => {
   const lower = text.toLowerCase();
 
   let contact_structure = 0;
   const hasEmail = /[\w.-]+@[\w.-]+\.\w{2,3}/.test(text);
   const hasPhone = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(text);
   const hasLinkedInOrGithub = /linkedin\.com|github\.com/.test(lower);
-  const hasEducation = /\b(education|b\.?tech|b\.?e\.|bachelor|m\.?tech|m\.?e\.|master|ph\.?d|be\s|btech)\b/i.test(text);
-  const hasExperience = /\b(experience|internship|work\s*history)\b/i.test(text);
+  const hasEducation = /\b(education|academic\s*background|educational\s*qualification|qualification|b\.?tech|b\.?e\.|bachelor|m\.?tech|m\.?e\.|master|ph\.?d|be\s|btech)\b/i.test(text);
+  const hasExperience = /\b(work\s*experience|professional\s*experience|internship\s*experience|experience|employment\s*history|work\s*history)\b/i.test(text);
   const hasProjects = /\b(projects?)\b/i.test(text);
   const hasSkills = /\b(skills?|technical\s*skills|technologies)\b/i.test(text);
 
@@ -138,20 +162,56 @@ exports.analyzeResume = (text) => {
   else if (hasDegree) education += 2;
 
   let keyword_density = 0;
-  const sdeKeywords = ['dsa', 'data structures', 'algorithm', 'oop', 'object-oriented', 'dbms', 'database management',
-                        'os', 'operating system', 'computer networks', 'cn', 'system design', 'rest api', 'restful', 'git'];
-  let kwFound = 0;
-  for (const kw of sdeKeywords) {
-    if (lower.includes(kw)) {
-      kwFound++;
-      if (kwFound >= 5) break;
+  let role_fit = null;
+  let missingSkills = [];
+  if (roleRequirements) {
+    const roleKeywords = roleRequirements.keywords || [];
+    let roleKwFound = 0;
+    for (const kw of roleKeywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        roleKwFound++;
+      }
     }
+    const roleKeywordDensity = roleKeywords.length > 0 ? Math.round((roleKwFound / roleKeywords.length) * 100) : 0;
+    const matchedSkills = [];
+    if (roleRequirements.requiredSkills && roleRequirements.requiredSkills.length > 0) {
+      for (const req of roleRequirements.requiredSkills) {
+        const found = technologies.has(req.skill.toLowerCase()) || lower.includes(req.skill.toLowerCase());
+        if (found) matchedSkills.push(req.skill);
+        else missingSkills.push(req.skill);
+      }
+    }
+    const matchedCount = matchedSkills.length;
+    const totalRequired = roleRequirements.requiredSkills?.length || 0;
+    const roleFitScore = totalRequired > 0 ? Math.round((matchedCount / totalRequired) * 100) : 0;
+    role_fit = {
+      score: roleFitScore,
+      matchedSkills,
+      missingSkills,
+      keywordDensity: roleKeywordDensity,
+    };
+  } else {
+    const sdeKeywords = ['dsa', 'data structures', 'algorithm', 'oop', 'object-oriented', 'dbms', 'database management',
+                          'os', 'operating system', 'computer networks', 'cn', 'system design', 'rest api', 'restful', 'git'];
+    let kwFound = 0;
+    for (const kw of sdeKeywords) {
+      if (lower.includes(kw)) {
+        kwFound++;
+        if (kwFound >= 5) break;
+      }
+    }
+    keyword_density = kwFound;
   }
-  keyword_density = kwFound;
 
-  const total_score = contact_structure + experience + projects + technical_skills + achievements + education + keyword_density;
+  let total_score = contact_structure + experience + projects + technical_skills + achievements + education + keyword_density;
+  if (roleRequirements && role_fit) {
+    total_score = Math.round(total_score * 0.7 + role_fit.score * 0.3);
+  }
 
   const improvements = [];
+  if (roleRequirements && role_fit && missingSkills && missingSkills.length > 0) {
+    improvements.push(`Add key missing skills for ${roleRequirements.role}: ${missingSkills.slice(0, 3).join(', ')}`);
+  }
   if (experience === 0) {
     improvements.push('Add internship/work experience section with company name, dates, role, and bullet points describing your work');
   } else if (experience < 15) {
@@ -182,7 +242,7 @@ exports.analyzeResume = (text) => {
     improvements.push('Consider getting an internship or building more projects to strengthen your resume');
   }
 
-  return {
+  const response = {
     category_scores: {
       contact_structure: contact_structure,
       experience: experience,
@@ -206,27 +266,75 @@ exports.analyzeResume = (text) => {
       education: hasCGPA && hasDegree ? `CGPA found, degree + institution found` :
                  hasDegree ? 'Degree mentioned but CGPA or institution details may be missing' :
                  'Education section missing or incomplete',
-      keyword_density: `${kwFound}/5 SDE keywords found: ${sdeKeywords.filter(k => lower.includes(k)).slice(0, 5).join(', ') || 'none'}`,
+      keyword_density: `${keyword_density}/5 SDE keywords found`,
     },
     top_3_improvements: improvements.slice(0, 3),
   };
+
+  if (roleRequirements && role_fit) {
+    response.category_scores.role_fit = role_fit.score;
+    response.reasoning.role_fit = `Matched ${matchedSkills.length}/${totalRequired} required skills (${role_fit.keywordDensity}% keyword coverage for ${roleRequirements.role})`;
+    response.role_fit = role_fit;
+  }
+
+  return response;
 };
 
 const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
+  const MIN_CHARS = MIN_TEXT_LENGTH || 50;
+
+  // Strategy 1: Try pdfjs-dist first (handles multi-column/resume-exported PDFs better than pdf-parse)
+  try {
+    const data = new Uint8Array(fileBuffer);
+    const doc = await pdfjsLib.getDocument({
+      data,
+      useSystemFonts: true,
+      cMapUrl: undefined,
+      cMapPacked: false,
+    }).promise;
+
+    let pdfText = '';
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const pageContent = await page.getTextContent();
+      const pageText = pageContent.items.map(item => item.str).join(' ');
+      pdfText += pageText + '\n\n';
+    }
+    await doc.destroy();
+
+    const trimmedText = pdfText.trim();
+    logDebug(`pdfjs-dist extracted ${trimmedText.length} chars from ${originalname}`);
+    console.log(`PDF text extraction (${originalname}) [pdfjs-dist]: extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
+    if (trimmedText.length >= MIN_CHARS) {
+      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdfjs-dist SUCCEEDED for ${originalname}`);
+      return trimmedText;
+    }
+    if (trimmedText.length > 0) {
+      console.log(`PDF extraction warning (${originalname}) [pdfjs-dist]: text is short (${trimmedText.length} chars), trying pdf-parse fallback...`);
+    }
+  } catch (pdfjsError) {
+    console.log(`pdfjs-dist failed for ${originalname}:`, pdfjsError.message);
+  }
+
+  // Strategy 2: Fallback to pdf-parse
   try {
     const data = await pdfParse(fileBuffer);
     const text = data.text || '';
     const trimmedText = text.trim();
-    console.log(`PDF text extraction (${originalname}): extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
-    if (trimmedText.length >= 100) {
+    logDebug(`pdf-parse extracted ${trimmedText.length} chars from ${originalname}`);
+    console.log(`PDF text extraction (${originalname}) [pdf-parse]: extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
+    if (trimmedText.length >= MIN_CHARS) {
+      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdf-parse SUCCEEDED for ${originalname}`);
       return trimmedText;
     }
     if (trimmedText.length > 0) {
-      console.log(`PDF extraction warning (${originalname}): extracted text is short (${trimmedText.length} chars), may need OCR`);
+      console.log(`PDF extraction warning (${originalname}) [pdf-parse]: text is short (${trimmedText.length} chars), trying OCR fallback...`);
     }
   } catch (pdfError) {
     console.log(`pdf-parse failed for ${originalname}:`, pdfError.message);
   }
+
+  // Strategy 3: Last resort — OCR (pdf2pic + tesseract.js)
   try {
     const tempPdfPath = path.join(os.tmpdir(), `temp_${Date.now()}.pdf`);
     fs.writeFileSync(tempPdfPath, fileBuffer);
@@ -237,13 +345,13 @@ const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
       const worker = await createWorker('eng');
       const result = await worker.recognize(imageBuffer);
       await worker.terminate();
-      fs.unlinkSync(tempPdfPath);
-      if (images[0].path && fs.existsSync(images[0].path)) {
-        fs.unlinkSync(images[0].path);
-      }
+      if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+      if (images[0].path && fs.existsSync(images[0].path)) fs.unlinkSync(images[0].path);
       const ocrText = (result.data.text || '').trim();
-      console.log(`OCR fallback succeeded for ${originalname}: ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
-      if (ocrText.length >= 100) {
+      logDebug(`OCR extracted ${ocrText.length} chars from ${originalname}, confidence: ${result.data.confidence}%`);
+      console.log(`OCR fallback result for ${originalname}: ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
+      if (ocrText.length >= MIN_CHARS) {
+        if (DEBUG_PDF) console.log(`[PDF-DEBUG] OCR SUCCEEDED for ${originalname}`);
         return ocrText;
       }
       console.log(`OCR extraction warning (${originalname}): OCR text too short (${ocrText.length} chars)`);
@@ -251,6 +359,8 @@ const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
   } catch (ocrError) {
     console.log(`PDF OCR fallback failed for ${originalname}:`, ocrError.message);
   }
+
+  if (DEBUG_PDF) console.log(`[PDF-DEBUG] PDF_EXTRACTION_FAILED for ${originalname}`);
   throw new Error('PDF_EXTRACTION_FAILED');
 };
 
@@ -283,7 +393,7 @@ exports.extractResumeText = async (fileBuffer, mimeType, originalname) => {
     }
 
     const trimmedText = text.trim();
-    if (!trimmedText || trimmedText.length < 100) {
+    if (!trimmedText || trimmedText.length < MIN_TEXT_LENGTH) {
       console.log(`Extraction warning (${originalname}): text too short (${trimmedText.length} chars)`);
       throw new Error('PARSE_FAILURE');
     }

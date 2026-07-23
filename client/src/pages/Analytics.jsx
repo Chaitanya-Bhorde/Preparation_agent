@@ -11,6 +11,11 @@ export default function Analytics() {
   useEffect(() => {
     loadAnalytics();
   }, []);
+  useEffect(() => {
+    const handler = () => { loadAnalytics(); };
+    window.addEventListener('profile-updated', handler);
+    return () => window.removeEventListener('profile-updated', handler);
+  }, []);
   const loadAnalytics = async () => {
     try {
       const { data: res } = await getAnalytics();

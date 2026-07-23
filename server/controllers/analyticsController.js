@@ -26,19 +26,30 @@ exports.getAnalytics = async (req, res) => {
       medium: user.stats.mediumSolved || 0,
       hard: user.stats.hardSolved || 0,
     };
-    const allSubmissions = await Submission.find({ user: req.user.id })
+    const allSubmissions = await Submission.find({ user: req.user.id, type: 'submit' })
       .populate('problem', 'tags difficulty');
-    const topicPerformance = {};
+    // Track distinct problems per tag (not per-submission)
+    const tagProblemSets = {};
+    const tagAcceptedSets = {};
     allSubmissions.forEach((sub) => {
       if (sub.problem && sub.problem.tags) {
+        const pid = sub.problem._id.toString();
         sub.problem.tags.forEach((tag) => {
-          if (!topicPerformance[tag]) {
-            topicPerformance[tag] = { total: 0, accepted: 0 };
+          if (!tagProblemSets[tag]) tagProblemSets[tag] = new Set();
+          if (!tagAcceptedSets[tag]) tagAcceptedSets[tag] = new Set();
+          tagProblemSets[tag].add(pid);
+          if (sub.status === 'accepted') {
+            tagAcceptedSets[tag].add(pid);
           }
-          topicPerformance[tag].total += 1;
-          if (sub.status === 'accepted') topicPerformance[tag].accepted += 1;
         });
       }
+    });
+    const topicPerformance = {};
+    Object.keys(tagProblemSets).forEach((tag) => {
+      topicPerformance[tag] = {
+        total: tagProblemSets[tag].size,
+        accepted: tagAcceptedSets[tag] ? tagAcceptedSets[tag].size : 0,
+      };
     });
     const overallStats = {
       totalSolved: user.stats.totalSolved || 0,
