@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { analyzeResumeFile, getRoleRequirements, matchJD } from '../api';
 import { Upload, FileText, AlertCircle, TrendingUp, Loader2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { PAGE_CONTAINER_NARROW, CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
+import { PAGE_CONTAINER_NARROW, CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES, INPUT_CLASSES, BUTTON_CLASSES } from '../utils/ui';
 const categoryLabels = {
   contact_structure: 'Contact & Structure',
   experience: 'Work Experience',

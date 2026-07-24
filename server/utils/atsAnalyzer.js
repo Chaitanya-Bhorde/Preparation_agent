@@ -57,19 +57,19 @@ exports.analyzeResume = (text, roleRequirements = null) => {
   const dates = text.match(/\b(20\d{2})\b/g) || [];
   const hasCompanyName = /at\s+[A-Z][A-Za-z\s.]+|company|inc\.?|technologies|ltd\.?|pvt\.?|private\s+limited/i.test(text);
   const hasRoleTitle = /\b(software engineer|intern|developer|analyst|trainee|associate|engineer|sde|full.?stack)\b/i.test(text);
-  const hasBullets = /[•\-*]\s*.+/.test(text);
+  const hasBullets = /[•●\u2022\u2023\u25CF\u25E6\u2043\u2219\u25D8\u25D9\-*]\s*.+/.test(text);
 
   if (hasCompanyName && dates.length >= 1 && hasRoleTitle && hasBullets) {
-    const entries = text.split(/\n\s*\n/).filter(block => {
+    const entries = text.split(/[•●]/).filter(block => {
       const b = block.toLowerCase();
-      return (b.includes('at ') || b.includes('intern') || b.includes('engineer')) &&
+      return (b.includes('at ') || b.includes('intern') || b.includes('engineer') || b.includes('developer')) &&
              /\b(20\d{2})\b/.test(block) &&
-             (b.includes('-') || b.includes('•') || b.includes('*'));
+             b.includes('|');
     });
     const entryCount = Math.min(entries.length, 2);
     experience += entryCount * 5;
 
-    const bulletLines = text.split('\n').filter(line => /^[•\-*\s]+/.test(line.trim()));
+    const bulletLines = text.split('\n').filter(line => /^[•●\u2022\u2023\u25CF\u25E6\u2043\u2219\u25D8\u25D9\-*\s]+/.test(line.trim()));
     let qualityScore = 0;
     const actionVerbs = /\b(developed|designed|built|implemented|created|optimized|improved|reduced|led|managed|architected|engineered|deployed|integrated|automated|scaled|migrated)\b/i;
     const techMention = /\b(react|node|python|java|javascript|typescript|mongodb|sql|aws|docker|kubernetes|api|git|redux|css|html|django|flask|spring)\b/i;
@@ -164,6 +164,8 @@ exports.analyzeResume = (text, roleRequirements = null) => {
   let keyword_density = 0;
   let role_fit = null;
   let missingSkills = [];
+  let matchedSkills = [];
+  let totalRequired = 0;
   if (roleRequirements) {
     const roleKeywords = roleRequirements.keywords || [];
     let roleKwFound = 0;
@@ -173,7 +175,7 @@ exports.analyzeResume = (text, roleRequirements = null) => {
       }
     }
     const roleKeywordDensity = roleKeywords.length > 0 ? Math.round((roleKwFound / roleKeywords.length) * 100) : 0;
-    const matchedSkills = [];
+    matchedSkills = [];
     if (roleRequirements.requiredSkills && roleRequirements.requiredSkills.length > 0) {
       for (const req of roleRequirements.requiredSkills) {
         const found = technologies.has(req.skill.toLowerCase()) || lower.includes(req.skill.toLowerCase());
@@ -182,7 +184,7 @@ exports.analyzeResume = (text, roleRequirements = null) => {
       }
     }
     const matchedCount = matchedSkills.length;
-    const totalRequired = roleRequirements.requiredSkills?.length || 0;
+    totalRequired = roleRequirements.requiredSkills?.length || 0;
     const roleFitScore = totalRequired > 0 ? Math.round((matchedCount / totalRequired) * 100) : 0;
     role_fit = {
       score: roleFitScore,

@@ -1,5 +1,6 @@
 const { analyzeResume, extractResumeText } = require('../utils/atsAnalyzer');
 const { generateRewriteSuggestions } = require('../utils/resumeRewriter');
+const { evaluateResume } = require('../utils/strictAtsEvaluator');
 const User = require('../models/User');
 const RoleRequirements = require('../models/RoleRequirements');
 const { getFileUrl, isConfigured } = require('../config/cloudinary');
@@ -52,6 +53,7 @@ exports.analyzeResumeFile = async (req, res) => {
     try {
       text = await extractResumeText(fileBuffer, req.file.mimetype, fileName);
       console.log('[ATS_ANALYZE] Text extracted, length:', text.length, 'chars');
+      console.log('[ATS_ANALYZE] FULL EXTRACTED TEXT:', text);
     } catch (extractError) {
       console.error('[ATS_ANALYZE] TEXT EXTRACTION FAILED:', extractError.message);
       console.error('[ATS_ANALYZE] Stack:', extractError.stack);
@@ -111,9 +113,16 @@ exports.analyzeResumeFile = async (req, res) => {
     }
 
     // --- Step 4: Analyze resume ---
+    // Use strict evaluator if 'strict=true' is passed, otherwise use legacy analyzer
+    const useStrict = req.body.strict === 'true' || req.body.strict === true;
     let result;
     try {
-      result = analyzeResume(text, roleRequirements);
+      if (useStrict) {
+        console.log('[ATS_ANALYZE] Using strict evaluator for role:', roleName || 'General Software Engineer');
+        result = evaluateResume(text, roleName || undefined);
+      } else {
+        result = analyzeResume(text, roleRequirements);
+      }
       console.log('[ATS_ANALYZE] Analysis complete, total_score:', result.total_score);
       console.log('[ATS_ANALYZE] Category scores:', JSON.stringify(result.category_scores));
     } catch (analyzeError) {
@@ -125,7 +134,11 @@ exports.analyzeResumeFile = async (req, res) => {
     // --- Step 5: Generate rewrite suggestions ---
     let rewriteSuggestions;
     try {
-      rewriteSuggestions = generateRewriteSuggestions(text, result);
+      if (useStrict && result.rewrite_suggestions) {
+        rewriteSuggestions = result.rewrite_suggestions;
+      } else {
+        rewriteSuggestions = generateRewriteSuggestions(text, result);
+      }
       console.log('[ATS_ANALYZE] Rewrite suggestions generated, count:', rewriteSuggestions?.length || 0);
     } catch (rewriteError) {
       console.error('[ATS_ANALYZE] REWRITE GENERATION FAILED:', rewriteError.message);
