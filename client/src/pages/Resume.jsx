@@ -33,6 +33,7 @@ export default function Resume() {
   const [jdText, setJdText] = useState('');
   const [jdMatch, setJdMatch] = useState(null);
   const [jdLoading, setJdLoading] = useState(false);
+  const [reAnalyzing, setReAnalyzing] = useState(false);
   const fileRef = useRef();
   useEffect(() => {
     const loadRoles = async () => {
@@ -45,16 +46,15 @@ export default function Resume() {
     };
     loadRoles();
   }, []);
-  const handleFileUpload = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    setFile(f);
-    setLoading(true);
+  const runAnalysis = async (fileToAnalyze, roleToUse, isReAnalyze = false) => {
+    if (!fileToAnalyze) return;
+    const setLoadingFn = isReAnalyze ? setReAnalyzing : setLoading;
+    setLoadingFn(true);
     try {
-      const { data } = await analyzeResumeFile(f, selectedRole || undefined);
+      const { data } = await analyzeResumeFile(fileToAnalyze, roleToUse || undefined);
       setResult(data.data);
       setResumeText(data.data?.resumeText || '');
-      toast.success('Resume analyzed!');
+      toast.success(isReAnalyze ? 'Resume re-analyzed with new role!' : 'Resume analyzed!');
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to analyze resume';
       const formattedMessage = message.includes('\n')
@@ -62,9 +62,23 @@ export default function Resume() {
         : message;
       toast.error(formattedMessage, { duration: 6000 });
     } finally {
-      setLoading(false);
+      setLoadingFn(false);
     }
   };
+
+  const handleFileUpload = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    await runAnalysis(f, selectedRole);
+  };
+
+  // Auto re-analyze with new role when role changes AND file already uploaded
+  useEffect(() => {
+    if (file && result) {
+      runAnalysis(file, selectedRole, true);
+    }
+  }, [selectedRole]);
 
   const handleJDMatch = async () => {
     if (!jdText.trim()) {
@@ -136,6 +150,14 @@ export default function Resume() {
           {loading && (
             <div className={LOADING_SPINNER}>
               <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+            </div>
+          )}
+          {reAnalyzing && (
+            <div className={CARD_CLASSES}>
+              <div className="flex items-center justify-center gap-3 py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                <span className="text-gray-400 text-sm">Re-analyzing with new role...</span>
+              </div>
             </div>
           )}
           {result && !loading && (

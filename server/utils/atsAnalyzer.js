@@ -58,7 +58,14 @@ exports.analyzeResume = (text, roleRequirements = null) => {
   const hasCompanyName = /at\s+[A-Z][A-Za-z\s.]+|company|inc\.?|technologies|ltd\.?|pvt\.?|private\s+limited/i.test(text);
   const hasRoleTitle = /\b(software engineer|intern|developer|analyst|trainee|associate|engineer|sde|full.?stack)\b/i.test(text);
   const hasBullets = /[•●\u2022\u2023\u25CF\u25E6\u2043\u2219\u25D8\u25D9\-*]\s*.+/.test(text);
+  const hasExpSection = /\b(work\s*experience|professional\s*experience|internship\s*experience|experience|employment\s*history|work\s*history)\b/i.test(text);
 
+  // If experience section header exists, give at least a base score
+  if (hasExpSection) {
+    experience += 5; // Base score for having the section
+  }
+
+  // Bonus for having company + role + dates + bullets (full entry structure)
   if (hasCompanyName && dates.length >= 1 && hasRoleTitle && hasBullets) {
     const entries = text.split(/[•●]/).filter(block => {
       const b = block.toLowerCase();
@@ -86,6 +93,14 @@ exports.analyzeResume = (text, roleRequirements = null) => {
       }
     }
     experience += Math.min(qualityScore, 10);
+  } else if (hasExpSection) {
+    // Section exists but entry structure not fully parsed - give partial credit
+    // Check for action verbs anywhere in the text as a quality signal
+    const actionVerbs = /\b(developed|designed|built|implemented|created|optimized|improved|reduced|led|managed|architected|engineered|deployed|integrated|automated|scaled|migrated)\b/gi;
+    const actionMatches = text.match(actionVerbs);
+    if (actionMatches) {
+      experience += Math.min(actionMatches.length, 5);
+    }
   }
 
   let projects = 0;
@@ -259,7 +274,9 @@ exports.analyzeResume = (text, roleRequirements = null) => {
       contact_structure: hasEmail && hasPhone ? `Email found, phone found${hasLinkedInOrGithub ? ', LinkedIn/GitHub found' : ''}, ${sectionsFound}/4 sections present` :
                      `Email: ${hasEmail}, Phone: ${hasPhone}, LinkedIn/GitHub: ${hasLinkedInOrGithub}, Sections: ${sectionsFound}/4`,
       experience: experience === 0 ? 'No internship/work experience section with company + dates + role + bullets detected' :
-                  `Found internship entries with company/dates/roles, bullet quality scored ${Math.min(experience - (experience > 10 ? 10 : experience), 10)}/10`,
+                  hasCompanyName && dates.length >= 1 && hasRoleTitle && hasBullets
+                    ? `Experience section found with entries. Base score ${Math.min(experience - (experience > 10 ? 10 : Math.min(experience - 5, 5)), 10)}/10 for entry structure, quality ${Math.min(experience - (experience > 10 ? 10 : experience > 5 ? experience - 5 : 0), 10)}/10 from bullet points`
+                    : `Experience section header detected with action verbs suggesting work history, scored ${experience}/20`,
       projects: projectCount === 0 ? 'No projects section detected' :
                 `${projectCount} project(s) identified${!hasProjectLinks ? ', missing GitHub/link' : ''}${!hasTechStack ? ', tech stack not explicitly listed' : ''}`,
       technical_skills: `${technologies.size} distinct technologies found${hasCategories ? ', grouped into categories' : ', not grouped into categories'}`,

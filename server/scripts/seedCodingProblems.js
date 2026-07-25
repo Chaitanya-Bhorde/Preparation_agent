@@ -1,0 +1,737 @@
+const mongoose = require('mongoose');
+const CodingProblem = require('../models/CodingProblem');
+
+const codingProblems = [
+  {
+    title: 'Two Sum',
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice.',
+    difficulty: 'easy',
+    topic: 'Arrays',
+    tags: ['array', 'hash-table'],
+    constraints: ['2 <= nums.length <= 10^4', '-10^9 <= nums[i] <= 10^9', '-10^9 <= target <= 10^9'],
+    examples: [
+      { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]', explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].' },
+      { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
+      { input: 'nums = [3,3], target = 6', output: '[0,1]' },
+    ],
+    visibleTestCases: [
+      { input: '[2,7,11,15]\n9', expectedOutput: '[0,1]' },
+      { input: '[3,2,4]\n6', expectedOutput: '[1,2]' },
+    ],
+    hiddenTestCases: [
+      { input: '[3,3]\n6', expectedOutput: '[0,1]' },
+      { input: '[1,5,3,7]\n8', expectedOutput: '[1,3]' },
+      { input: '[0,4,3,0]\n0', expectedOutput: '[0,3]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [nums, target] = JSON.parse(input);\n  \n  return [];\n}',
+      python: 'def solve(input):\n    nums, target = eval(input)\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(String input) {\n        // parse input\n        return new int[]{0,1};\n    }\n}',
+      cpp: 'vector<int> solve(string input) {\n    // parse input\n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'string' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'string' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Valid Palindrome',
+    description: 'A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.',
+    difficulty: 'easy',
+    topic: 'Strings',
+    tags: ['string', 'two-pointer'],
+    constraints: ['1 <= s.length <= 2 * 10^5', 's consists only of printable ASCII characters'],
+    examples: [
+      { input: 's = "A man, a plan, a canal: Panama"', output: 'true', explanation: '"amanaplanacanalpanama" is a palindrome.' },
+      { input: 's = "race a car"', output: 'false', explanation: '"raceacar" is not a palindrome.' },
+    ],
+    visibleTestCases: [
+      { input: 'A man, a plan, a canal: Panama', expectedOutput: 'true' },
+      { input: 'race a car', expectedOutput: 'false' },
+    ],
+    hiddenTestCases: [
+      { input: ' ', expectedOutput: 'true' },
+      { input: '0P', expectedOutput: 'false' },
+      { input: 'ab_a', expectedOutput: 'true' },
+    ],
+    starterCode: {
+      javascript: 'function solve(s) {\n  \n  return true;\n}',
+      python: 'def solve(s):\n    \n    return True',
+      java: 'class Solution {\n    public static boolean solve(String s) {\n        \n        return true;\n    }\n}',
+      cpp: 'bool solve(string s) {\n    \n    return true;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      java: { name: 'solve', params: [{ name: 's', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'bool' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Longest Substring Without Repeating Characters',
+    description: 'Given a string s, find the length of the longest substring without repeating characters.',
+    difficulty: 'medium',
+    topic: 'Strings',
+    tags: ['string', 'sliding-window', 'two-pointer'],
+    constraints: ['0 <= s.length <= 5 * 10^4', 's consists of English letters, digits, symbols and spaces'],
+    examples: [
+      { input: 's = "abcabcbb"', output: '3', explanation: 'The answer is "abc", with the length of 3.' },
+      { input: 's = "bbbbb"', output: '1', explanation: 'The answer is "b", with the length of 1.' },
+    ],
+    visibleTestCases: [
+      { input: 'abcabcbb', expectedOutput: '3' },
+      { input: 'bbbbb', expectedOutput: '1' },
+    ],
+    hiddenTestCases: [
+      { input: 'pwwkew', expectedOutput: '3' },
+      { input: '', expectedOutput: '0' },
+      { input: 'au', expectedOutput: '2' },
+      { input: 'dvdf', expectedOutput: '3' },
+    ],
+    starterCode: {
+      javascript: 'function solve(s) {\n  \n  return 0;\n}',
+      python: 'def solve(s):\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(String s) {\n        \n        return 0;\n    }\n}',
+      cpp: 'int solve(string s) {\n    \n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 's', type: 'String' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'number' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Binary Search',
+    description: 'Given an array of integers nums which is sorted in ascending order, and an integer target, write a function to search target in nums. If target exists, return its index. Otherwise, return -1.',
+    difficulty: 'easy',
+    topic: 'Arrays',
+    tags: ['array', 'binary-search'],
+    constraints: ['1 <= nums.length <= 10^4', '-10^4 < nums[i], target < 10^4', 'All integers in nums are unique'],
+    examples: [
+      { input: 'nums = [-1,0,3,5,9,12], target = 9', output: '4', explanation: '9 exists in nums and its index is 4' },
+    ],
+    visibleTestCases: [
+      { input: '[-1,0,3,5,9,12]\n9', expectedOutput: '4' },
+      { input: '[-1,0,3,5,9,12]\n2', expectedOutput: '-1' },
+    ],
+    hiddenTestCases: [
+      { input: '[5]\n5', expectedOutput: '0' },
+      { input: '[2,5]\n5', expectedOutput: '1' },
+      { input: '[-1,0,3,5,9,12]\n13', expectedOutput: '-1' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [nums, target] = JSON.parse(input);\n  \n  return -1;\n}',
+      python: 'def solve(input):\n    nums, target = eval(input)\n    \n    return -1',
+      java: 'class Solution {\n    public static int solve(String input) {\n        // parse input\n        return -1;\n    }\n}',
+      cpp: 'int solve(string input) {\n    // parse input\n    return -1;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Maximum Subarray',
+    description: 'Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.',
+    difficulty: 'medium',
+    topic: 'Dynamic Programming',
+    tags: ['array', 'dynamic-programming', 'divide-and-conquer'],
+    constraints: ['1 <= nums.length <= 3 * 10^4', '-10^4 <= nums[i] <= 10^4'],
+    examples: [
+      { input: 'nums = [-2,1,-3,4,-1,2,1,-5,4]', output: '6', explanation: 'The subarray [4,-1,2,1] has the largest sum 6.' },
+    ],
+    visibleTestCases: [
+      { input: '-2,1,-3,4,-1,2,1,-5,4', expectedOutput: '6' },
+      { input: '1', expectedOutput: '1' },
+    ],
+    hiddenTestCases: [
+      { input: '5,4,-1,7,8', expectedOutput: '23' },
+      { input: '-1', expectedOutput: '-1' },
+      { input: '-2,-1', expectedOutput: '-1' },
+    ],
+    starterCode: {
+      javascript: 'function solve(nums) {\n  \n  return 0;\n}',
+      python: 'def solve(nums):\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(int[] nums) {\n        \n        return 0;\n    }\n}',
+      cpp: 'int solve(vector<int> nums) {\n    \n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'nums', type: 'int[]' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'number' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Climbing Stairs',
+    description: 'You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?',
+    difficulty: 'easy',
+    topic: 'Dynamic Programming',
+    tags: ['dynamic-programming', 'math'],
+    constraints: ['1 <= n <= 45'],
+    examples: [
+      { input: 'n = 2', output: '2', explanation: '1. 1 step + 1 step\n2. 2 steps' },
+      { input: 'n = 3', output: '3', explanation: '1. 1 + 1 + 1\n2. 1 + 2\n3. 2 + 1' },
+    ],
+    visibleTestCases: [
+      { input: '2', expectedOutput: '2' },
+      { input: '3', expectedOutput: '3' },
+    ],
+    hiddenTestCases: [
+      { input: '4', expectedOutput: '5' },
+      { input: '5', expectedOutput: '8' },
+      { input: '45', expectedOutput: '1836311903' },
+    ],
+    starterCode: {
+      javascript: 'function solve(n) {\n  \n  return 0;\n}',
+      python: 'def solve(n):\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(int n) {\n        \n        return 0;\n    }\n}',
+      cpp: 'int solve(int n) {\n    \n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'n', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'n', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'n', type: 'int' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'n', type: 'int' }], returnType: 'number' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Merge Two Sorted Lists',
+    description: 'You are given the heads of two sorted linked lists. Merge the two lists in a sorted order. Return the head of the merged linked list.',
+    difficulty: 'easy',
+    topic: 'Linked List',
+    tags: ['linked-list', 'recursion'],
+    constraints: ['The number of nodes in both lists is in the range [0, 50]', '-100 <= Node.val <= 100'],
+    examples: [
+      { input: 'list1 = [1,2,4], list2 = [1,3,4]', output: '[1,1,2,3,4,4]' },
+    ],
+    visibleTestCases: [
+      { input: '[1,2,4]\n[1,3,4]', expectedOutput: '[1,1,2,3,4,4]' },
+      { input: '[]\n[]', expectedOutput: '[]' },
+    ],
+    hiddenTestCases: [
+      { input: '[]\n[0]', expectedOutput: '[0]' },
+      { input: '[1,3,5]\n[2,4,6]', expectedOutput: '[1,2,3,4,5,6]' },
+      { input: '[-9,-7,-3]\n[-10,-7,3]', expectedOutput: '[-10,-9,-7,-3,3]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [list1, list2] = JSON.parse(input);\n  \n  return [];\n}',
+      python: 'def solve(input):\n    list1, list2 = eval(input)\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(String input) {\n        // parse input\n        return new int[]{};\n    }\n}',
+      cpp: 'vector<int> solve(string input) {\n    // parse input\n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number[]' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Valid Parentheses',
+    description: 'Given a string s containing just the characters (, ), {, }, [, determine if the input string is valid. An input string is valid if open brackets must be closed by the same type of brackets and open brackets must be closed in the correct order.',
+    difficulty: 'easy',
+    topic: 'Stack',
+    tags: ['string', 'stack'],
+    constraints: ['1 <= s.length <= 10^4', 's consists of parentheses only'],
+    examples: [
+      { input: 's = "()"', output: 'true' },
+    ],
+    visibleTestCases: [
+      { input: '()', expectedOutput: 'true' },
+      { input: '()[]{}', expectedOutput: 'true' },
+    ],
+    hiddenTestCases: [
+      { input: '(]', expectedOutput: 'false' },
+      { input: '([)]', expectedOutput: 'false' },
+      { input: '{[]}', expectedOutput: 'true' },
+      { input: '(((((())))))', expectedOutput: 'true' },
+    ],
+    starterCode: {
+      javascript: 'function solve(s) {\n  \n  return true;\n}',
+      python: 'def solve(s):\n    \n    return True',
+      java: 'class Solution {\n    public static boolean solve(String s) {\n        \n        return true;\n    }\n}',
+      cpp: 'bool solve(string s) {\n    \n    return true;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'boolean' },
+      java: { name: 'solve', params: [{ name: 's', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'bool' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Minimum Window Substring',
+    description: 'Given two strings s and t, return the minimum window substring of s such that every character in t is included in the window. If there is no such substring, return the empty string.',
+    difficulty: 'hard',
+    topic: 'Strings',
+    tags: ['string', 'sliding-window', 'hash-table'],
+    constraints: ['m == s.length', 'n == t.length', '1 <= m, n <= 10^5'],
+    examples: [
+      { input: 's = "ADOBECODEBANC", t = "ABC"', output: '"BANC"', explanation: 'The minimum window substring "BANC" includes "A", "B", and "C" from string t.' },
+    ],
+    visibleTestCases: [
+      { input: 'ADOBECODEBANC\nABC', expectedOutput: 'BANC' },
+      { input: 'a\nb', expectedOutput: '' },
+    ],
+    hiddenTestCases: [
+      { input: 'a\na', expectedOutput: 'a' },
+      { input: 'ab\nb', expectedOutput: 'b' },
+      { input: 'bba\nab', expectedOutput: 'ba' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [s, t] = input.split("\\n");\n  \n  return "";\n}',
+      python: 'def solve(input):\n    s, t = input.split("\\n")\n    \n    return ""',
+      java: 'class Solution {\n    public static String solve(String input) {\n        String[] parts = input.split("\\n");\n        return "";\n    }\n}',
+      cpp: 'string solve(string input) {\n    // parse\nn    return "";\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'string' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'string' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'String' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'string' },
+    },
+    timeLimitMs: 3000,
+    memoryLimitKb: 512,
+  },
+  {
+    title: 'Course Schedule',
+    description: 'There are a total of numCourses courses. You are given an array prerequisites where prerequisites[i] indicates that you must take course b_i first if you want to take course a_i. Return true if you can finish all courses. Otherwise, return false.',
+    difficulty: 'medium',
+    topic: 'Graph',
+    tags: ['graph', 'topological-sort', 'depth-first-search'],
+    constraints: ['1 <= numCourses <= 2000', '0 <= prerequisites.length <= 5000'],
+    examples: [
+      { input: 'numCourses = 2, prerequisites = [[1,0]]', output: 'true' },
+    ],
+    visibleTestCases: [
+      { input: '2\n[[1,0]]', expectedOutput: 'true' },
+      { input: '2\n[[1,0],[0,1]]', expectedOutput: 'false' },
+    ],
+    hiddenTestCases: [
+      { input: '3\n[[0,1],[0,2],[1,2]]', expectedOutput: 'true' },
+      { input: '4\n[[2,0],[1,0],[3,1],[3,2]]', expectedOutput: 'true' },
+      { input: '5\n[[1,4],[2,4],[3,1],[3,2]]', expectedOutput: 'true' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [numCourses, prerequisites] = JSON.parse(input);\n  \n  return true;\n}',
+      python: 'def solve(input):\n    numCourses, prerequisites = eval(input)\n    \n    return True',
+      java: 'class Solution {\n    public static boolean solve(String input) {\n        // parse input\n        return true;\n    }\n}',
+      cpp: 'bool solve(string input) {\n    // parse input\n    return true;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'boolean' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'bool' },
+    },
+    timeLimitMs: 2500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Rotate Array',
+    description: 'Given an integer array nums, rotate the array to the right by k steps, where k is non-negative.',
+    difficulty: 'medium',
+    topic: 'Arrays',
+    tags: ['array', 'math', 'two-pointer'],
+    constraints: ['1 <= nums.length <= 10^5', '-2^31 <= nums[i] <= 2^31 - 1', '0 <= k <= 10^5'],
+    examples: [
+      { input: 'nums = [1,2,3,4,5,6,7], k = 3', output: '[5,6,7,1,2,3,4]' },
+    ],
+    visibleTestCases: [
+      { input: '[1,2,3,4,5,6,7]\n3', expectedOutput: '[5,6,7,1,2,3,4]' },
+      { input: '[-1,-100,3,99]\n2', expectedOutput: '[3,99,-1,-100]' },
+    ],
+    hiddenTestCases: [
+      { input: '[1,2]\n3', expectedOutput: '[2,1]' },
+      { input: '[1,2,3]\n3', expectedOutput: '[1,2,3]' },
+      { input: '[1,2,3,4,5,6]\n4', expectedOutput: '[3,4,5,6,1,2]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [nums, k] = JSON.parse(input);\n  \n  return [];\n}',
+      python: 'def solve(input):\n    nums, k = eval(input)\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(String input) {\n        // parse input\n        return new int[]{};\n    }\n}',
+      cpp: 'vector<int> solve(string input) {\n    // parse input\n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number[]' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Number of Islands',
+    description: 'Given an m x n 2D binary grid which represents a map of "1"s (land) and "0"s (water), return the number of islands.',
+    difficulty: 'medium',
+    topic: 'Graph',
+    tags: ['graph', 'depth-first-search', 'breadth-first-search'],
+    constraints: ['m == grid.length', 'n == grid[i].length', '1 <= m, n <= 300'],
+    examples: [
+      { input: 'grid = [["1","1","1","1","0"],["1","1","0","1","0"],["1","0","0","0","0"],["0","0","1","0","1"]]', output: '3' },
+    ],
+    visibleTestCases: [
+      { input: '[[1,1,1,1,0],[1,1,0,1,0],[1,0,0,0,0],[0,0,1,0,1]]', expectedOutput: '3' },
+    ],
+    hiddenTestCases: [
+      { input: '[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]', expectedOutput: '4' },
+      { input: '[[0,0,0,0],[0,1,1,0],[0,0,0,0]]', expectedOutput: '1' },
+      { input: '[[1,1],[1,1]]', expectedOutput: '1' },
+    ],
+    starterCode: {
+      javascript: 'function solve(grid) {\n  \n  return 0;\n}',
+      python: 'def solve(grid):\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(char[][] grid) {\n        \n        return 0;\n    }\n}',
+      cpp: 'int solve(vector<vector<char>> grid) {\n    \n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'grid', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'grid', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'grid', type: 'char[][]' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'grid', type: 'vector<vector<char>>' }], returnType: 'number' },
+    },
+    timeLimitMs: 2500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Valid Sudoku',
+    description: 'Determine if a 9 x 9 Sudoku board is valid. Only filled cells need to be validated according to the rules of Sudoku.',
+    difficulty: 'medium',
+    topic: 'Arrays',
+    tags: ['array', 'hash-table', 'matrix'],
+    constraints: ['board.length == 9', 'Each cell contains a digit 1-9 or "."'],
+    examples: [
+      { input: 'board = [["5","3",".",".","7",".",".",".","."]...]', output: 'true' },
+    ],
+    visibleTestCases: [
+      { input: '[["5","3",".",".","7",".",".",".","."],["6",".",".","1","9","5",".",".","."],[".","9","8",".",".",".",".","6","."],["8",".",".",".","6",".",".",".","3"],["4",".",".","8",".","3",".",".","1"],["7",".",".",".","2",".",".",".","6"],[".","6",".",".",".",".","2","8","."],[".",".",".","4","1","9",".",".","5"],[".",".",".",".","8",".",".","7","9"]]', expectedOutput: 'true' },
+      { input: '[["8","3",".",".","7",".",".",".","."],["6",".",".","1","9","5",".",".","."],[".","9","8",".",".",".",".","6","."],["8",".",".",".","6",".",".",".","3"],["4",".",".","8",".","3",".",".","1"],["7",".",".",".","2",".",".",".","6"],[".","6",".",".",".",".","2","8","."],[".",".",".","4","1","9",".",".","5"],[".",".",".",".","8",".",".","7","9"]]', expectedOutput: 'false' },
+    ],
+    hiddenTestCases: [
+      { input: '[[".",".","4",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."],[".",".",".",".",".",".",".",".","."]]', expectedOutput: 'true' },
+    ],
+    starterCode: {
+      javascript: 'function solve(board) {\n  \n  return true;\n}',
+      python: 'def solve(board):\n    \n    return True',
+      java: 'class Solution {\n    public static boolean solve(char[][] board) {\n        \n        return true;\n    }\n}',
+      cpp: 'bool solve(vector<vector<char>> board) {\n    \n    return true;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'board', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'solve', params: [{ name: 'board', type: 'string' }], returnType: 'boolean' },
+      java: { name: 'solve', params: [{ name: 'board', type: 'char[][]' }], returnType: 'boolean' },
+      cpp: { name: 'solve', params: [{ name: 'board', type: 'vector<vector<char>>' }], returnType: 'bool' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Best Time to Buy and Sell Stock',
+    description: 'You are given an array prices where prices[i] is the price of a given stock on the ith day. You want to maximize your profit by choosing a single day to buy and a different day in the future to sell. Return the maximum profit achievable.',
+    difficulty: 'easy',
+    topic: 'Arrays',
+    tags: ['array', 'dynamic-programming'],
+    constraints: ['1 <= prices.length <= 10^5', '0 <= prices[i] <= 10^4'],
+    examples: [
+      { input: 'prices = [7,1,5,3,6,4]', output: '5', explanation: 'Buy on day 2 (price = 1) and sell on day 5 (price = 6) => profit = 5' },
+    ],
+    visibleTestCases: [
+      { input: '7,1,5,3,6,4', expectedOutput: '5' },
+      { input: '7,6,4,3,1', expectedOutput: '0' },
+    ],
+    hiddenTestCases: [
+      { input: '1,2', expectedOutput: '1' },
+      { input: '2,4,1', expectedOutput: '2' },
+      { input: '3,2,6,5,0,3', expectedOutput: '4' },
+    ],
+    starterCode: {
+      javascript: 'function solve(prices) {\n  \n  return 0;\n}',
+      python: 'def solve(prices):\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(int[] prices) {\n        \n        return 0;\n    }\n}',
+      cpp: 'int solve(vector<int> prices) {\n    \n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'prices', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'prices', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'prices', type: 'int[]' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'prices', type: 'vector<int>' }], returnType: 'number' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Palindrome Partitioning',
+    description: 'Given a string s, partition s such that every substring of the partition is a palindrome. Return all possible palindrome partitioning of s.',
+    difficulty: 'medium',
+    topic: 'Dynamic Programming',
+    tags: ['string', 'dynamic-programming', 'backtracking'],
+    constraints: ['1 <= s.length <= 16', 's consists of lowercase English letters only'],
+    examples: [
+      { input: 's = "aab"', output: '[["a","a","b"],["aa","b"]]' },
+    ],
+    visibleTestCases: [
+      { input: 'aab', expectedOutput: '[[a,a,b],[aa,b]]' },
+    ],
+    hiddenTestCases: [
+      { input: 'a', expectedOutput: '[[a]]' },
+      { input: 'aba', expectedOutput: '[[a,b,a],[aba]]' },
+      { input: 'abab', expectedOutput: '[[a,b,a,b],[a,bab],[aba,b],[ab,ab]]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(s) {\n  \n  return [];\n}',
+      python: 'def solve(s):\n    \n    return []',
+      java: 'class Solution {\n    public static List<List<String>> solve(String s) {\n        \n        return new ArrayList<>();\n    }\n}',
+      cpp: 'vector<vector<string>> solve(string s) {\n    \n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'string[][]' },
+      python: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 's', type: 'String' }], returnType: 'List<List<String>>' },
+      cpp: { name: 'solve', params: [{ name: 's', type: 'string' }], returnType: 'vector<vector<string>>' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Word Ladder',
+    description: 'Given two words beginWord and endWord, and a dictionary wordList, return the number of words in the shortest transformation sequence from beginWord to endWord.',
+    difficulty: 'hard',
+    topic: 'Graph',
+    tags: ['graph', 'breadth-first-search', 'string'],
+    constraints: ['1 <= beginWord.length <= 10', 'endWord.length == beginWord.length', '1 <= wordList.length <= 5000'],
+    examples: [
+      { input: 'beginWord = "hit", endWord = "cog", wordList = ["hot","dot","dog","lot","log","cog"]', output: '5' },
+    ],
+    visibleTestCases: [
+      { input: 'hit\ncog\nhot,dot,dog,lot,log,cog', expectedOutput: '5' },
+      { input: 'hit\ncog\nhot,dot,dog,lot,log', expectedOutput: '0' },
+    ],
+    hiddenTestCases: [
+      { input: 'a\nc\na,b,b', expectedOutput: '2' },
+      { input: 'hot\ndog\ndot,dog', expectedOutput: '3' },
+      { input: 'qa\nsq\nsi,go,se,ta,rc...', expectedOutput: '5' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [beginWord, endWord, wordList] = input.split("\\n");\n  \n  return 0;\n}',
+      python: 'def solve(input):\n    beginWord, endWord, wordList = input.split("\\n")\n    \n    return 0',
+      java: 'class Solution {\n    public static int solve(String input) {\n        // parse\n        return 0;\n    }\n}',
+      cpp: 'int solve(string input) {\n    // parse\n    return 0;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'number' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'number' },
+    },
+    timeLimitMs: 3000,
+    memoryLimitKb: 512,
+  },
+  {
+    title: 'Move Zeroes',
+    description: 'Given an integer array nums, move all 0s to the end of it while maintaining the relative order of the non-zero elements.',
+    difficulty: 'easy',
+    topic: 'Arrays',
+    tags: ['array', 'two-pointer'],
+    constraints: ['1 <= nums.length <= 10^4', '-2^31 <= nums[i] <= 2^31 - 1'],
+    examples: [
+      { input: 'nums = [0,1,0,3,12]', output: '[1,3,12,0,0]' },
+    ],
+    visibleTestCases: [
+      { input: '0,1,0,3,12', expectedOutput: '[1,3,12,0,0]' },
+      { input: '0', expectedOutput: '[0]' },
+    ],
+    hiddenTestCases: [
+      { input: '1,0,0,1', expectedOutput: '[1,1,0,0]' },
+      { input: '0,0,0,0', expectedOutput: '[0,0,0,0]' },
+      { input: '1,2,3,4,5', expectedOutput: '[1,2,3,4,5]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(nums) {\n  \n  return [];\n}',
+      python: 'def solve(nums):\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(int[] nums) {\n        \n        return new int[]{};\n    }\n}',
+      cpp: 'vector<int> solve(vector<int> nums) {\n    \n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'number[]' },
+      python: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'nums', type: 'int[]' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Linked List Cycle',
+    description: 'Given head of a linked list, determine if the linked list has a cycle in it. There is a cycle if some node in the list can be reached again by continuously following the next pointer.',
+    difficulty: 'easy',
+    topic: 'Linked List',
+    tags: ['linked-list', 'two-pointer', 'hash-table'],
+    constraints: ['The number of nodes is in the range [0, 10^4]', '-10^5 <= Node.val <= 10^5'],
+    examples: [
+      { input: 'head = [3,2,0,-4], pos = 1', output: 'true' },
+    ],
+    visibleTestCases: [
+      { input: '[3,2,0,-4]\n1', expectedOutput: 'true' },
+      { input: '[1,2]\n0', expectedOutput: 'true' },
+    ],
+    hiddenTestCases: [
+      { input: '[1]\n-1', expectedOutput: 'false' },
+      { input: '[1,2]\n-1', expectedOutput: 'false' },
+      { input: '[1,1,1,1]\n0', expectedOutput: 'true' },
+    ],
+    starterCode: {
+      javascript: 'function solve(input) {\n  const [arr, pos] = JSON.parse(input);\n  \n  return false;\n}',
+      python: 'def solve(input):\n    arr, pos = eval(input)\n    \n    return False',
+      java: 'class Solution {\n    public static boolean solve(String input) {\n        // parse\n        return false;\n    }\n}',
+      cpp: 'bool solve(string input) {\n    // parse\n    return false;\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'boolean' },
+      python: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'boolean' },
+      java: { name: 'solve', params: [{ name: 'input', type: 'String' }], returnType: 'boolean' },
+      cpp: { name: 'solve', params: [{ name: 'input', type: 'string' }], returnType: 'bool' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Reverse Linked List',
+    description: 'Given the head of a singly linked list, reverse the list, and return the reversed list.',
+    difficulty: 'easy',
+    topic: 'Linked List',
+    tags: ['linked-list', 'recursion'],
+    constraints: ['The number of nodes in the list is in the range [0, 5000]', '-5000 <= Node.val <= 5000'],
+    examples: [
+      { input: 'head = [1,2,3,4,5]', output: '[5,4,3,2,1]' },
+    ],
+    visibleTestCases: [
+      { input: '[1,2,3,4,5]', expectedOutput: '[5,4,3,2,1]' },
+      { input: '[1,2]', expectedOutput: '[2,1]' },
+    ],
+    hiddenTestCases: [
+      { input: '[]', expectedOutput: '[]' },
+      { input: '[1]', expectedOutput: '[1]' },
+      { input: '[1,2,3]', expectedOutput: '[3,2,1]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(head) {\n  \n  return [];\n}',
+      python: 'def solve(head):\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(int[] head) {\n        \n        return new int[]{};\n    }\n}',
+      cpp: 'vector<int> solve(vector<int> head) {\n    \n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'head', type: 'string' }], returnType: 'number[]' },
+      python: { name: 'solve', params: [{ name: 'head', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'head', type: 'int[]' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'head', type: 'vector<int>' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 1500,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Product of Array Except Self',
+    description: 'Given an integer array nums, return an array answer such that answer[i] is equal to the product of all the elements of nums except nums[i].',
+    difficulty: 'medium',
+    topic: 'Arrays',
+    tags: ['array', 'prefix-sum'],
+    constraints: ['2 <= nums.length <= 10^5', '-30 <= nums[i] <= 30'],
+    examples: [
+      { input: 'nums = [1,2,3,4]', output: '[24,12,8,6]' },
+    ],
+    visibleTestCases: [
+      { input: '1,2,3,4', expectedOutput: '[24,12,8,6]' },
+      { input: '-1,1,0,-3,3', expectedOutput: '[0,0,9,0,0]' },
+    ],
+    hiddenTestCases: [
+      { input: '2,3,4,5', expectedOutput: '[60,40,30,24]' },
+      { input: '1,1,1,1', expectedOutput: '[1,1,1,1]' },
+      { input: '0,1,2,3', expectedOutput: '[6,0,0,0]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(nums) {\n  \n  return [];\n}',
+      python: 'def solve(nums):\n    \n    return []',
+      java: 'class Solution {\n    public static int[] solve(int[] nums) {\n        \n        return new int[]{};\n    }\n}',
+      cpp: 'vector<int> solve(vector<int> nums) {\n    \n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'number[]' },
+      python: { name: 'solve', params: [{ name: 'nums', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'nums', type: 'int[]' }], returnType: 'int[]' },
+      cpp: { name: 'solve', params: [{ name: 'nums', type: 'vector<int>' }], returnType: 'vector<int>' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+  {
+    title: 'Merge Intervals',
+    description: 'Given an array of intervals, merge all overlapping intervals, and return an array of the non-overlapping intervals that cover all of the intervals in the input.',
+    difficulty: 'medium',
+    topic: 'Arrays',
+    tags: ['array', 'sorting'],
+    constraints: ['1 <= intervals.length <= 10^4', 'intervals[i].length == 2'],
+    examples: [
+      { input: 'intervals = [[1,3],[2,6],[8,10],[15,18]]', output: '[[1,6],[8,10],[15,18]]' },
+    ],
+    visibleTestCases: [
+      { input: '[[1,3],[2,6],[8,10],[15,18]]', expectedOutput: '[[1,6],[8,10],[15,18]]' },
+      { input: '[[1,4],[4,5]]', expectedOutput: '[[1,5]]' },
+    ],
+    hiddenTestCases: [
+      { input: '[[1,4],[0,4]]', expectedOutput: '[[0,4]]' },
+      { input: '[[1,4],[2,3]]', expectedOutput: '[[1,4]]' },
+      { input: '[[2,3],[4,5],[6,7],[8,9],[1,10]]', expectedOutput: '[[1,10]]' },
+    ],
+    starterCode: {
+      javascript: 'function solve(intervals) {\n  \n  return [];\n}',
+      python: 'def solve(intervals):\n    \n    return []',
+      java: 'class Solution {\n    public static int[][] solve(int[][] intervals) {\n        \n        return new int[][]{};\n    }\n}',
+      cpp: 'vector<vector<int>> solve(vector<vector<int>> intervals) {\n    \n    return {};\n}',
+    },
+    functionSignature: {
+      javascript: { name: 'solve', params: [{ name: 'intervals', type: 'string' }], returnType: 'number[][]' },
+      python: { name: 'solve', params: [{ name: 'intervals', type: 'string' }], returnType: 'list' },
+      java: { name: 'solve', params: [{ name: 'intervals', type: 'int[][]' }], returnType: 'int[][]' },
+      cpp: { name: 'solve', params: [{ name: 'intervals', type: 'vector<vector<int>>' }], returnType: 'vector<vector<int>>' },
+    },
+    timeLimitMs: 2000,
+    memoryLimitKb: 256,
+  },
+];
+
+const seedCodingProblems = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    await CodingProblem.deleteMany({});
+    await CodingProblem.insertMany(codingProblems);
+    console.log(`Seeded ${codingProblems.length} coding problems.`);
+    process.exit(0);
+  } catch (error) {
+    console.error('Seeding error:', error);
+    process.exit(1);
+  }
+};
+
+seedCodingProblems();

@@ -606,12 +606,224 @@ const options = {
           },
         },
       },
+      '/api/sql/problems': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get all SQL problems (paginated, filterable)',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'difficulty', in: 'query', schema: { type: 'string', enum: ['easy', 'medium', 'hard'] } },
+            { name: 'topic', in: 'query', schema: { type: 'string' } },
+            { name: 'tags', in: 'query', schema: { type: 'string' }, description: 'Comma-separated tags' },
+            { name: 'search', in: 'query', schema: { type: 'string' } },
+            { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+          ],
+          responses: {
+            200: { description: 'SQL problems retrieved' },
+          },
+        },
+      },
+      '/api/sql/problems/{slug}': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get a single SQL problem by slug',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'SQL problem retrieved' },
+            404: { description: 'SQL problem not found' },
+          },
+        },
+      },
+      '/api/sql/run': {
+        post: {
+          tags: ['SQL Practice'],
+          summary: 'Run SQL query against sample test cases',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['problemId', 'query'],
+                  properties: {
+                    problemId: { type: 'string' },
+                    query: { type: 'string', description: 'The SQL query to execute' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Run result with per-case comparison' },
+          },
+        },
+      },
+      '/api/sql/submit': {
+        post: {
+          tags: ['SQL Practice'],
+          summary: 'Submit SQL query against ALL test cases for grading',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['problemId', 'query'],
+                  properties: {
+                    problemId: { type: 'string' },
+                    query: { type: 'string', description: 'The SQL query to execute' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Submission result with per-case comparison' },
+          },
+        },
+      },
+      '/api/sql/submissions': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get user SQL submission history',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'problemId', in: 'query', schema: { type: 'string' } },
+            { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+          ],
+          responses: {
+            200: { description: 'Submissions retrieved' },
+          },
+        },
+      },
+      '/api/sql/submissions/{id}': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get a single SQL submission by ID',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Submission retrieved' },
+            404: { description: 'Submission not found' },
+          },
+        },
+      },
+      '/api/sql/topics': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get all distinct SQL problem topics',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          responses: {
+            200: { description: 'Topics retrieved' },
+          },
+        },
+      },
+      '/api/sql/tags': {
+        get: {
+          tags: ['SQL Practice'],
+          summary: 'Get all distinct SQL problem tags',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          responses: {
+            200: { description: 'Tags retrieved' },
+          },
+        },
+      },
       '/api/health': {
         get: {
           tags: ['Health'],
           summary: 'Health check endpoint',
           responses: {
             200: { description: 'API is running' },
+          },
+        },
+      },
+      '/api/coding/run': {
+        post: {
+          tags: ['Coding Practice'],
+          summary: 'Run code against visible and custom test cases',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['problemId', 'language', 'code'],
+                  properties: {
+                    problemId: { type: 'string' },
+                    language: { type: 'string', enum: ['javascript', 'python', 'java', 'cpp', 'c', 'go', 'rust', 'typescript'] },
+                    code: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Run completed', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { status: { type: 'string' }, testCaseResults: { type: 'array', items: { type: 'object', properties: { input: { type: 'string' }, expectedOutput: { type: 'string' }, actualOutput: { type: 'string' }, passed: { type: 'boolean' }, executionTime: { type: 'number' }, memoryUsed: { type: 'number' }, error: { type: 'string' }, errorType: { type: 'string' } } } } } } } } } },
+          },
+        },
+      },
+      '/api/coding/submit': {
+        post: {
+          tags: ['Coding Practice'],
+          summary: 'Submit code against all test cases for grading and save submission',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['problemId', 'language', 'code'],
+                  properties: {
+                    problemId: { type: 'string' },
+                    language: { type: 'string', enum: ['javascript', 'python', 'java', 'cpp', 'c', 'go', 'rust', 'typescript'] },
+                    code: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Submission created with verdict', content: { 'application/json': { schema: { $ref: '#/components/schemas/Submission' } } } },
+          },
+        },
+      },
+      '/api/coding/submissions': {
+        get: {
+          tags: ['Coding Practice'],
+          summary: 'Get user coding submission history',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'problemId', in: 'query', schema: { type: 'string' } },
+            { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+          ],
+          responses: {
+            200: { description: 'Submissions retrieved' },
+          },
+        },
+      },
+      '/api/coding/submissions/{id}': {
+        get: {
+          tags: ['Coding Practice'],
+          summary: 'Get a single coding submission by ID',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Submission retrieved' },
+            404: { description: 'Submission not found' },
           },
         },
       },

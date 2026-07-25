@@ -15,6 +15,7 @@ import {
   Brain,
   Menu,
   X,
+  Database,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -72,6 +73,10 @@ export default function Navbar() {
             <Link to="/problems" className={linkClass(isActive('/problems'))}>
               <BookOpen className="w-4 h-4 inline mr-1" />
               Problems
+            </Link>
+            <Link to="/sql" className={linkClass(isActive('/sql'))}>
+              <Database className="w-4 h-4 inline mr-1" />
+              SQL
             </Link>
             <div className="relative" ref={featuresRef}>
               <button
@@ -150,6 +155,14 @@ export default function Navbar() {
             >
               <BookOpen className="w-4 h-4" />
               Problems
+            </Link>
+            <Link
+              to="/sql"
+              className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Database className="w-4 h-4" />
+              SQL Practice
             </Link>
             <div className="px-2 py-1 text-xs text-gray-500 uppercase">Features</div>
             {featuresSubItems.map((item) => (
