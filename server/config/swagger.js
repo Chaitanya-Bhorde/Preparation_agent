@@ -1,5 +1,3 @@
-const swaggerJsdoc = require('swagger-jsdoc');
-
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -832,4 +830,4 @@ const options = {
   apis: [],
 };
 
-module.exports = swaggerJsdoc(options);
+module.exports = options;

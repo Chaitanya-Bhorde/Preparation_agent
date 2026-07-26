@@ -100,5 +100,24 @@ export const getCodingProblem = (slug) => API.get(`/coding-problems/${slug}`);
 export const getCodingTags = () => API.get('/coding-problems/tags');
 export const getCodingTopics = () => API.get('/coding-problems/topics');
 export const getCodingSubmissions = (params) => API.get('/coding/submissions', { params });
+export const generateDSAProblem = (data) => API.post('/dsa/generate', data);
 export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
+
+// Interview Experiences
+export const getInterviewExperiences = (params) => API.get('/interview-experiences', { params });
+export const getInterviewExperience = (id) => API.get(`/interview-experiences/${id}`);
+export const createInterviewExperience = (data) => API.post('/interview-experiences', data);
+export const updateInterviewExperience = (id, data) => API.put(`/interview-experiences/${id}`, data);
+export const deleteInterviewExperience = (id) => API.delete(`/interview-experiences/${id}`);
+export const voteInterviewExperience = (id, voteType) => API.post(`/interview-experiences/${id}/vote`, { voteType });
+export const getMyInterviewExperiences = () => API.get('/interview-experiences/my');
+
+// Leaderboard
+export const getLeaderboard = (params) => API.get('/leaderboard', { params });
+export const getMyLeaderboardStats = () => API.get('/leaderboard/me');
+export const updateLeaderboard = () => API.post('/leaderboard/update');
+
+// Progress Export
+export const exportProgress = () => API.get('/progress/export');
+
 export default API;

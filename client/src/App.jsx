@@ -17,6 +17,9 @@ import Goals from './pages/Goals';
 import Readiness from './pages/Readiness';
 import SQLProblems from './pages/SQLProblems';
 import SQLProblemDetail from './pages/SQLProblemDetail';
+import Leaderboard from './pages/Leaderboard';
+import InterviewExperiences from './pages/InterviewExperiences';
+import ProgressExport from './pages/ProgressExport';
 import { Loader2 } from 'lucide-react';
 import { LOADING_SPINNER } from './utils/ui';
 function PrivateRoute({ children }) {
@@ -50,6 +53,9 @@ function App() {
          <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
          <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
          <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
+         <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+         <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
+         <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
       </Routes>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getRecommendations } from '../api';
-import { Code2, TrendingUp, BookOpen, Award, Zap, ArrowRight, Plus, Loader2 } from 'lucide-react';
+import { Code2, TrendingUp, BookOpen, Award, Zap, ArrowRight, Plus, Loader2, Trophy, MessageSquare, Download, BarChart3 } from 'lucide-react';
 import { PAGE_CONTAINER, STAT_CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES, DIFFICULTY_COLORS } from '../utils/ui';
 export default function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -134,6 +134,44 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Quick Links to New Features */}
+      <div className="mt-8 bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Zap className="w-5 h-5 text-yellow-400" />
+          Placement Preparation Hub
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Link to="/leaderboard" className="flex items-center gap-3 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+            <Trophy className="w-6 h-6 text-yellow-400" />
+            <div>
+              <p className="text-white font-medium text-sm">Leaderboard</p>
+              <p className="text-gray-500 text-xs">Compete with peers</p>
+            </div>
+          </Link>
+          <Link to="/interview-experiences" className="flex items-center gap-3 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+            <MessageSquare className="w-6 h-6 text-green-400" />
+            <div>
+              <p className="text-white font-medium text-sm">Interview Experiences</p>
+              <p className="text-gray-500 text-xs">Learn from seniors</p>
+            </div>
+          </Link>
+          <Link to="/progress-export" className="flex items-center gap-3 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+            <Download className="w-6 h-6 text-purple-400" />
+            <div>
+              <p className="text-white font-medium text-sm">Progress Report</p>
+              <p className="text-gray-500 text-xs">Export your stats</p>
+            </div>
+          </Link>
+          <Link to="/analytics" className="flex items-center gap-3 p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+            <BarChart3 className="w-6 h-6 text-blue-400" />
+            <div>
+              <p className="text-white font-medium text-sm">Analytics</p>
+              <p className="text-gray-500 text-xs">Detailed insights</p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

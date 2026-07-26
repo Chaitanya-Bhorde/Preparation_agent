@@ -697,7 +697,14 @@ async function seed() {
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
     console.log('Connected to MongoDB');
     await SQLProblem.deleteMany({});
-    const created = await SQLProblem.insertMany(problems);
+    
+    // Generate slugs before inserting
+    const problemsWithSlugs = problems.map(p => {
+      const slug = p.title.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
+      return { ...p, slug };
+    });
+    
+    const created = await SQLProblem.insertMany(problemsWithSlugs);
     console.log(`Seeded ${created.length} SQL problems`);
     process.exit(0);
   } catch (error) {

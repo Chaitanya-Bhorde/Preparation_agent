@@ -15,6 +15,7 @@ const TestCaseSchema = new mongoose.Schema({
   input: { type: String, required: true },
   expectedOutput: { type: String, required: true },
   explanation: String,
+  category: String,
 });
 
 const CodingProblemSchema = new mongoose.Schema(
@@ -71,7 +72,7 @@ const CodingProblemSchema = new mongoose.Schema(
     },
     memoryLimitKb: {
       type: Number,
-      default: 256,
+      default: 256000,
     },
     isActive: {
       type: Boolean,

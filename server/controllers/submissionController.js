@@ -1,8 +1,37 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const User = require('../models/User');
+const Leaderboard = require('../models/Leaderboard');
 const { runCode, submitCode } = require('../utils/judge0');
 const { executeSQL } = require('../utils/sqlRunner');
+
+// Helper to update leaderboard after submission
+const updateLeaderboardAfterSubmission = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    if (!user) return;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const weeklySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });
+    const monthlySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneMonthAgo }, type: 'submit', status: 'accepted' });
+    const totalSubs = await Submission.countDocuments({ user: userId, type: 'submit' });
+    const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' });
+    await Leaderboard.findOneAndUpdate(
+      { user: userId },
+      {
+        totalSolved: user.stats.totalSolved, easySolved: user.stats.easySolved,
+        mediumSolved: user.stats.mediumSolved, hardSolved: user.stats.hardSolved,
+        totalSubmissions: user.stats.totalSubmissions,
+        acceptanceRate: totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0,
+        atsScore: user.profile.atsScore || 0, streak: user.stats.streak || 0,
+        weeklySolved, monthlySolved, lastUpdated: Date.now(),
+      },
+      { upsert: true }
+    );
+  } catch (error) {
+    console.error('Leaderboard update failed:', error.message);
+  }
+};
 
 exports.runSubmission = async (req, res) => {
   try {

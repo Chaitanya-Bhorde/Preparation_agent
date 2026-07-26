@@ -1,5 +1,7 @@
 const axios = require('axios');
 
+const JUDGE0_URL = process.env.JUDGE0_API_URL || 'http://localhost:2358';
+
 const LANGUAGE_IDS = {
   javascript: 63,
   python: 71,
@@ -28,94 +30,36 @@ const JUDGE0_STATUS = {
   14: 'exec_format_error',
 };
 
-const JUDGE0_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
-const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
-
-const headers = {
-  'Content-Type': 'application/json',
-};
-
-if (JUDGE0_API_KEY) {
-  headers['X-RapidAPI-Key'] = JUDGE0_API_KEY;
-  headers['X-RapidAPI-Host'] = 'judge0-ce.p.rapidapi.com';
-}
-
 const judge0Client = axios.create({
   baseURL: JUDGE0_URL,
-  headers,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 30000,
 });
 
-const createJudge0Submission = async (sourceCode, languageId, stdin) => {
-  const response = await judge0Client.post('/submissions', {
-    source_code: sourceCode,
-    language_id: languageId,
-    stdin: stdin,
-    wait: false,
-  });
-  return response.data.token;
-};
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const pollJudge0Result = async (token) => {
-  let backoffMs = 1000;
-  const maxBackoffMs = 5000;
-  const timeoutMs = 15000;
-  const start = Date.now();
-
-  while (Date.now() - start < timeoutMs) {
+/**
+ * Check if the Judge0 instance is reachable by calling GET /about or /status.
+ */
+const isJudge0Reachable = async () => {
+  try {
+    await judge0Client.get('/about', { timeout: 3000 });
+    return true;
+  } catch (_) {
     try {
-      const response = await judge0Client.get(`/submissions/${token}`, {
-        params: {
-          base64_encoded: false,
-          fields: 'stdout,stderr,status_id,status,time,memory,stdin,expected_output,compile_output,message',
-        },
-      });
-      const data = response.data;
-      const statusId = data.status_id;
-
-      if (statusId === 1 || statusId === 2) {
-        await delay(backoffMs);
-        backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-        continue;
-      }
-
-      if (statusId === 3) {
-        await delay(backoffMs);
-        backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
-        continue;
-      }
-
-      return data;
-    } catch (error) {
-      if (Date.now() - start >= timeoutMs) {
-        return {
-          status_id: 13,
-          status: { description: 'Internal Error' },
-          stdout: null,
-          stderr: null,
-          compile_output: 'Execution timed out after multiple polling attempts.',
-          time: null,
-          memory: null,
-        };
-      }
-      await delay(backoffMs);
-      backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+      await judge0Client.get('/status', { timeout: 3000 });
+      return true;
+    } catch (_) {
+      return false;
     }
   }
-
-  return {
-    status_id: 13,
-    status: { description: 'Internal Error' },
-    stdout: null,
-    stderr: null,
-    compile_output: 'Execution timed out after multiple polling attempts.',
-    time: null,
-    memory: null,
-  };
 };
 
-const formatError = (data) => {
+const normalizeLanguage = (language) => {
+  return (language || '').toLowerCase();
+};
+
+const formatJudge0Error = (data) => {
   if (data.status_id === 6) {
     return { type: 'CompileError', message: data.compile_output || data.stderr || 'Compilation failed with no output.' };
   }
@@ -131,33 +75,78 @@ const formatError = (data) => {
   return null;
 };
 
-const executeSingleCase = async (sourceCode, languageId, input, expectedOutput) => {
+const executeSingleCase = async (sourceCode, language, input, expectedOutput) => {
+  const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
+  if (!languageId) {
+    return {
+      passed: false,
+      input: input || '',
+      output: '',
+      expectedOutput: expectedOutput || '',
+      error: `Unsupported language: ${language}`,
+      errorType: 'system_error',
+      status: 'unknown',
+      status_id: 13,
+      executionTime: 0,
+      memoryUsed: 0,
+    };
+  }
+
   try {
-    const token = await createJudge0Submission(sourceCode, languageId, input);
-    const result = await pollJudge0Result(token);
+    let response;
+    try {
+      response = await judge0Client.post(
+        '/submissions?wait=true&base64_encoded=false',
+        {
+          source_code: sourceCode,
+          language_id: languageId,
+          stdin: input || '',
+        },
+        { timeout: 30000 }
+      );
+    } catch (err) {
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ECONNRESET' || err.message.includes('timeout')) {
+        return {
+          passed: false,
+          input: input || '',
+          output: '',
+          expectedOutput: expectedOutput || '',
+          error: 'Judge0 is not running on http://localhost:2358. Please start Docker Desktop and run `docker-compose up -d` in the judge0-server directory.',
+          errorType: 'system_error',
+          status: 'internal_error',
+          status_id: 13,
+          executionTime: 0,
+          memoryUsed: 0,
+        };
+      }
+      throw err;
+    }
 
-    const stdOut = (result.stdout || '').replace(/\n$/, '');
-    const stdErr = result.stderr || '';
-    const compileOutput = result.compile_output || '';
+    const data = response.data;
+    const statusId = data.status ? data.status.id : data.status_id;
 
-    if (result.status_id === 4) {
+    const stdOut = (data.stdout || '').replace(/\n$/, '');
+    const stdErr = data.stderr || '';
+    const compileOutput = data.compile_output || '';
+
+    if (statusId === 4) {
       const passed = stdOut === (expectedOutput || '').trim();
-      const errorInfo = formatError(result);
+      const errorInfo = formatJudge0Error({ ...data, status_id: statusId });
       return {
         passed,
         input: input || '',
         output: stdOut,
         expectedOutput: expectedOutput || '',
-        error: errorInfo ? errorInfo.message : JUDGE0_STATUS[result.status_id],
+        error: errorInfo ? errorInfo.message : JUDGE0_STATUS[statusId],
         errorType: errorInfo ? errorInfo.type : 'WrongAnswer',
-        status: JUDGE0_STATUS[result.status_id],
-        status_id: result.status_id,
-        executionTime: result.time || 0,
-        memoryUsed: result.memory || 0,
+        status: JUDGE0_STATUS[statusId],
+        status_id: statusId,
+        executionTime: data.time || 0,
+        memoryUsed: data.memory || 0,
       };
     }
 
-    if (result.status_id === 3) {
+    if (statusId === 3) {
       const passed = stdOut === (expectedOutput || '').trim();
       return {
         passed,
@@ -166,25 +155,25 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput) 
         expectedOutput: expectedOutput || '',
         error: null,
         errorType: null,
-        status: JUDGE0_STATUS[result.status_id],
-        status_id: result.status_id,
-        executionTime: result.time || 0,
-        memoryUsed: result.memory || 0,
+        status: JUDGE0_STATUS[statusId],
+        status_id: statusId,
+        executionTime: data.time || 0,
+        memoryUsed: data.memory || 0,
       };
     }
 
-    const errorInfo = formatError(result);
+    const errorInfo = formatJudge0Error({ ...data, status_id: statusId });
     return {
       passed: false,
       input: input || '',
       output: stdOut,
       expectedOutput: expectedOutput || '',
-      error: errorInfo ? errorInfo.message : JUDGE0_STATUS[result.status_id],
+      error: errorInfo ? errorInfo.message : JUDGE0_STATUS[statusId],
       errorType: errorInfo ? errorInfo.type : 'unknown',
-      status: JUDGE0_STATUS[result.status_id],
-      status_id: result.status_id,
-      executionTime: result.time || 0,
-      memoryUsed: result.memory || 0,
+      status: JUDGE0_STATUS[statusId],
+      status_id: statusId,
+      executionTime: data.time || 0,
+      memoryUsed: data.memory || 0,
     };
   } catch (err) {
     return {
@@ -219,7 +208,7 @@ const buildDriver = (sourceCode, language) => {
 };
 
 exports.runCode = async (sourceCode, language, testCases) => {
-  const languageId = LANGUAGE_IDS[language];
+  const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
@@ -228,21 +217,21 @@ exports.runCode = async (sourceCode, language, testCases) => {
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
   const results = [];
   for (const testCase of casesToRun) {
-    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput);
+    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput);
     results.push(result);
   }
   return results;
 };
 
 exports.submitCode = async (sourceCode, language, testCases) => {
-  const languageId = LANGUAGE_IDS[language];
+  const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
   const fullCode = buildDriver(sourceCode, language);
   const results = [];
   for (const testCase of testCases) {
-    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput);
+    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput);
     results.push(result);
   }
   return results;
@@ -268,3 +257,4 @@ exports.computeVerdict = (results) => {
 
 exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;
+exports.normalizeLanguage = normalizeLanguage;

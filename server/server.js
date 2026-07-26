@@ -5,7 +5,12 @@ const dotenv = require('dotenv');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const connectDB = require('./config/db');
-const swaggerSpec = require('./config/swagger');
+let swaggerSpec = null;
+try {
+  swaggerSpec = require('./config/swagger');
+} catch (swaggerError) {
+  console.error('Swagger load failed:', swaggerError.message);
+}
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 connectDB();
 const app = express();
@@ -48,13 +53,20 @@ app.use('/api/drafts', require('./routes/drafts'));
 app.use('/api/sql', require('./routes/sql'));
 app.use('/api/coding', require('./routes/coding'));
 app.use('/api/coding-problems', require('./routes/codingProblems'));
+app.use('/api/dsa', require('./routes/dsa'));
+app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
+app.use('/api/leaderboard', require('./routes/leaderboard'));
+app.use('/api/progress', require('./routes/progressExport'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });
 });
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none } .swagger-ui { background: #1a1a2e } .swagger-ui .info .title { color: #e0e0e0 } .swagger-ui .opblock-tag { color: #e0e0e0 } .swagger-ui .opblock .opblock-summary-description { color: #b0b0b0 }',
-  customSiteTitle: 'PrepAgent API Docs',
-}));
+if (swaggerSpec) {
+  const spec = swaggerSpec.definition || swaggerSpec;
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec, {
+    customCss: '.swagger-ui .topbar { display: none } .swagger-ui { background: #1a1a2e } .swagger-ui .info .title { color: #e0e0e0 } .swagger-ui .opblock-tag { color: #e0e0e0 } .swagger-ui .opblock .opblock-summary-description { color: #b0b0b0 }',
+    customSiteTitle: 'PrepAgent API Docs',
+  }));
+}
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.statusCode || 500).json({

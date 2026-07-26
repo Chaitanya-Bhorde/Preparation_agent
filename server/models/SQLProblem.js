@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const SQLTestCaseSchema = new mongoose.Schema({
-  inputStateSQL: { type: String, required: true },
+  inputStateSQL: { type: String },
   expectedOutputRows: [mongoose.Schema.Types.Mixed],
 }, { _id: false });
 

@@ -16,6 +16,9 @@ import {
   Menu,
   X,
   Database,
+  Trophy,
+  MessageSquare,
+  Download,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -110,6 +113,18 @@ export default function Navbar() {
               <BarChart3 className="w-4 h-4 inline mr-1" />
               Analytics
             </Link>
+            <Link to="/leaderboard" className={linkClass(isActive('/leaderboard'))}>
+              <Trophy className="w-4 h-4 inline mr-1" />
+              Leaderboard
+            </Link>
+            <Link to="/interview-experiences" className={linkClass(isActive('/interview-experiences'))}>
+              <MessageSquare className="w-4 h-4 inline mr-1" />
+              Interview Experiences
+            </Link>
+            <Link to="/progress-export" className={linkClass(isActive('/progress-export'))}>
+              <Download className="w-4 h-4 inline mr-1" />
+              Progress Report
+            </Link>
             {user.role === 'admin' && (
               <Link to="/admin" className="text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors">
                 Admin
@@ -191,6 +206,30 @@ export default function Navbar() {
             >
               <BarChart3 className="w-4 h-4" />
               Analytics
+            </Link>
+            <Link
+              to="/leaderboard"
+              className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Trophy className="w-4 h-4" />
+              Leaderboard
+            </Link>
+            <Link
+              to="/interview-experiences"
+              className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Interview Experiences
+            </Link>
+            <Link
+              to="/progress-export"
+              className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Download className="w-4 h-4" />
+              Progress Report
             </Link>
             {user.role === 'admin' && (
               <Link
