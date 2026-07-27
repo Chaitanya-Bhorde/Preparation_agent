@@ -84,7 +84,8 @@ exports.refreshToken = async (req, res) => {
 };
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = req.user;
+    if (user.password) user.password = undefined;
     res.status(200).json({ success: true, data: user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

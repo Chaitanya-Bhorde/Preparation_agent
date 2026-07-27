@@ -7,19 +7,10 @@ exports.getTopicProgress = async (req, res) => {
   try {
     const userId = req.user.id;
     console.log('[TOPIC_PROGRESS] ===== START for user:', userId, '=====');
-    
+
     // Fetch all submissions for this user (only 'submit' type), populated with problem data
     const allSubmissions = await Submission.find({ user: userId, type: 'submit' }).populate('problem', 'tags difficulty category');
     console.log('[TOPIC_PROGRESS] Total submissions found:', allSubmissions.length);
-    console.log('[TOPIC_PROGRESS] Raw submissions:', JSON.stringify(allSubmissions.map(s => ({ 
-      id: s._id, 
-      status: s.status, 
-      problemId: s.problem?._id, 
-      problemTitle: s.problem?.title,
-      tags: s.problem?.tags, 
-      difficulty: s.problem?.difficulty, 
-      category: s.problem?.category 
-    }))));
 
     // Track distinct problems per tag to avoid counting re-submissions
     // tagMap[tag] = { distinctProblemIds: Set, acceptedProblemIds: Set, easy: count, medium: count, hard: count }
@@ -42,7 +33,7 @@ exports.getTopicProgress = async (req, res) => {
         category = 'DSA'; // default for embedded fallback
         pid = sub.problem?.toString() || `embedded-${sub._id}`;
         title = '(embedded)';
-        console.log('[TOPIC_PROGRESS] Using embedded fallback for submission:', sub._id, 'tags:', tags, 'difficulty:', difficulty);
+        console.log('[TOPIC_PROGRESS] Using embedded fallback for submission:', sub._id);
       }
 
       if (!tags || tags.length === 0) {
@@ -52,12 +43,12 @@ exports.getTopicProgress = async (req, res) => {
 
       // Initialize problemTagMap entry for this problem
       if (!problemTagMap[pid]) {
-        problemTagMap[pid] = { 
-          title, 
-          tags, 
-          difficulty, 
-          category, 
-          hasAccepted: false 
+        problemTagMap[pid] = {
+          title,
+          tags,
+          difficulty,
+          category,
+          hasAccepted: false
         };
       }
       if (sub.status === 'accepted') {
@@ -84,30 +75,10 @@ exports.getTopicProgress = async (req, res) => {
       });
     });
 
-    console.log('[TOPIC_PROGRESS] problemTagMap:', JSON.stringify(Object.keys(problemTagMap).reduce((acc, pid) => {
-      acc[pid] = { title: problemTagMap[pid].title, tags: problemTagMap[pid].tags, hasAccepted: problemTagMap[pid].hasAccepted };
-      return acc;
-    }, {})));
-
-    console.log('[TOPIC_PROGRESS] Computed tagMap:', JSON.stringify(
-      Object.keys(tagMap).reduce((acc, tag) => {
-        acc[tag] = {
-          distinctCount: tagMap[tag].distinctProblems.size,
-          distinctProblems: Array.from(tagMap[tag].distinctProblems),
-          acceptedCount: tagMap[tag].acceptedProblems.size,
-          acceptedProblems: Array.from(tagMap[tag].acceptedProblems),
-          easy: tagMap[tag].easy,
-          medium: tagMap[tag].medium,
-          hard: tagMap[tag].hard,
-        };
-        return acc;
-      }, {})
-    ));
-
     // Get all distinct tags from problems, along with their categories
     const allProblems = await Problem.find({ isActive: true }).select('tags category');
     console.log('[TOPIC_PROGRESS] All active problems count:', allProblems.length);
-    
+
     const tagCategoryMap = {};
     const tagTotalProblems = {};
     allProblems.forEach((p) => {
@@ -123,14 +94,9 @@ exports.getTopicProgress = async (req, res) => {
       });
     });
 
-    console.log('[TOPIC_PROGRESS] tagTotalProblems:', JSON.stringify(Object.keys(tagTotalProblems).reduce((acc, tag) => {
-      acc[tag] = tagTotalProblems[tag].size;
-      return acc;
-    }, {})));
-
     const topicList = await Problem.distinct('tags');
     console.log('[TOPIC_PROGRESS] All distinct tags in DB:', topicList);
-    
+
     const conceptNotes = await ConceptNote.find({}).sort({ topic: 1 });
     const noteMap = {};
     conceptNotes.forEach((note) => { noteMap[note.topic] = note; });
@@ -146,9 +112,9 @@ exports.getTopicProgress = async (req, res) => {
       const accuracy = totalDistinct > 0 ? Math.round((acceptedDistinct / totalDistinct) * 100) : 0;
       const category = tagCategoryMap[topic] || 'DSA';
 
-      console.log('[TOPIC_PROGRESS] Topic:', topic, 
-        '| totalDistinct:', totalDistinct, 
-        '| acceptedDistinct:', acceptedDistinct, 
+      console.log('[TOPIC_PROGRESS] Topic:', topic,
+        '| totalDistinct:', totalDistinct,
+        '| acceptedDistinct:', acceptedDistinct,
         '| totalProblemsInDB:', totalProblemsInDB,
         '| accuracy:', accuracy,
         '| category:', category);
@@ -182,8 +148,6 @@ exports.getTopicProgress = async (req, res) => {
       ? Math.round(allTopics.reduce((a, b) => a + b.accuracy, 0) / allTopics.length)
       : 0;
 
-    console.log('[TOPIC_PROGRESS] Final DSA topics:', JSON.stringify(dsaTopics));
-    console.log('[TOPIC_PROGRESS] Final SQL topics:', JSON.stringify(sqlTopics));
     console.log('[TOPIC_PROGRESS] ===== END for user:', userId, '=====');
 
     res.status(200).json({
@@ -198,7 +162,7 @@ exports.getTopicProgress = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('[TOPIC_PROGRESS] Error:', error);
+    console.error('[TOPIC_PROGRESS] Error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };

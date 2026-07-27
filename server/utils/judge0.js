@@ -177,6 +177,20 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
   }
 };
 
+const MAX_CONCURRENCY = 5;
+
+const runCasesConcurrently = async (cases, fullCode, languageId) => {
+  const results = [];
+  for (let i = 0; i < cases.length; i += MAX_CONCURRENCY) {
+    const batch = cases.slice(i, i + MAX_CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((tc) => executeSingleCase(fullCode, languageId, tc.input, tc.expectedOutput, tc.isSample))
+    );
+    results.push(...batchResults);
+  }
+  return results;
+};
+
 exports.runCode = async (sourceCode, language, testCases, signature) => {
   const languageId = LANGUAGE_IDS[language];
   if (!languageId) {
@@ -185,12 +199,7 @@ exports.runCode = async (sourceCode, language, testCases, signature) => {
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
   const sampleCases = testCases.filter((tc) => !tc.isHidden);
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
-  const results = [];
-  for (const testCase of casesToRun) {
-    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput, testCase.isSample);
-    results.push(result);
-  }
-  return results;
+  return runCasesConcurrently(casesToRun, fullCode, languageId);
 };
 
 exports.submitCode = async (sourceCode, language, testCases, signature) => {
@@ -199,12 +208,7 @@ exports.submitCode = async (sourceCode, language, testCases, signature) => {
     throw new Error(`Unsupported language: ${language}`);
   }
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
-  const results = [];
-  for (const testCase of testCases) {
-    const result = await executeSingleCase(fullCode, languageId, testCase.input, testCase.expectedOutput, testCase.isSample);
-    results.push(result);
-  }
-  return results;
+  return runCasesConcurrently(testCases, fullCode, languageId);
 };
 
 exports.LANGUAGE_IDS = LANGUAGE_IDS;

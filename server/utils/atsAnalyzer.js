@@ -283,8 +283,8 @@ exports.analyzeResume = (text, roleRequirements = null) => {
       achievements: numAchievements === 0 ? 'No quantifiable achievements with numbers found' :
                     `${numAchievements} numeric achievement(s) found: ${Array.from(foundNumbers).slice(0, 3).join(', ')}`,
       education: hasCGPA && hasDegree ? `CGPA found, degree + institution found` :
-                 hasDegree ? 'Degree mentioned but CGPA or institution details may be missing' :
-                 'Education section missing or incomplete',
+               hasDegree ? 'Degree mentioned but CGPA or institution details may be missing' :
+               'Education section missing or incomplete',
       keyword_density: `${keyword_density}/5 SDE keywords found`,
     },
     top_3_improvements: improvements.slice(0, 3),
@@ -322,17 +322,17 @@ const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
     await doc.destroy();
 
     const trimmedText = pdfText.trim();
-    logDebug(`pdfjs-dist extracted ${trimmedText.length} chars from ${originalname}`);
-    console.log(`PDF text extraction (${originalname}) [pdfjs-dist]: extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
+    logDebug(`pdfjs-dist extracted ${trimmedText.length} chars`);
+    console.log(`[pdfjs-dist] extracted ${trimmedText.length} chars`);
     if (trimmedText.length >= MIN_CHARS) {
-      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdfjs-dist SUCCEEDED for ${originalname}`);
+      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdfjs-dist SUCCEEDED`);
       return trimmedText;
     }
     if (trimmedText.length > 0) {
-      console.log(`PDF extraction warning (${originalname}) [pdfjs-dist]: text is short (${trimmedText.length} chars), trying pdf-parse fallback...`);
+      console.log(`[pdfjs-dist] text too short (${trimmedText.length} chars), trying pdf-parse fallback...`);
     }
   } catch (pdfjsError) {
-    console.log(`pdfjs-dist failed for ${originalname}:`, pdfjsError.message);
+    console.log(`[pdfjs-dist] failed:`, pdfjsError.message);
   }
 
   // Strategy 2: Fallback to pdf-parse
@@ -340,17 +340,17 @@ const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
     const data = await pdfParse(fileBuffer);
     const text = data.text || '';
     const trimmedText = text.trim();
-    logDebug(`pdf-parse extracted ${trimmedText.length} chars from ${originalname}`);
-    console.log(`PDF text extraction (${originalname}) [pdf-parse]: extracted ${trimmedText.length} chars, preview: "${trimmedText.substring(0, 300)}..."`);
+    logDebug(`pdf-parse extracted ${trimmedText.length} chars`);
+    console.log(`[pdf-parse] extracted ${trimmedText.length} chars`);
     if (trimmedText.length >= MIN_CHARS) {
-      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdf-parse SUCCEEDED for ${originalname}`);
+      if (DEBUG_PDF) console.log(`[PDF-DEBUG] pdf-parse SUCCEEDED`);
       return trimmedText;
     }
     if (trimmedText.length > 0) {
-      console.log(`PDF extraction warning (${originalname}) [pdf-parse]: text is short (${trimmedText.length} chars), trying OCR fallback...`);
+      console.log(`[pdf-parse] text too short (${trimmedText.length} chars), trying OCR fallback...`);
     }
   } catch (pdfError) {
-    console.log(`pdf-parse failed for ${originalname}:`, pdfError.message);
+    console.log(`[pdf-parse] failed:`, pdfError.message);
   }
 
   // Strategy 3: Last resort — OCR (pdf2pic + tesseract.js)
@@ -367,19 +367,19 @@ const extractPdfText = async (fileBuffer, originalname = 'document.pdf') => {
       if (tempPdfPath && fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
       if (images[0].path && fs.existsSync(images[0].path)) fs.unlinkSync(images[0].path);
       const ocrText = (result.data.text || '').trim();
-      logDebug(`OCR extracted ${ocrText.length} chars from ${originalname}, confidence: ${result.data.confidence}%`);
-      console.log(`OCR fallback result for ${originalname}: ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
+      logDebug(`OCR extracted ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
+      console.log(`[OCR] extracted ${ocrText.length} chars, confidence: ${result.data.confidence}%`);
       if (ocrText.length >= MIN_CHARS) {
-        if (DEBUG_PDF) console.log(`[PDF-DEBUG] OCR SUCCEEDED for ${originalname}`);
+        if (DEBUG_PDF) console.log(`[PDF-DEBUG] OCR SUCCEEDED`);
         return ocrText;
       }
-      console.log(`OCR extraction warning (${originalname}): OCR text too short (${ocrText.length} chars)`);
+      console.log(`[OCR] text too short (${ocrText.length} chars)`);
     }
   } catch (ocrError) {
-    console.log(`PDF OCR fallback failed for ${originalname}:`, ocrError.message);
+    console.log(`[OCR] failed:`, ocrError.message);
   }
 
-  if (DEBUG_PDF) console.log(`[PDF-DEBUG] PDF_EXTRACTION_FAILED for ${originalname}`);
+  if (DEBUG_PDF) console.log(`[PDF-DEBUG] PDF_EXTRACTION_FAILED`);
   throw new Error('PDF_EXTRACTION_FAILED');
 };
 
@@ -392,28 +392,28 @@ exports.extractResumeText = async (fileBuffer, mimeType, originalname) => {
     } else if (ext === 'docx') {
       const result = await mammoth.extractRawText({ buffer: fileBuffer });
       text = result.value;
-      console.log(`DOCX extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
+      console.log(`[DOCX] extracted ${text.length} chars`);
     } else if (ext === 'doc') {
       const extractor = new WordExtractor();
       const doc = await extractor.extractBuffer(fileBuffer);
       text = doc.getBody();
-      console.log(`DOC extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
+      console.log(`[DOC] extracted ${text.length} chars`);
     } else if (ext === 'txt') {
       text = fileBuffer.toString('utf-8');
-      console.log(`TXT extraction (${originalname}): extracted ${text.length} chars, preview: "${text.substring(0, 300)}..."`);
+      console.log(`[TXT] extracted ${text.length} chars`);
     } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
       const worker = await createWorker('eng');
       const result = await worker.recognize(fileBuffer);
       await worker.terminate();
       text = result.data.text;
-      console.log(`Image OCR extraction (${originalname}): extracted ${text.length} chars, confidence: ${result.data.confidence}%`);
+      console.log(`[OCR] extracted ${text.length} chars, confidence: ${result.data.confidence}%`);
     } else {
       throw new Error('UNSUPPORTED_FORMAT');
     }
 
     const trimmedText = text.trim();
     if (!trimmedText || trimmedText.length < MIN_TEXT_LENGTH) {
-      console.log(`Extraction warning (${originalname}): text too short (${trimmedText.length} chars)`);
+      console.log(`Extraction warning: text too short (${trimmedText.length} chars)`);
       throw new Error('PARSE_FAILURE');
     }
     return trimmedText;
