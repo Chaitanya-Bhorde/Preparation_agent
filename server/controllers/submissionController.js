@@ -5,6 +5,43 @@ const Leaderboard = require('../models/Leaderboard');
 const { runCode, submitCode } = require('../utils/judge0');
 const { executeSQL } = require('../utils/sqlRunner');
 
+// Helper to update streak after an accepted submission
+const updateStreak = async (userId) => {
+  try {
+    const user = await User.findById(userId).select('stats.streak stats.lastActiveDate');
+    if (!user) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastActive = user.stats.lastActiveDate ? new Date(user.stats.lastActiveDate) : null;
+    if (lastActive) {
+      lastActive.setHours(0, 0, 0, 0);
+    }
+    const diffDays = lastActive ? Math.round((today - lastActive) / (1000 * 60 * 60 * 24)) : null;
+    let newStreak;
+    if (diffDays === null) {
+      // First ever accepted submission
+      newStreak = 1;
+    } else if (diffDays === 0) {
+      // Already solved today — leave streak unchanged
+      newStreak = user.stats.streak;
+    } else if (diffDays === 1) {
+      // Consecutive day — increment
+      newStreak = (user.stats.streak || 0) + 1;
+    } else {
+      // Gap of 2+ days — reset
+      newStreak = 1;
+    }
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        'stats.streak': newStreak,
+        'stats.lastActiveDate': today,
+      },
+    });
+  } catch (error) {
+    console.error('Streak update failed:', error.message);
+  }
+};
+
 // Helper to update leaderboard after submission
 const updateLeaderboardAfterSubmission = async (userId) => {
   try {
@@ -206,6 +243,9 @@ exports.submitSolution = async (req, res) => {
         });
       }
     }
+    if (status === 'accepted') {
+      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
+    }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({
       success: true,
@@ -326,6 +366,9 @@ exports.runSQL = async (req, res) => {
       problemDifficulty: problem.difficulty,
       problemTags: problem.tags,
     });
+    if (status === 'accepted') {
+      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
+    }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
@@ -422,6 +465,9 @@ exports.submitSQL = async (req, res) => {
       }
     } else {
       await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
+    }
+    if (status === 'accepted') {
+      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({ success: true, data: submission });

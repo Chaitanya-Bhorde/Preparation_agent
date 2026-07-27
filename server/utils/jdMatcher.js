@@ -31,7 +31,15 @@ exports.computeJDMatch = (resumeText, jobDescription) => {
   const missingKeywords = [];
 
   for (const keyword of jdKeywords) {
-    if (resumeLower.includes(keyword)) {
+    const isSingleWord = !keyword.includes(' ');
+    let found;
+    if (isSingleWord) {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      found = new RegExp('\\b' + escaped + '\\b', 'i').test(resumeLower);
+    } else {
+      found = resumeLower.includes(keyword);
+    }
+    if (found) {
       matchedKeywords.push(keyword);
     } else {
       missingKeywords.push(keyword);
