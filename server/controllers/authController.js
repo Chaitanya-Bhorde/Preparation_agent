@@ -24,7 +24,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 };
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'User already exists' });
@@ -33,7 +33,7 @@ exports.register = async (req, res) => {
       name,
       email,
       password,
-      role: role || 'student',
+      role: 'student',
     });
     sendTokenResponse(user, 201, res);
   } catch (error) {

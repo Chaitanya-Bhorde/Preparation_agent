@@ -51,17 +51,19 @@ exports.getProfile = async (req, res) => {
       status: 'accepted',
       type: 'submit',
     }).populate('problem', 'tags');
-    const solvedTags = new Set();
+    const tagSolvedProblemSets = {};
     userAcceptedProblems.forEach((sub) => {
       if (sub.problem && sub.problem.tags) {
+        const pid = sub.problem._id.toString();
         sub.problem.tags.forEach((tag) => {
-          solvedTags.add(tag);
+          if (!tagSolvedProblemSets[tag]) tagSolvedProblemSets[tag] = new Set();
+          tagSolvedProblemSets[tag].add(pid);
         });
       }
     });
-    solvedTags.forEach((tag) => {
+    Object.entries(tagSolvedProblemSets).forEach(([tag, problemSet]) => {
       if (tagStats[tag]) {
-        tagStats[tag].solved += 1;
+        tagStats[tag].solved = problemSet.size;
       }
     });
     const recentSubmissionsList = await Submission.find({ user: req.user.id })

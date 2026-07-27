@@ -6,35 +6,25 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      loadUser();
-    } else {
-      setLoading(false);
-    }
+    loadUser();
   }, []);
   const loadUser = async () => {
     try {
       const { data } = await getMe();
       setUser(data.data);
     } catch (error) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
   const login = async (email, password) => {
     const { data } = await loginApi({ email, password });
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
     setUser(data.user);
     return data;
   };
-  const register = async (name, email, password, role = 'student') => {
-    const { data } = await registerApi({ name, email, password, role });
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+  const register = async (name, email, password) => {
+    const { data } = await registerApi({ name, email, password });
     setUser(data.user);
     return data;
   };
@@ -44,8 +34,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     }
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     setUser(null);
   };
   const refreshUser = async () => {

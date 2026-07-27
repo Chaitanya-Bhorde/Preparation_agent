@@ -19,7 +19,7 @@ exports.getRecommendations = async (req, res) => {
     const user = await User.findById(req.user.id);
     const weakTopics = user.weakTopics || [];
 
-    const allSubmissions = await Submission.find({ user: req.user.id });
+    const allSubmissions = await Submission.find({ user: req.user.id }).sort({ createdAt: -1 });
     const tagStats = {};
     const tagLastAttempt = {};
     allSubmissions.forEach((sub) => {
@@ -183,9 +183,12 @@ exports.updateRevisionProgress = async (req, res) => {
       { new: true }
     );
     if (passed) {
-      await User.findByIdAndUpdate(req.user.id, {
-        $pull: { weakTopics: { $in: [] } },
-      });
+      const problem = await Problem.findById(problemId).select('tags');
+      if (problem && problem.tags && problem.tags.length > 0) {
+        await User.findByIdAndUpdate(req.user.id, {
+          $pullAll: { weakTopics: problem.tags },
+        });
+      }
     }
     res.status(200).json({ success: true, message: 'Revision progress updated' });
   } catch (error) {
