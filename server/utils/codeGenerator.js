@@ -43,9 +43,14 @@ function generateJavaStarter(name, params, returnType) {
 function generateCppStarter(name, params, returnType) {
   const cppTypeMap = {
     'int': 'int', 'long': 'long long', 'double': 'double', 'bool': 'bool',
+    'float': 'float', 'char': 'char',
     'string': 'std::string', 'vector<int>': 'std::vector<int>',
     'vector<string>': 'std::vector<std::string>',
     'vector<vector<int>>': 'std::vector<std::vector<int>>',
+    'vector<double>': 'std::vector<double>',
+    'vector<char>': 'std::vector<char>',
+    'vector<vector<string>>': 'std::vector<std::vector<std::string>>',
+    'pair<int,int>': 'std::pair<int,int>',
   };
   const rt = cppTypeMap[returnType] || returnType;
   const paramList = params.map(p => `${mapCppType(p.type)} ${p.name}`).join(', ');
@@ -71,9 +76,14 @@ function mapJavaType(type) {
 function mapCppType(type) {
   const map = {
     'int': 'int', 'long': 'long long', 'double': 'double', 'bool': 'bool',
+    'float': 'float', 'char': 'char',
     'string': 'std::string', 'vector<int>': 'std::vector<int>',
     'vector<string>': 'std::vector<std::string>',
     'vector<vector<int>>': 'std::vector<std::vector<int>>',
+    'vector<double>': 'std::vector<double>',
+    'vector<char>': 'std::vector<char>',
+    'vector<vector<string>>': 'std::vector<std::vector<std::string>>',
+    'pair<int,int>': 'std::pair<int,int>',
     'ListNode*': 'ListNode*', 'TreeNode*': 'TreeNode*',
   };
   return map[type] || type;
@@ -338,6 +348,40 @@ string to_string_helper(const vector<vector<int>>& vv) {
     return s + "]";
 }
 
+string to_string_helper(const vector<double>& v) {
+    if (v.empty()) return "";
+    ostringstream oss;
+    oss << v[0];
+    for (size_t i = 1; i < v.size(); ++i) oss << " " << v[i];
+    return oss.str();
+}
+
+string to_string_helper(const vector<char>& v) {
+    if (v.empty()) return "";
+    string s(1, v[0]);
+    for (size_t i = 1; i < v.size(); ++i) { s += " "; s += v[i]; }
+    return s;
+}
+
+string to_string_helper(const vector<vector<string>>& vv) {
+    if (vv.empty()) return "";
+    string s = "[";
+    for (size_t i = 0; i < vv.size(); ++i) {
+        if (i) s += ",";
+        s += "[";
+        for (size_t j = 0; j < vv[i].size(); ++j) {
+            if (j) s += ",";
+            s += vv[i][j];
+        }
+        s += "]";
+    }
+    return s + "]";
+}
+
+string to_string_helper(const pair<int,int>& p) {
+    return "[" + to_string(p.first) + "," + to_string(p.second) + "]";
+}
+
 vector<int> parseIntVector(const string& s) {
     string t = s;
     t.erase(remove_if(t.begin(), t.end(), [](char c){ return c=='['||c==']'||c==','; }), t.end());
@@ -378,6 +422,53 @@ vector<vector<int>> parseIntMatrix(const string& s) {
     return res;
 }
 
+vector<double> parseDoubleVector(const string& s) {
+    string t = s;
+    t.erase(remove_if(t.begin(), t.end(), [](char c){ return c=='['||c==']'||c==','; }), t.end());
+    if (t.empty()) return {};
+    stringstream ss(t);
+    vector<double> v;
+    double item;
+    while (ss >> item) v.push_back(item);
+    return v;
+}
+
+vector<char> parseCharVector(const string& s) {
+    string t = s;
+    t.erase(remove_if(t.begin(), t.end(), [](char c){ return c=='['||c==']'||c==','; }), t.end());
+    if (t.empty()) return {};
+    vector<char> v;
+    for (char c : t) if (!isspace(c)) v.push_back(c);
+    return v;
+}
+
+vector<vector<string>> parseStringMatrix(const string& s) {
+    string t = s;
+    t.erase(remove_if(t.begin(), t.end(), [](char c){ return c=='['||c==']'||c==','; }), t.end());
+    if (t.empty()) return {};
+    stringstream ss(t);
+    vector<vector<string>> res;
+    string row;
+    while (getline(ss, row, ';')) {
+        stringstream rowss(row);
+        vector<string> r;
+        string val;
+        while (rowss >> val) r.push_back(val);
+        res.push_back(r);
+    }
+    return res;
+}
+
+pair<int,int> parseIntPair(const string& s) {
+    string t = s;
+    t.erase(remove_if(t.begin(), t.end(), [](char c){ return c=='['||c==']'||c==','||c=='('||c==')'; }), t.end());
+    if (t.empty()) return {0,0};
+    stringstream ss(t);
+    int a, b;
+    ss >> a >> b;
+    return {a, b};
+}
+
 vector<string> readAllLines() {
     vector<string> lines;
     string line;
@@ -403,19 +494,29 @@ function cppParseLine(p, idx) {
   const name = p.name;
   if (p.type === 'int') return `int ${name} = stoi(lines[${idx}]);`;
   if (p.type === 'long') return `long long ${name} = stoll(lines[${idx}]);`;
+  if (p.type === 'float') return `float ${name} = stof(lines[${idx}]);`;
   if (p.type === 'double') return `double ${name} = stod(lines[${idx}]);`;
+  if (p.type === 'char') return `char ${name} = lines[${idx}].empty() ? '\\0' : lines[${idx}][0];`;
   if (p.type === 'bool') return `bool ${name} = lines[${idx}] == "true";`;
   if (p.type === 'string') return `string ${name} = lines[${idx}];`;
   if (p.type === 'vector<int>') return `vector<int> ${name} = parseIntVector(lines[${idx}]);`;
   if (p.type === 'vector<string>') return `vector<string> ${name} = parseStringVector(lines[${idx}]);`;
   if (p.type === 'vector<vector<int>>') return `vector<vector<int>> ${name} = parseIntMatrix(lines[${idx}]);`;
-  return `/* TODO: ${p.type} */ string ${name}_raw = lines[${idx}];`;
+  if (p.type === 'vector<double>') return `vector<double> ${name} = parseDoubleVector(lines[${idx}]);`;
+  if (p.type === 'vector<char>') return `vector<char> ${name} = parseCharVector(lines[${idx}]);`;
+  if (p.type === 'vector<vector<string>>') return `vector<vector<string>> ${name} = parseStringMatrix(lines[${idx}]);`;
+  if (p.type === 'pair<int,int>') return `pair<int,int> ${name} = parseIntPair(lines[${idx}]);`;
+  throw new Error(`Unsupported C++ parameter type: ${p.type}`);
 }
 
 function cppPrintExpr(varName, type) {
   if (type === 'vector<int>') return `to_string_helper(${varName})`;
   if (type === 'vector<string>') return `to_string_helper(${varName})`;
   if (type === 'vector<vector<int>>') return `to_string_helper(${varName})`;
+  if (type === 'vector<double>') return `to_string_helper(${varName})`;
+  if (type === 'vector<char>') return `to_string_helper(${varName})`;
+  if (type === 'vector<vector<string>>') return `to_string_helper(${varName})`;
+  if (type === 'pair<int,int>') return `to_string_helper(${varName})`;
   return `to_string_helper(${varName})`;
 }
 

@@ -100,6 +100,7 @@ exports.runSubmission = async (req, res) => {
     submission.errorType = errorType;
     submission.errorMessage = errorMessage;
     await submission.save();
+    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({
       success: true,
       data: submission,
@@ -205,6 +206,7 @@ exports.submitSolution = async (req, res) => {
         });
       }
     }
+    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({
       success: true,
       data: submission,
@@ -324,6 +326,7 @@ exports.runSQL = async (req, res) => {
       problemDifficulty: problem.difficulty,
       problemTags: problem.tags,
     });
+    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -410,15 +413,17 @@ exports.submitSQL = async (req, res) => {
         _id: { $ne: submission._id },
       });
       if (!existingAccepted) {
-        await User.findByIdAndUpdate(req.user.id, {
-          $inc: { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 },
-        });
+        const solvedIncrement = problem.difficulty === 'easy' ? { 'stats.easySolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
+          : problem.difficulty === 'medium' ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
+          : { 'stats.hardSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 };
+        await User.findByIdAndUpdate(req.user.id, { $inc: solvedIncrement });
       } else {
         await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
       }
     } else {
       await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
     }
+    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

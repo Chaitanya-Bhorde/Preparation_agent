@@ -1,3 +1,4 @@
+const { execSync } = require('child_process');
 const pdfParse = require('pdf-parse');
 const pdfjsLib = require('pdfjs-dist');
 const mammoth = require('mammoth');
@@ -7,6 +8,19 @@ const { fromPath } = require('pdf2pic');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+
+// Check for GraphicsMagick/ImageMagick (required by pdf2pic OCR fallback)
+try {
+  execSync('gm version', { stdio: 'ignore' });
+  console.log('[PDF-LIBRARY] GraphicsMagick detected - OCR fallback available');
+} catch {
+  try {
+    execSync('convert --version', { stdio: 'ignore' });
+    console.log('[PDF-LIBRARY] ImageMagick detected - OCR fallback available');
+  } catch {
+    console.warn('[PDF-LIBRARY] WARNING: Neither GraphicsMagick nor ImageMagick found. PDF OCR fallback (pdf2pic) will fail on image-based PDFs. Install GraphicsMagick or use a Docker buildpack that includes it.');
+  }
+}
 
 // --- Debug logging configuration ---
 // Set DEBUG_PDF_EXTRACTION=1 in environment to enable verbose PDF extraction logging
@@ -418,7 +432,7 @@ exports.extractResumeText = async (fileBuffer, mimeType, originalname) => {
     }
     return trimmedText;
   } catch (error) {
-    if (error.message === 'PARSE_FAILURE' || error.message === 'UNSUPPORTED_FORMAT') {
+    if (error.message === 'PARSE_FAILURE' || error.message === 'UNSUPPORTED_FORMAT' || error.message === 'PDF_EXTRACTION_FAILED') {
       throw error;
     }
     throw new Error('PARSE_FAILURE');
