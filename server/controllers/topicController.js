@@ -70,7 +70,14 @@ exports.getTopicProgress = async (req, res) => {
         tagMap[tag].distinctProblems.add(pid);
         // Track accepted problems directly (same pattern as analyticsController)
         if (sub.status === 'accepted') {
-          tagMap[tag].acceptedProblems.add(pid);
+          if (!tagMap[tag].acceptedProblems.has(pid)) {
+            tagMap[tag].acceptedProblems.add(pid);
+            // Only count distinct accepted problems toward difficulty breakdown
+            const diff = difficulty || 'easy';
+            if (diff === 'easy') tagMap[tag].easy++;
+            else if (diff === 'medium') tagMap[tag].medium++;
+            else if (diff === 'hard') tagMap[tag].hard++;
+          }
         }
       });
     });

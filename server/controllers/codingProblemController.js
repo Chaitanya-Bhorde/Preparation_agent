@@ -37,7 +37,7 @@ exports.getCodingProblems = async (req, res) => {
 
 exports.getCodingProblem = async (req, res) => {
   try {
-    const problem = await CodingProblem.findOne({ slug: req.params.slug });
+    const problem = await CodingProblem.findOne({ slug: req.params.slug }).select('-hiddenTestCases -solution');
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
