@@ -42,9 +42,6 @@ const MAX_POLL_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 30000;
 
-/**
- * Check if the Judge0 instance is reachable by calling GET /about or /status.
- */
 const isJudge0Reachable = async () => {
   try {
     await judge0Client.get('/about', { timeout: 3000 });
@@ -85,11 +82,9 @@ const pollJudge0Submission = async (token) => {
     try {
       const { data } = await judge0Client.get(`/submissions/${token}?base64_encoded=false`);
       const statusId = data.status ? data.status.id : data.status_id;
-      // Status >= 3 means terminal (3=Accepted, 4=Wrong Answer, 5=TLE, 6=Compile Error, etc.)
       if (statusId >= 3) {
         return data;
       }
-      // Status 1 (queued) or 2 (processing) — still working, wait and retry
       if (Date.now() - start > POLL_TIMEOUT_MS) {
         throw new Error('Judge0 polling timed out after 30s while still processing');
       }
@@ -238,12 +233,29 @@ const buildDriver = (sourceCode, language) => {
   }
 };
 
-exports.runCode = async (sourceCode, language, testCases) => {
+const buildDriverFromSignature = (sourceCode, language, functionSignature) => {
+  if (!functionSignature) return buildDriver(sourceCode, language);
+  const fn = functionSignature.name || 'solve';
+  const params = (functionSignature.params || []).map((p) => p.name || 'input').join(', ');
+  switch (language) {
+    case 'python':
+      return `${sourceCode}\nimport sys\nfor line in sys.stdin:\n    line=line.rstrip('\\n')\n    print(${fn}(${params}))`;
+    case 'java':
+      return `${sourceCode}\n\nimport java.util.Scanner;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) {\n            String input = sc.nextLine();\n            System.out.println(Solution.${fn}(${params}));\n        }\n        sc.close();\n    }\n}`;
+    case 'cpp':
+      return `${sourceCode}\n\n#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n    ios::sync_with_stdio(false);\n    cin.tie(NULL);\n    string input;\n    if(getline(cin,input)){\n        cout<<${fn}(${params});\n    }\n    return 0;\n}`;
+    case 'javascript':
+    default:
+      return `${sourceCode}\n\nconst fs = require('fs');\nconst input = fs.readFileSync(0,'utf8').trim();\nconsole.log(${fn}(${params}));`;
+  }
+};
+
+exports.runCode = async (sourceCode, language, testCases, fullCodeOverride) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
-  const fullCode = buildDriver(sourceCode, language);
+  const fullCode = fullCodeOverride || buildDriver(sourceCode, language);
   const sampleCases = testCases.filter((tc) => !tc.isHidden);
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
   const results = [];
@@ -254,12 +266,12 @@ exports.runCode = async (sourceCode, language, testCases) => {
   return results;
 };
 
-exports.submitCode = async (sourceCode, language, testCases) => {
+exports.submitCode = async (sourceCode, language, testCases, fullCodeOverride) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
-  const fullCode = buildDriver(sourceCode, language);
+  const fullCode = fullCodeOverride || buildDriver(sourceCode, language);
   const results = [];
   for (const testCase of testCases) {
     const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput);
@@ -286,6 +298,8 @@ exports.computeVerdict = (results) => {
   };
 };
 
+exports.buildDriver = buildDriver;
+exports.buildDriverFromSignature = buildDriverFromSignature;
 exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;
 exports.normalizeLanguage = normalizeLanguage;

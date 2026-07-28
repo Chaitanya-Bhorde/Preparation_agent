@@ -424,7 +424,7 @@ export default function CodingProblemDetail() {
                     <div key={tc.id} className="bg-gray-950 rounded-lg border border-gray-800 p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-gray-400 font-medium">Case {idx + 1}</span>
-                        {!tc.editable && (
+                        {tc.editable && (
                           <button onClick={() => removeCustomTestcase(tc.id)} className="text-gray-600 hover:text-red-400">
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -438,20 +438,19 @@ export default function CodingProblemDetail() {
                             onChange={(e) => updateCustomTestcase(tc.id, 'input', e.target.value)}
                             className="w-full bg-gray-900 text-gray-300 text-sm font-mono p-2 rounded border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
                             rows={1}
-                            readOnly={tc.editable}
+                            readOnly={!tc.editable}
                           />
                         </div>
-                        {tc.editable && (
-                          <div>
-                            <label className="text-xs text-gray-500 block mb-1">Expected Output</label>
-                            <textarea
-                              value={tc.expectedOutput}
-                              onChange={(e) => updateCustomTestcase(tc.id, 'expectedOutput', e.target.value)}
-                              className="w-full bg-gray-900 text-gray-300 text-sm font-mono p-2 rounded border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
-                              rows={1}
-                            />
-                          </div>
-                        )}
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">Expected Output</label>
+                          <textarea
+                            value={tc.expectedOutput}
+                            onChange={(e) => updateCustomTestcase(tc.id, 'expectedOutput', e.target.value)}
+                            className="w-full bg-gray-900 text-gray-300 text-sm font-mono p-2 rounded border border-gray-700 focus:outline-none focus:border-blue-500 resize-none"
+                            rows={1}
+                            readOnly={!tc.editable}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}

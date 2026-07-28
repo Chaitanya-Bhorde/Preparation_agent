@@ -1,6 +1,9 @@
 const CodingProblem = require('../models/CodingProblem');
 const CodeSubmission = require('../models/CodeSubmission');
 
+// GET /api/coding-problems
+// Supports filters: difficulty, topic, tags, search, page, limit
+// Returns problems with `userStatus` derived from CodeSubmission.
 exports.getCodingProblems = async (req, res) => {
   try {
     const { difficulty, topic, tags, search, page = 1, limit = 20 } = req.query;
@@ -22,19 +25,41 @@ exports.getCodingProblems = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
+    const pageIds = problems.map((p) => p._id);
+    const pageSubmissions = await CodeSubmission.find({
+      user: req.user.id,
+      problem: { $in: pageIds },
+    }).select('problem verdict');
+
+    const problemStatusMap = {};
+    pageSubmissions.forEach((sub) => {
+      const pid = sub.problem.toString();
+      const current = problemStatusMap[pid];
+      if (!current || (sub.verdict === 'Accepted' && current !== 'solved')) {
+        problemStatusMap[pid] = sub.verdict === 'Accepted' ? 'solved' : 'attempted';
+      }
+    });
+
+    const data = problems.map((p) => ({
+      ...p.toObject(),
+      userStatus: problemStatusMap[p._id.toString()] || 'unsolved',
+    }));
+
     res.status(200).json({
       success: true,
-      count: problems.length,
+      count: data.length,
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: parseInt(page),
-      data: problems,
+      data,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// GET /api/coding-problems/:slug
+// Returns single problem with `userStatus`.
 exports.getCodingProblem = async (req, res) => {
   try {
     const problem = await CodingProblem.findOne({ slug: req.params.slug }).select('-hiddenTestCases -solution');

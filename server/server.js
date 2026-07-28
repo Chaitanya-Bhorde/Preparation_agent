@@ -82,6 +82,7 @@ app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));
+app.use('/api/aptitude', require('./routes/aptitude'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });
 });

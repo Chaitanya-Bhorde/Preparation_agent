@@ -37,6 +37,11 @@ const CodeSubmissionSchema = new mongoose.Schema(
       enum: ['Accepted', 'WrongAnswer', 'TLE', 'RuntimeError', 'CompileError'],
       required: true,
     },
+    category: {
+      type: String,
+      enum: ['dsa', 'sql', 'aptitude'],
+      default: 'dsa',
+    },
     passedTestCases: { type: Number, default: 0 },
     totalTestCases: { type: Number, default: 0 },
     runtimeMs: { type: Number, default: 0 },

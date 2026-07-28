@@ -1,5 +1,5 @@
 const express = require('express');
-const { runCode, submitCode, computeVerdict } = require('../utils/judge0Coding');
+const { runCode, submitCode, computeVerdict, buildDriverFromSignature } = require('../utils/judge0Coding');
 const CodeSubmission = require('../models/CodeSubmission');
 const CodingProblem = require('../models/CodingProblem');
 const { protect } = require('../middleware/auth');
@@ -12,8 +12,10 @@ router.post('/run', protect, async (req, res) => {
     const problem = await CodingProblem.findById(problemId);
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
-    const allTestCases = [...(problem.visibleTestCases || []), ...(problem.hiddenTestCases || [])];
-    const results = await runCode(code, language, allTestCases);
+    const sampleCases = (problem.visibleTestCases || []).filter((tc) => !tc.isHidden);
+    const casesToRun = sampleCases.length > 0 ? sampleCases : (problem.visibleTestCases || []).slice(0, 2);
+    const fullCode = buildDriverFromSignature(code, language, problem.functionSignature?.[language]);
+    const results = await runCode(code, language, casesToRun, fullCode);
 
     const response = results.map((r) => ({
       input: r.input,
@@ -40,7 +42,8 @@ router.post('/submit', protect, async (req, res) => {
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
     const allTestCases = [...(problem.visibleTestCases || []), ...(problem.hiddenTestCases || [])];
-    const results = await submitCode(code, language, allTestCases);
+    const fullCode = buildDriverFromSignature(code, language, problem.functionSignature?.[language]);
+    const results = await submitCode(code, language, allTestCases, fullCode);
     const { verdict, passedTestCases, totalTestCases, firstFailedInput, firstFailedExpected, firstFailedActual } = computeVerdict(results);
 
     const submission = await CodeSubmission.create({
@@ -68,19 +71,16 @@ router.post('/submit', protect, async (req, res) => {
       firstFailedActual,
     });
 
-    // Update problem stats
     await CodingProblem.findByIdAndUpdate(problem._id, {
       $inc: { totalSubmissions: 1, ...(verdict === 'Accepted' ? { acceptedSubmissions: 1 } : {}) },
     });
 
-    // Update user stats and leaderboard
     const User = require('../models/User');
     const Leaderboard = require('../models/Leaderboard');
     const Submission = require('../models/Submission');
 
     const status = verdict === 'Accepted' ? 'accepted' : 'wrong_answer';
     
-    // Create a Submission record for leaderboard tracking
     await Submission.create({
       user: userId,
       problem: problemId,
@@ -107,7 +107,6 @@ router.post('/submit', protect, async (req, res) => {
       score: Math.round((passedTestCases / totalTestCases) * 100),
     });
 
-    // Update user stats
     if (status === 'accepted') {
       const existingAccepted = await Submission.findOne({
         user: userId,
@@ -126,7 +125,6 @@ router.post('/submit', protect, async (req, res) => {
     }
     await User.findByIdAndUpdate(userId, { $inc: { 'stats.totalSubmissions': 1 } });
 
-    // Update leaderboard
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const weeklySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });

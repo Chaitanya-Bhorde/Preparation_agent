@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Code2, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { INPUT_CLASSES, BUTTON_CLASSES } from '../utils/ui';
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ export default function Login() {
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                className={INPUT_CLASSES}
                 placeholder="your@email.com"
               />
             </div>
@@ -54,7 +55,7 @@ export default function Login() {
                 required
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+                className={INPUT_CLASSES}
                 placeholder="••••••••"
               />
             </div>
@@ -62,7 +63,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className={BUTTON_CLASSES.primary}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

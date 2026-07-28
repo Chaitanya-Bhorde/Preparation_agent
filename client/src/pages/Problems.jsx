@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getCodingProblems, getCodingTags } from '../api';
+import { getCodingProblems, getCodingTags, getCodingTopics } from '../api';
 import { Search, CheckCircle, Circle, Clock } from 'lucide-react';
 import { DIFFICULTY_COLORS, SELECT_CLASSES } from '../utils/ui';
 
@@ -8,6 +8,10 @@ export default function CodingProblems() {
   const [problems, setProblems] = useState([]);
   const [tags, setTags] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [topicsLoading, setTopicsLoading] = useState(true);
+  const [tagsError, setTagsError] = useState(null);
+  const [topicsError, setTopicsError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [difficulty, setDifficulty] = useState('');
@@ -17,16 +21,36 @@ export default function CodingProblems() {
   const [totalPages, setTotalPages] = useState(1);
   const backend = 'coding';
 
-  useEffect(() => { loadTagsAndTopics(); }, []);
+  useEffect(() => {
+    setTagsLoading(true);
+    setTopicsLoading(true);
+    loadTagsAndTopics();
+  }, []);
+
   useEffect(() => { loadProblems(); }, [page, difficulty, selectedTag, selectedTopic, search]);
 
   const loadTagsAndTopics = async () => {
+    setTagsError(null);
+    setTopicsError(null);
     try {
       const [tagsRes, topicsRes] = await Promise.all([getCodingTags(), getCodingTopics()]);
-      setTags(tagsRes.data.data || []);
-      setTopics(topicsRes.data.data || []);
+      const tagData = tagsRes.data.data || [];
+      const topicData = topicsRes.data.data || [];
+      setTags(tagData);
+      setTopics(topicData);
+      if (Array.isArray(tagData) && tagData.length === 0) {
+        console.warn('[API] getCodingTags returned 200 with empty array - no tags in DB');
+      }
+      if (Array.isArray(topicData) && topicData.length === 0) {
+        console.warn('[API] getCodingTopics returned 200 with empty array - no topics in DB');
+      }
     } catch (error) {
       console.error('Failed to load tags/topics:', error);
+      setTagsError('Failed to load tags');
+      setTopicsError('Failed to load topics');
+    } finally {
+      setTagsLoading(false);
+      setTopicsLoading(false);
     }
   };
 
@@ -75,10 +99,16 @@ export default function CodingProblems() {
           </select>
           <select value={selectedTopic} onChange={(e) => { setSelectedTopic(e.target.value); setPage(1); }} className={SELECT_CLASSES}>
             <option value="">All Topics</option>
+            {topicsLoading ? (<option value="" disabled>Loading topics...</option>) : null}
+            {topicsError ? (<option value="" disabled>{topicsError}</option>) : null}
+            {!topicsLoading && !topicsError && topics.length === 0 ? (<option value="" disabled>No topics available</option>) : null}
             {topics.map((topic) => (<option key={topic} value={topic}>{topic}</option>))}
           </select>
           <select value={selectedTag} onChange={(e) => { setSelectedTag(e.target.value); setPage(1); }} className={SELECT_CLASSES}>
             <option value="">All Tags</option>
+            {tagsLoading ? (<option value="" disabled>Loading tags...</option>) : null}
+            {tagsError ? (<option value="" disabled>{tagsError}</option>) : null}
+            {!tagsLoading && !tagsError && tags.length === 0 ? (<option value="" disabled>No tags available</option>) : null}
             {tags.map((tag) => (<option key={tag} value={tag}>{tag}</option>))}
           </select>
         </div>

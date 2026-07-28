@@ -94,6 +94,11 @@ export const getCodingSubmissions = (params) => API.get('/coding/submissions', {
 export const generateDSAProblem = (data) => API.post('/dsa/generate', data);
 export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
 
+// Aptitude
+export const getAptitudeQuestions = (params) => API.get('/aptitude/questions', { params });
+export const getAptitudeCategories = () => API.get('/aptitude/categories');
+export const submitAptitudeAnswer = (data) => API.post('/aptitude/submit', data);
+
 // Interview Experiences
 export const getInterviewExperiences = (params) => API.get('/interview-experiences', { params });
 export const getInterviewExperience = (id) => API.get(`/interview-experiences/${id}`);

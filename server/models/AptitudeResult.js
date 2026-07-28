@@ -23,6 +23,11 @@ const AptitudeResultSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    category: {
+      type: String,
+      enum: ['dsa', 'sql', 'aptitude'],
+      default: 'aptitude',
+    },
   },
   {
     timestamps: true,

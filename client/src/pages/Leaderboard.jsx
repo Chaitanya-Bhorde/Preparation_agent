@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getLeaderboard, getMyLeaderboardStats } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Trophy, Medal, TrendingUp, Users, Loader2, Crown, Star, Zap, Award } from 'lucide-react';
-import { PAGE_CONTAINER, LOADING_SPINNER } from '../utils/ui';
+import { PAGE_CONTAINER, LOADING_SPINNER, BUTTON_CLASSES } from '../utils/ui';
 
 const RANK_COLORS = {
   1: 'text-yellow-400',
@@ -213,7 +213,7 @@ export default function Leaderboard() {
           <button
             disabled={page <= 1}
             onClick={() => setPage(page - 1)}
-            className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 hover:bg-gray-700 text-sm"
+            className={BUTTON_CLASSES.secondary}
           >
             Previous
           </button>
@@ -221,7 +221,7 @@ export default function Leaderboard() {
           <button
             disabled={page >= totalPages}
             onClick={() => setPage(page + 1)}
-            className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 hover:bg-gray-700 text-sm"
+            className={BUTTON_CLASSES.secondary}
           >
             Next
           </button>

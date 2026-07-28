@@ -49,8 +49,11 @@ const SQLSubmissionSchema = new mongoose.Schema({
   },
   problemDifficulty: { type: String, enum: ['easy', 'medium', 'hard'] },
   problemTags: [String],
-}, {
-  timestamps: true,
+  category: {
+    type: String,
+    enum: ['dsa', 'sql', 'aptitude'],
+    default: 'sql',
+  },
 });
 
 module.exports = mongoose.model('SQLSubmission', SQLSubmissionSchema);
