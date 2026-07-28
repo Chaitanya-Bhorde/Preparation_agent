@@ -1,36 +1,42 @@
 const Submission = require('../models/Submission');
+const CodeSubmission = require('../models/CodeSubmission');
+const SQLSubmission = require('../models/SQLSubmission');
 const User = require('../models/User');
 const Problem = require('../models/Problem');
 const ConceptNote = require('../models/ConceptNote');
+const CodingProblem = require('../models/CodingProblem');
+const SQLProblem = require('../models/SQLProblem');
 
 exports.getTopicProgress = async (req, res) => {
   try {
     const userId = req.user.id;
     console.log('[TOPIC_PROGRESS] ===== START for user:', userId, '=====');
 
-    // Fetch all submissions for this user (only 'submit' type), populated with problem data
-    const allSubmissions = await Submission.find({ user: userId, type: 'submit' }).populate('problem', 'tags difficulty category');
-    console.log('[TOPIC_PROGRESS] Total submissions found:', allSubmissions.length);
+    // Fetch all submissions for this user from multiple collections
+    const regularSubmissions = await Submission.find({ user: userId, type: 'submit' }).populate('problem', 'tags difficulty category').lean();
+    const codeSubmissions = await CodeSubmission.find({ user: userId }).populate('problem', 'tags difficulty').lean();
+    const sqlSubmissions = await SQLSubmission.find({ user: userId }).populate('problem', 'tags difficulty').lean();
+    
+    console.log('[TOPIC_PROGRESS] Regular submissions:', regularSubmissions.length);
+    console.log('[TOPIC_PROGRESS] Code submissions:', codeSubmissions.length);
+    console.log('[TOPIC_PROGRESS] SQL submissions:', sqlSubmissions.length);
 
     // Track distinct problems per tag to avoid counting re-submissions
-    // tagMap[tag] = { distinctProblemIds: Set, acceptedProblemIds: Set, easy: count, medium: count, hard: count }
     const tagMap = {};
-    // Also track per-problem to know which tags each problem contributes to
     const problemTagMap = {};
 
-    allSubmissions.forEach((sub) => {
-      // FALLBACK: If populate failed (problem deleted/invalid), use embedded problemTags and problemDifficulty
+    // Helper to process a submission
+    const processSubmission = (sub, defaultCategory = 'DSA') => {
       let tags = sub.problem?.tags;
       let difficulty = sub.problem?.difficulty;
-      let category = sub.problem?.category || 'DSA';
+      let category = sub.problem?.category || defaultCategory;
       let pid = sub.problem?._id?.toString();
       let title = sub.problem?.title;
 
       if (!tags || tags.length === 0) {
-        // Fall back to embedded submission fields
         tags = sub.problemTags;
         difficulty = sub.problemDifficulty;
-        category = 'DSA'; // default for embedded fallback
+        category = defaultCategory;
         pid = sub.problem?.toString() || `embedded-${sub._id}`;
         title = '(embedded)';
         console.log('[TOPIC_PROGRESS] Using embedded fallback for submission:', sub._id);
@@ -41,7 +47,6 @@ exports.getTopicProgress = async (req, res) => {
         return;
       }
 
-      // Initialize problemTagMap entry for this problem
       if (!problemTagMap[pid]) {
         problemTagMap[pid] = {
           title,
@@ -51,11 +56,11 @@ exports.getTopicProgress = async (req, res) => {
           hasAccepted: false
         };
       }
-      if (sub.status === 'accepted') {
+      const isAccepted = sub.verdict === 'Accepted' || sub.status === 'accepted';
+      if (isAccepted) {
         problemTagMap[pid].hasAccepted = true;
       }
 
-      // Initialize tag entries
       tags.forEach((tag) => {
         if (!tagMap[tag]) {
           tagMap[tag] = {
@@ -66,13 +71,10 @@ exports.getTopicProgress = async (req, res) => {
             hard: 0,
           };
         }
-        // Track distinct problem IDs for this tag
         tagMap[tag].distinctProblems.add(pid);
-        // Track accepted problems directly (same pattern as analyticsController)
-        if (sub.status === 'accepted') {
+        if (isAccepted) {
           if (!tagMap[tag].acceptedProblems.has(pid)) {
             tagMap[tag].acceptedProblems.add(pid);
-            // Only count distinct accepted problems toward difficulty breakdown
             const diff = difficulty || 'easy';
             if (diff === 'easy') tagMap[tag].easy++;
             else if (diff === 'medium') tagMap[tag].medium++;
@@ -80,19 +82,28 @@ exports.getTopicProgress = async (req, res) => {
           }
         }
       });
-    });
+    };
 
-    // Get all distinct tags from problems, along with their categories
+    regularSubmissions.forEach((sub) => processSubmission(sub, 'DSA'));
+    codeSubmissions.forEach((sub) => processSubmission(sub, 'DSA'));
+    sqlSubmissions.forEach((sub) => processSubmission(sub, 'SQL'));
+
+    // Get all distinct tags from problems across all collections
     const allProblems = await Problem.find({ isActive: true }).select('tags category');
+    const allCodingProblems = await CodingProblem.find({ isActive: true }).select('tags');
+    const allSQLProblems = await SQLProblem.find({ isActive: true }).select('tags');
+    
     console.log('[TOPIC_PROGRESS] All active problems count:', allProblems.length);
+    console.log('[TOPIC_PROGRESS] All active coding problems count:', allCodingProblems.length);
+    console.log('[TOPIC_PROGRESS] All active SQL problems count:', allSQLProblems.length);
 
     const tagCategoryMap = {};
     const tagTotalProblems = {};
+
     allProblems.forEach((p) => {
       (p.tags || []).forEach((tag) => {
         if (!tagTotalProblems[tag]) tagTotalProblems[tag] = new Set();
         tagTotalProblems[tag].add(p._id.toString());
-        // Determine category: if any problem with this tag is SQL, mark as SQL
         if (p.category === 'SQL') {
           tagCategoryMap[tag] = 'SQL';
         } else if (!tagCategoryMap[tag]) {
@@ -101,7 +112,29 @@ exports.getTopicProgress = async (req, res) => {
       });
     });
 
-    const topicList = await Problem.distinct('tags');
+    allCodingProblems.forEach((p) => {
+      (p.tags || []).forEach((tag) => {
+        if (!tagTotalProblems[tag]) tagTotalProblems[tag] = new Set();
+        tagTotalProblems[tag].add(p._id.toString());
+        if (!tagCategoryMap[tag]) {
+          tagCategoryMap[tag] = 'DSA';
+        }
+      });
+    });
+
+    allSQLProblems.forEach((p) => {
+      (p.tags || []).forEach((tag) => {
+        if (!tagTotalProblems[tag]) tagTotalProblems[tag] = new Set();
+        tagTotalProblems[tag].add(p._id.toString());
+        tagCategoryMap[tag] = 'SQL';
+      });
+    });
+
+    const topicList = Array.from(new Set([
+      ...(await Problem.distinct('tags')),
+      ...(await CodingProblem.distinct('tags')),
+      ...(await SQLProblem.distinct('tags'))
+    ]));
     console.log('[TOPIC_PROGRESS] All distinct tags in DB:', topicList);
 
     const conceptNotes = await ConceptNote.find({}).sort({ topic: 1 });
@@ -146,7 +179,6 @@ exports.getTopicProgress = async (req, res) => {
       }
     });
 
-    // Sort both arrays alphabetically
     dsaTopics.sort((a, b) => a.topic.localeCompare(b.topic));
     sqlTopics.sort((a, b) => a.topic.localeCompare(b.topic));
 
@@ -173,6 +205,7 @@ exports.getTopicProgress = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.getTopicDetails = async (req, res) => {
   try {
     const { topic } = req.params;
@@ -183,6 +216,7 @@ exports.getTopicDetails = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.getConceptNotes = async (req, res) => {
   try {
     const notes = await ConceptNote.find({}).sort({ topic: 1 });

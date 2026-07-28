@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:13
+    env_file:
+      - ./.env.postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:6.2-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+  server:
+    image: judge0/judge0:1.13.0
+    env_file:
+      - ./.env.judge0
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "2358:2358"
+    command: ["./scripts/server"]
+    restart: unless-stopped
+
+  worker:
+    image: judge0/judge0:1.13.0
+    env_file:
+      - ./.env.judge0
+    depends_on:
+      - postgres
+      - redis
+    command: ["./scripts/workers"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

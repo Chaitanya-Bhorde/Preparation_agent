@@ -48,6 +48,13 @@ exports.analyzeResumeFile = async (req, res) => {
     try {
       text = await extractResumeText(fileBuffer, req.file.mimetype, fileName);
       console.log('[ATS_ANALYZE] Text extracted, length:', text.length, 'chars');
+      console.log('[ATS_ANALYZE] First 300 chars:', JSON.stringify(text.slice(0, 300)));
+      if (!text || text.trim().length < 50) {
+        return res.status(400).json({
+          success: false,
+          message: "Couldn't extract text from this PDF — try a different file (text-based PDF or DOCX works best)."
+        });
+      }
     } catch (extractError) {
       console.error('[ATS_ANALYZE] TEXT EXTRACTION FAILED:', extractError.message);
       if (extractError.message === 'PDF_EXTRACTION_FAILED') {

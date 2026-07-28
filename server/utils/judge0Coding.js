@@ -15,10 +15,10 @@ const LANGUAGE_IDS = {
 
 const JUDGE0_STATUS = {
   1: 'queued',
-  2: 'queued',
-  3: 'processing',
-  4: 'accepted',
-  5: 'wrong_answer',
+  2: 'processing',
+  3: 'accepted',
+  4: 'wrong_answer',
+  5: 'time_limit_exceeded',
   6: 'compilation_error',
   7: 'runtime_error',
   8: 'runtime_error',
@@ -37,6 +37,10 @@ const judge0Client = axios.create({
   },
   timeout: 30000,
 });
+
+const MAX_POLL_ATTEMPTS = 12;
+const POLL_INTERVAL_MS = 1000;
+const POLL_TIMEOUT_MS = 30000;
 
 /**
  * Check if the Judge0 instance is reachable by calling GET /about or /status.
@@ -75,6 +79,30 @@ const formatJudge0Error = (data) => {
   return null;
 };
 
+const pollJudge0Submission = async (token) => {
+  const start = Date.now();
+  for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    try {
+      const { data } = await judge0Client.get(`/submissions/${token}?base64_encoded=false`);
+      const statusId = data.status ? data.status.id : data.status_id;
+      // Status >= 3 means terminal (3=Accepted, 4=Wrong Answer, 5=TLE, 6=Compile Error, etc.)
+      if (statusId >= 3) {
+        return data;
+      }
+      // Status 1 (queued) or 2 (processing) — still working, wait and retry
+      if (Date.now() - start > POLL_TIMEOUT_MS) {
+        throw new Error('Judge0 polling timed out after 30s while still processing');
+      }
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+    } catch (err) {
+      if (Date.now() - start > POLL_TIMEOUT_MS || (err.code && err.code !== 'ECONNABORTED')) {
+        throw err;
+      }
+    }
+  }
+  throw new Error('Judge0 polling exhausted max attempts while still in processing status');
+};
+
 const executeSingleCase = async (sourceCode, language, input, expectedOutput) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
@@ -95,8 +123,8 @@ const executeSingleCase = async (sourceCode, language, input, expectedOutput) =>
   try {
     let response;
     try {
-      response = await judge0Client.post(
-        '/submissions?wait=true&base64_encoded=false',
+      const createRes = await judge0Client.post(
+        '/submissions?base64_encoded=false',
         {
           source_code: sourceCode,
           language_id: languageId,
@@ -104,6 +132,9 @@ const executeSingleCase = async (sourceCode, language, input, expectedOutput) =>
         },
         { timeout: 30000 }
       );
+      const token = createRes.data.token;
+      const data = await pollJudge0Submission(token);
+      response = { data };
     } catch (err) {
       if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ECONNRESET' || err.message.includes('timeout')) {
         return {
@@ -258,3 +289,4 @@ exports.computeVerdict = (results) => {
 exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;
 exports.normalizeLanguage = normalizeLanguage;
+exports.executeSingleCase = executeSingleCase;

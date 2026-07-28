@@ -88,6 +88,11 @@ const CodingProblemSchema = new mongoose.Schema(
   }
 );
 
+CodingProblemSchema.index({ topic: 1 });
+CodingProblemSchema.index({ difficulty: 1 });
+CodingProblemSchema.index({ title: 1 });
+CodingProblemSchema.index({ topic: 1, difficulty: 1 });
+
 CodingProblemSchema.pre('save', function () {
   this.slug = this.title
     .toLowerCase()
