@@ -68,6 +68,19 @@ exports.getAnalytics = async (req, res) => {
     const rank = await User.countDocuments({
       'stats.totalSolved': { $gt: user.stats.totalSolved },
     });
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const yearSubmissions = await Submission.find({
+      user: req.user.id,
+      createdAt: { $gte: oneYearAgo },
+      status: 'accepted',
+    }).select('createdAt');
+
+    const heatmapData = {};
+    yearSubmissions.forEach((sub) => {
+      const date = sub.createdAt.toISOString().split('T')[0];
+      heatmapData[date] = (heatmapData[date] || 0) + 1;
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -84,6 +97,7 @@ exports.getAnalytics = async (req, res) => {
         })),
         rank: rank + 1,
         weakTopics: user.weakTopics || [],
+        heatmapData,
       },
     });
   } catch (error) {

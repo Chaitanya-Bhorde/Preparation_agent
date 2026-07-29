@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAnalytics } from '../api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Code2, Award, Target, Loader2 } from 'lucide-react';
+import CalendarHeatmap from '../components/CalendarHeatmap';
 import { PAGE_CONTAINER, STAT_CARD_CLASSES, LOADING_SPINNER } from '../utils/ui';
 const COLORS = ['#22c55e', '#eab308', '#ef4444'];
 const RADIAN = Math.PI / 2;
@@ -122,6 +123,10 @@ export default function Analytics() {
             <Line type="monotone" dataKey="accepted" stroke="#22c55e" strokeWidth={2} dot={false} name="Accepted" />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+        <h2 className="text-lg font-semibold text-white mb-4">Contribution Heatmap (Last 12 Months)</h2>
+        <CalendarHeatmap data={data?.heatmapData || {}} />
       </div>
     </div>
   );
