@@ -19,6 +19,7 @@ import {
   Trophy,
   MessageSquare,
   Download,
+  GraduationCap,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -36,6 +37,7 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
   const isFeaturesActive = ['/topics', '/companies', '/mistakes', '/goals', '/readiness'].includes(location.pathname);
+  const isPracticeActive = ['/practice', '/practice/dsa', '/practice/sql', '/practice/aptitude'].includes(location.pathname);
 
   const featuresSubItems = [
     { name: 'Topics', path: '/topics', icon: Layers },
@@ -45,10 +47,22 @@ export default function Navbar() {
     { name: 'Readiness', path: '/readiness', icon: Brain },
   ];
 
+  const practiceSubItems = [
+    { name: 'DSA', path: '/practice/dsa', icon: Code2 },
+    { name: 'SQL', path: '/practice/sql', icon: Database },
+    { name: 'Aptitude', path: '/practice/aptitude', icon: Brain },
+  ];
+
+  const [practiceOpen, setPracticeOpen] = useState(false);
+  const practiceRef = useRef(null);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (featuresRef.current && !featuresRef.current.contains(event.target)) {
         setFeaturesOpen(false);
+      }
+      if (practiceRef.current && !practiceRef.current.contains(event.target)) {
+        setPracticeOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -81,6 +95,31 @@ export default function Navbar() {
               <Database className="w-4 h-4 inline mr-1" />
               SQL
             </Link>
+            <div className="relative" ref={practiceRef}>
+              <button
+                type="button"
+                onClick={() => setPracticeOpen(!practiceOpen)}
+                className={linkClass(isPracticeActive)}
+              >
+                <GraduationCap className="w-4 h-4 inline mr-1" />
+                Practice
+              </button>
+              {practiceOpen && (
+                <div className="absolute top-full left-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-2 z-50">
+                  {practiceSubItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setPracticeOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="relative" ref={featuresRef}>
               <button
                 type="button"

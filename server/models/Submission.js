@@ -58,6 +58,11 @@ const SubmissionSchema = new mongoose.Schema(
     score: { type: Number, default: 0 },
     problemDifficulty: { type: String, enum: ['easy', 'medium', 'hard'] },
     problemTags: [String],
+    category: {
+      type: String,
+      enum: ['dsa', 'sql', 'aptitude'],
+      default: 'dsa',
+    },
   },
   {
     timestamps: true,

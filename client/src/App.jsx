@@ -21,6 +21,9 @@ import Leaderboard from './pages/Leaderboard';
 import InterviewExperiences from './pages/InterviewExperiences';
 import ProgressExport from './pages/ProgressExport';
 import AptitudePractice from './pages/AptitudePractice';
+import PracticeHub from './pages/PracticeHub';
+import DSAPractice from './pages/DSAPractice';
+import SQLPractice from './pages/SQLPractice';
 import { Loader2 } from 'lucide-react';
 import { LOADING_SPINNER } from './utils/ui';
 function PrivateRoute({ children }) {
@@ -36,31 +39,33 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-950">
       {user && <Navbar />}
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
-        <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
-        <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
-        <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
-        <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
-        <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-        <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
-         <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-         <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
-         <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
-         <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
-         <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
-         <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
-          <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
-          <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-          <Route path="/practice/dsa" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
-          <Route path="/practice/sql" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-          <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
-          <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
-         <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
-         <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
-      </Routes>
+       <Routes>
+         <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+         <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+         <Route path="/problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
+         <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
+         <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
+         <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
+         <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+         <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
+          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+          <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
+          <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
+          <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
+          <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
+          <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
+           <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
+           <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
+           <Route path="/practice" element={<PrivateRoute><PracticeHub /></PrivateRoute>} />
+           <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
+           <Route path="/practice/sql" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
+           <Route path="/practice/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
+           <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
+           <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+          <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
+          <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
+       </Routes>
     </div>
   );
 }

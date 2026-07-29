@@ -1,6 +1,8 @@
 const AptitudeQuestion = require('../models/AptitudeQuestion');
 const AptitudeSubmission = require('../models/AptitudeSubmission');
 const AptitudeResult = require('../models/AptitudeResult');
+const Submission = require('../models/Submission');
+const { updateStreak } = require('../utils/streak');
 
 exports.getQuestions = async (req, res) => {
   try {
@@ -76,6 +78,30 @@ exports.submitAnswer = async (req, res) => {
         correctAnswers: correct ? 1 : 0,
         category: 'aptitude',
       });
+    }
+
+    // Dual-write to unified Submission model for analytics
+    try {
+      await Submission.create({
+        user: req.user.id,
+        problem: question._id,
+        code: JSON.stringify({ selectedIndex: Number(selectedIndex) }),
+        language: 'javascript',
+        status: correct ? 'accepted' : 'wrong_answer',
+        type: 'submit',
+        passedTestCases: correct ? 1 : 0,
+        totalTestCases: 1,
+        problemDifficulty: question.difficulty,
+        problemTags: question.tags,
+        category: 'aptitude',
+        score: correct ? 100 : 0,
+      });
+    } catch (dualWriteErr) {
+      console.error('Aptitude dual-write to Submission failed:', dualWriteErr.message);
+    }
+
+    if (correct) {
+      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
 
     res.status(201).json({

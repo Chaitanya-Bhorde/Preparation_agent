@@ -1,7 +1,9 @@
 const SQLProblem = require('../models/SQLProblem');
 const SQLSubmission = require('../models/SQLSubmission');
+const Submission = require('../models/Submission');
 const User = require('../models/User');
 const { executeAndCompare } = require('../utils/sqlResultComparator');
+const { updateStreak } = require('../utils/streak');
 
 exports.getSQLProblems = async (req, res) => {
   try {
@@ -223,6 +225,31 @@ exports.submitSQL = async (req, res) => {
       }
     } else {
       await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
+    }
+
+    // Dual-write to unified Submission model for analytics
+    const subStatus = status === 'passed' ? 'accepted' : 'wrong_answer';
+    try {
+      await Submission.create({
+        user: req.user.id,
+        problem: problemId,
+        code: query,
+        language: 'sql',
+        status: subStatus,
+        type: 'submit',
+        passedTestCases: passedCount,
+        totalTestCases: allTestCases.length,
+        problemDifficulty: problem.difficulty,
+        problemTags: problem.tags,
+        category: 'sql',
+        score: Math.round((passedCount / allTestCases.length) * 100),
+      });
+    } catch (dualWriteErr) {
+      console.error('SQL dual-write to Submission failed:', dualWriteErr.message);
+    }
+
+    if (status === 'passed') {
+      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
 
     res.status(201).json({ success: true, data: submission });

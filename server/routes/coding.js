@@ -93,6 +93,7 @@ router.post('/submit', protect, async (req, res) => {
       totalTestCases,
       problemDifficulty: problem.difficulty,
       problemTags: problem.tags,
+      category: 'dsa',
       testCaseResults: results.map((r) => ({
         testCase: null,
         passed: r.passed,
