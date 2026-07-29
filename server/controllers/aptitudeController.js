@@ -6,11 +6,12 @@ const { updateStreak } = require('../utils/streak');
 
 exports.getQuestions = async (req, res) => {
   try {
-    const { category, difficulty, tags, topic, search, page = 1, limit = 20 } = req.query;
+    const { category, difficulty, tags, topic, search, company, page = 1, limit = 20 } = req.query;
     const query = { isActive: true };
     if (category) query.category = category;
     if (difficulty) query.difficulty = difficulty;
     if (tags) query.tags = { $in: tags.split(',') };
+    if (company) query.companies = company;
     if (search) query.question = { $regex: search, $options: 'i' };
 
     const total = await AptitudeQuestion.countDocuments(query);
@@ -118,9 +119,82 @@ exports.submitAnswer = async (req, res) => {
   }
 };
 
+exports.getCompanies = async (req, res) => {
+  try {
+    const companies = await AptitudeQuestion.distinct('companies', { isActive: true });
+    res.status(200).json({ success: true, data: companies });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.getCategories = async (req, res) => {
   try {
-    const categories = ['quant', 'verbal', 'logical'];
+    const categories = [
+      'quant',
+      'number-system',
+      'percentages',
+      'profit-loss',
+      'ratio-proportion',
+      'averages',
+      'partnership',
+      'mixture-allegation',
+      'time-work',
+      'pipes-cisterns',
+      'time-speed-distance',
+      'boats-streams',
+      'trains',
+      'simple-interest',
+      'compound-interest',
+      'ages',
+      'clocks',
+      'calendars',
+      'permutation-combination',
+      'probability',
+      'progressions',
+      'geometry',
+      'mensuration',
+      'data-interpretation',
+      'data-sufficiency',
+      'verbal',
+      'blood-relations',
+      'direction-sense',
+      'coding-decoding',
+      'seating-arrangement',
+      'puzzles',
+      'syllogism',
+      'statement-conclusion',
+      'statement-assumption',
+      'cause-effect',
+      'input-output',
+      'ranking',
+      'number-series',
+      'alphabet-series',
+      'analogy',
+      'odd-one-out',
+      'cubes-dice',
+      'mirror-image',
+      'paper-folding',
+      'pattern-recognition',
+      'critical-reasoning',
+      'decision-making',
+      'reading-comprehension',
+      'grammar',
+      'error-detection',
+      'sentence-improvement',
+      'sentence-correction',
+      'fill-blanks',
+      'para-jumbles',
+      'sentence-arrangement',
+      'vocabulary',
+      'synonyms',
+      'antonyms',
+      'idioms-phrases',
+      'one-word-substitution',
+      'active-passive-voice',
+      'direct-indirect-speech',
+      'cloze-test'
+    ];
     res.status(200).json({ success: true, data: categories });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
