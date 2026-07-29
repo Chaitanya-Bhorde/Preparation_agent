@@ -3,6 +3,7 @@ const { runCode, submitCode, computeVerdict, buildDriverFromSignature } = requir
 const CodeSubmission = require('../models/CodeSubmission');
 const CodingProblem = require('../models/CodingProblem');
 const { protect } = require('../middleware/auth');
+const { updateStreak } = require('../utils/streak');
 
 const router = express.Router();
 
@@ -122,6 +123,8 @@ router.post('/submit', protect, async (req, res) => {
           : { 'stats.hardSolved': 1, 'stats.totalSolved': 1 };
         await User.findByIdAndUpdate(userId, { $inc: solvedIncrement });
       }
+      // BUG 1 FIX: Update streak for DSA/Judge0 accepted submissions
+      updateStreak(userId).catch(err => console.error('Streak update failed:', err.message));
     }
     await User.findByIdAndUpdate(userId, { $inc: { 'stats.totalSubmissions': 1 } });
 

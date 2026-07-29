@@ -4,43 +4,7 @@ const User = require('../models/User');
 const Leaderboard = require('../models/Leaderboard');
 const { runCode, submitCode } = require('../utils/judge0');
 const { executeSQL } = require('../utils/sqlRunner');
-
-// Helper to update streak after an accepted submission
-const updateStreak = async (userId) => {
-  try {
-    const user = await User.findById(userId).select('stats.streak stats.lastActiveDate');
-    if (!user) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const lastActive = user.stats.lastActiveDate ? new Date(user.stats.lastActiveDate) : null;
-    if (lastActive) {
-      lastActive.setHours(0, 0, 0, 0);
-    }
-    const diffDays = lastActive ? Math.round((today - lastActive) / (1000 * 60 * 60 * 24)) : null;
-    let newStreak;
-    if (diffDays === null) {
-      // First ever accepted submission
-      newStreak = 1;
-    } else if (diffDays === 0) {
-      // Already solved today — leave streak unchanged
-      newStreak = user.stats.streak;
-    } else if (diffDays === 1) {
-      // Consecutive day — increment
-      newStreak = (user.stats.streak || 0) + 1;
-    } else {
-      // Gap of 2+ days — reset
-      newStreak = 1;
-    }
-    await User.findByIdAndUpdate(userId, {
-      $set: {
-        'stats.streak': newStreak,
-        'stats.lastActiveDate': today,
-      },
-    });
-  } catch (error) {
-    console.error('Streak update failed:', error.message);
-  }
-};
+const { updateStreak } = require('../utils/streak');
 
 // Helper to update leaderboard after submission
 const updateLeaderboardAfterSubmission = async (userId) => {
@@ -267,13 +231,26 @@ exports.getSubmissions = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
+    const CodeSubmission = require('../models/CodeSubmission');
+    const codeQuery = { user: req.user.id };
+    if (problemId) codeQuery.problem = problemId;
+    const codeSubmissions = await CodeSubmission.find(codeQuery)
+      .populate('problem', 'title slug difficulty tags')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    const merged = [
+      ...submissions.map(s => ({ ...s.toObject(), source: 'submission' })),
+      ...codeSubmissions.map(s => ({ ...s.toObject(), source: 'code' })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const mergedTotal = total + await CodeSubmission.countDocuments(codeQuery);
     res.status(200).json({
       success: true,
-      count: submissions.length,
-      total,
-      totalPages: Math.ceil(total / limit),
+      count: merged.length,
+      total: mergedTotal,
+      totalPages: Math.ceil(mergedTotal / limit),
       currentPage: parseInt(page),
-      data: submissions,
+      data: merged,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -282,13 +259,20 @@ exports.getSubmissions = async (req, res) => {
 
 exports.getSubmission = async (req, res) => {
   try {
-    const submission = await Submission.findById(req.params.id)
+    let submission = await Submission.findById(req.params.id)
       .populate('problem', 'title slug difficulty tags')
       .populate('user', 'name email');
     if (!submission) {
+      const CodeSubmission = require('../models/CodeSubmission');
+      submission = await CodeSubmission.findById(req.params.id)
+        .populate('problem', 'title slug difficulty tags')
+        .populate('user', 'name email');
+    }
+    if (!submission) {
       return res.status(404).json({ success: false, message: 'Submission not found' });
     }
-    if (submission.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
+    const ownerId = submission.user?._id?.toString() || submission.user?.toString();
+    if (ownerId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     res.status(200).json({ success: true, data: submission });

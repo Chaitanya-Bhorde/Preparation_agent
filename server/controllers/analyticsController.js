@@ -26,15 +26,20 @@ exports.getAnalytics = async (req, res) => {
       medium: user.stats.mediumSolved || 0,
       hard: user.stats.hardSolved || 0,
     };
-    const allSubmissions = await Submission.find({ user: req.user.id, type: 'submit' })
-      .populate('problem', 'tags difficulty');
+    const allSubmissions = await Submission.find({ user: req.user.id, type: 'submit' });
     // Track distinct problems per tag (not per-submission)
     const tagProblemSets = {};
     const tagAcceptedSets = {};
     allSubmissions.forEach((sub) => {
-      if (sub.problem && sub.problem.tags) {
-        const pid = sub.problem._id.toString();
-        sub.problem.tags.forEach((tag) => {
+      // BUG 2 FIX: Use problemTags field for DSA/CodingProblem submissions (where problem ref is CodingProblem, not Problem)
+      // Fall back to sub.problem.tags for legacy Problem-model submissions
+      let tags = sub.problemTags;
+      if ((!tags || tags.length === 0) && sub.problem && sub.problem.tags) {
+        tags = sub.problem.tags;
+      }
+      if (tags && tags.length > 0) {
+        const pid = sub.problem ? sub.problem._id.toString() : sub._id.toString();
+        tags.forEach((tag) => {
           if (!tagProblemSets[tag]) tagProblemSets[tag] = new Set();
           if (!tagAcceptedSets[tag]) tagAcceptedSets[tag] = new Set();
           tagProblemSets[tag].add(pid);
