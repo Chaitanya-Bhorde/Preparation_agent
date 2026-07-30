@@ -30,6 +30,7 @@ const SQLProblemSchema = new mongoose.Schema({
     required: true,
   },
   tags: [String],
+  companies: [String],
   schemaSetupSQL: {
     type: String,
     required: true,

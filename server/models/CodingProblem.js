@@ -44,6 +44,7 @@ const CodingProblemSchema = new mongoose.Schema(
       required: true,
     },
     tags: [String],
+    companies: [String],
     constraints: [String],
     examples: [
       {

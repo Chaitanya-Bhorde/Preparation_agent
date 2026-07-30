@@ -7,11 +7,12 @@ const { updateStreak } = require('../utils/streak');
 
 exports.getSQLProblems = async (req, res) => {
   try {
-    const { difficulty, topic, tags, search, page = 1, limit = 20 } = req.query;
+    const { difficulty, topic, tags, search, company, page = 1, limit = 20 } = req.query;
     const query = { isActive: true };
     if (difficulty) query.difficulty = difficulty;
     if (topic) query.topic = topic;
     if (tags) query.tags = { $in: tags.split(',') };
+    if (company) query.companies = company;
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -305,6 +306,15 @@ exports.getSQLTopics = async (req, res) => {
   try {
     const topics = await SQLProblem.distinct('topic', { isActive: true });
     res.status(200).json({ success: true, data: topics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getSQLCompanies = async (req, res) => {
+  try {
+    const companies = await SQLProblem.distinct('companies', { isActive: true });
+    res.status(200).json({ success: true, data: companies });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

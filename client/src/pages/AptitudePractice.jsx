@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { getAptitudeQuestions, submitAptitudeAnswer, getAptitudeCategories } from '../api';
+import { getAptitudeQuestions, submitAptitudeAnswer, getAptitudeCategories, getAptitudeCompanies } from '../api';
 import { CheckCircle, XCircle, Loader2, BookOpen, BarChart3 } from 'lucide-react';
 
 export default function AptitudePractice() {
   const [questions, setQuestions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -15,11 +17,12 @@ export default function AptitudePractice() {
 
   useEffect(() => {
     loadCategories();
+    loadCompanies();
   }, []);
 
   useEffect(() => {
-    if (selectedCategory !== undefined) loadQuestions();
-  }, [selectedCategory]);
+    loadQuestions();
+  }, [selectedCategory, selectedCompany]);
 
   const loadCategories = async () => {
     try {
@@ -30,11 +33,21 @@ export default function AptitudePractice() {
     }
   };
 
+  const loadCompanies = async () => {
+    try {
+      const { data } = await getAptitudeCompanies();
+      setCompanies(data.data || []);
+    } catch (error) {
+      console.error('Failed to load companies:', error);
+    }
+  };
+
   const loadQuestions = async () => {
     setLoading(true);
     try {
       const params = { limit: 20 };
       if (selectedCategory) params.category = selectedCategory;
+      if (selectedCompany) params.company = selectedCompany;
       const { data } = await getAptitudeQuestions(params);
       setQuestions(data.data || []);
       setCurrentIndex(0);
@@ -91,7 +104,7 @@ export default function AptitudePractice() {
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col sm:flex-row gap-3">
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
@@ -100,6 +113,16 @@ export default function AptitudePractice() {
           <option value="">All Categories</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+          ))}
+        </select>
+        <select
+          value={selectedCompany}
+          onChange={(e) => setSelectedCompany(e.target.value)}
+          className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+        >
+          <option value="">All Companies</option>
+          {companies.map((c) => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>

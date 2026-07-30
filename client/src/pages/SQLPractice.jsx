@@ -7,10 +7,13 @@ export default function SQLPractice() {
   const [loading, setLoading] = useState(true);
   const [difficulty, setDifficulty] = useState('');
   const [search, setSearch] = useState('');
+  const [company, setCompany] = useState('');
+  const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
     fetchProblems();
-  }, [difficulty, search]);
+    fetchCompanies();
+  }, [difficulty, search, company]);
 
   const fetchProblems = async () => {
     setLoading(true);
@@ -18,6 +21,7 @@ export default function SQLPractice() {
       const params = new URLSearchParams();
       if (difficulty) params.set('difficulty', difficulty);
       if (search) params.set('search', search);
+      if (company) params.set('company', company);
       const res = await fetch(`/api/sql/problems?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -27,6 +31,18 @@ export default function SQLPractice() {
       console.error('Failed to fetch SQL problems:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await fetch('/api/sql/companies', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await res.json();
+      if (data.success) setCompanies(data.data.filter(Boolean));
+    } catch (error) {
+      console.error('Failed to fetch companies:', error);
     }
   };
 
@@ -63,6 +79,16 @@ export default function SQLPractice() {
           <option value="easy">Easy</option>
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
+        </select>
+        <select
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+        >
+          <option value="">All Companies</option>
+          {companies.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
       </div>
 

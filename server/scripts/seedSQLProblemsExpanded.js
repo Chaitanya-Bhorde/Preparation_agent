@@ -4,9 +4,44 @@ const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const SQLProblem = require('../models/SQLProblem');
 
+const COMPANY_TAG_MAP = {
+  Google: { sql: ['joins','window-functions','cte','query-optimization'], difficulty: ['medium','hard'] },
+  Amazon: { sql: ['joins','subqueries','aggregation','indexing'], difficulty: ['medium','hard'] },
+  Microsoft: { sql: ['joins','subqueries','cte'], difficulty: ['medium','hard'] },
+  Meta: { sql: ['joins','window-functions','subqueries'], difficulty: ['medium','hard'] },
+  TCS: { sql: ['joins','aggregation','subqueries','basic-queries'], difficulty: ['easy','medium'] },
+  Infosys: { sql: ['joins','subqueries','group-by'], difficulty: ['easy','medium'] },
+  Wipro: { sql: ['basic-queries','joins','aggregation'], difficulty: ['easy','medium'] },
+  Cognizant: { sql: ['joins','subqueries','group-by','having'], difficulty: ['easy','medium'] },
+  HCL: { sql: ['joins','basic-queries','aggregation'], difficulty: ['easy','medium'] },
+  'Tech Mahindra': { sql: ['joins','subqueries','group-by'], difficulty: ['easy','medium'] },
+  Zensar: { sql: ['joins','basic-queries','subqueries','aggregation'], difficulty: ['easy','medium'] },
+  Accenture: { sql: ['joins','subqueries','cte','window-functions'], difficulty: ['easy','medium'] },
+  Capgemini: { sql: ['joins','subqueries','group-by'], difficulty: ['easy','medium'] },
+  Deloitte: { sql: ['joins','cte','window-functions','subqueries'], difficulty: ['medium','hard'] },
+  IBM: { sql: ['joins','subqueries','query-optimization','cte'], difficulty: ['medium','hard'] },
+  Oracle: { sql: ['joins','subqueries','plsql','indexing','query-optimization'], difficulty: ['medium','hard'] },
+  SAP: { sql: ['joins','cte','subqueries','performance'], difficulty: ['medium','hard'] },
+  EY: { sql: ['joins','subqueries','group-by','having'], difficulty: ['easy','medium'] },
+};
+
+function getSQLCompanies(topic, tags, difficulty) {
+  const t = (topic || '').toLowerCase();
+  const tagsLower = (tags || []).map(x => x.toLowerCase());
+  const matches = [];
+  for (const [company, patterns] of Object.entries(COMPANY_TAG_MAP)) {
+    let score = 0;
+    if (patterns.sql.some(pt => t.includes(pt))) score += 2;
+    score += tagsLower.filter(tag => patterns.sql.some(pt => tag.includes(pt))).length;
+    if (patterns.difficulty.includes(difficulty)) score += 1;
+    if (score >= 2) matches.push(company);
+  }
+  return matches;
+}
+
 const sqlProblems = [
   // Basic SELECT
-  { title: 'Select All Employees', topic: 'Basic SELECT', difficulty: 'easy', tags: ['SELECT', 'basic'] },
+  { title: 'Select All Employees', topic: 'Basic SELECT', difficulty: 'easy', tags: ['SELECT', 'basic'], companies: getSQLCompanies('Basic SELECT', ['SELECT','basic'], 'easy') },
   { title: 'Select Specific Columns', topic: 'Basic SELECT', difficulty: 'easy', tags: ['SELECT', 'columns'] },
   { title: 'Select with Alias', topic: 'Basic SELECT', difficulty: 'easy', tags: ['SELECT', 'AS'] },
   { title: 'Distinct Values', topic: 'Basic SELECT', difficulty: 'easy', tags: ['SELECT', 'DISTINCT'] },
@@ -121,6 +156,7 @@ async function seed() {
         },
       ];
       
+      const sqlCompanies = getSQLCompanies(problem.topic, problem.tags, problem.difficulty);
       return {
         ...problem,
         description: `Solve the ${problem.title} SQL problem.`,
@@ -129,6 +165,7 @@ INSERT INTO test_table VALUES (1, 'Sample', 100);`,
         sampleTestCases,
         hiddenTestCases,
         referenceSolutionSQL: 'SELECT * FROM test_table;',
+        companies: sqlCompanies,
       };
     });
 

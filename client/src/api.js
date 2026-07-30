@@ -86,10 +86,12 @@ export const getSQLSubmissions = (params) => API.get('/sql/submissions', { param
 export const getSQLSubmission = (id) => API.get(`/sql/submissions/${id}`);
 export const getSQLTopics = () => API.get('/sql/topics');
 export const getSQLTags = () => API.get('/sql/tags');
+export const getSQLCompanies = () => API.get('/sql/companies');
 export const getCodingProblems = (params) => API.get('/coding-problems', { params });
 export const getCodingProblem = (slug) => API.get(`/coding-problems/${slug}`);
 export const getCodingTags = () => API.get('/coding-problems/tags');
 export const getCodingTopics = () => API.get('/coding-problems/topics');
+export const getCodingCompanies = () => API.get('/coding-problems/companies');
 export const getCodingSubmissions = (params) => API.get('/coding/submissions', { params });
 export const generateDSAProblem = (data) => API.post('/dsa/generate', data);
 export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
@@ -97,6 +99,7 @@ export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
 // Aptitude
 export const getAptitudeQuestions = (params) => API.get('/aptitude/questions', { params });
 export const getAptitudeCategories = () => API.get('/aptitude/categories');
+export const getAptitudeCompanies = () => API.get('/aptitude/companies');
 export const submitAptitudeAnswer = (data) => API.post('/aptitude/submit', data);
 
 // Interview Experiences

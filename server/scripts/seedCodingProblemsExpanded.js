@@ -310,6 +310,41 @@ const codingProblems = [
   { title: 'Pow(x,n)', topic: 'Math', tags: ['math', 'recursion'], difficulty: 'medium' },
 ];
 
+const COMPANY_TAG_MAP = {
+  Google: { dsa: ['arrays','strings','dynamic-programming','graph','tree','binary-search','heap','trie'], difficulty: ['medium','hard'] },
+  Amazon: { dsa: ['arrays','strings','linked-list','tree','graph','dynamic-programming','stack','queue'], difficulty: ['medium','hard'] },
+  Microsoft: { dsa: ['arrays','strings','linked-list','tree','dynamic-programming','backtracking'], difficulty: ['medium','hard'] },
+  Meta: { dsa: ['arrays','strings','graph','tree','binary-search','dynamic-programming'], difficulty: ['medium','hard'] },
+  TCS: { dsa: ['arrays','strings','linked-list','stack','queue','tree'], difficulty: ['easy','medium'] },
+  Infosys: { dsa: ['arrays','strings','sorting','searching','linked-list'], difficulty: ['easy','medium'] },
+  Wipro: { dsa: ['arrays','strings','basic-algorithms','sorting'], difficulty: ['easy','medium'] },
+  Cognizant: { dsa: ['arrays','strings','linked-list','tree-basics','stack'], difficulty: ['easy','medium'] },
+  HCL: { dsa: ['arrays','strings','sorting','basic-ds'], difficulty: ['easy','medium'] },
+  'Tech Mahindra': { dsa: ['arrays','strings','linked-list','stack','queue'], difficulty: ['easy','medium'] },
+  Zensar: { dsa: ['arrays','strings','basic-algorithms','sorting','searching'], difficulty: ['easy','medium'] },
+  Accenture: { dsa: ['arrays','strings','linked-list','tree','dynamic-programming'], difficulty: ['easy','medium'] },
+  Capgemini: { dsa: ['arrays','strings','stack','queue','basic-ds'], difficulty: ['easy','medium'] },
+  Deloitte: { dsa: ['arrays','strings','linked-list','tree','dynamic-programming'], difficulty: ['medium','hard'] },
+  IBM: { dsa: ['arrays','strings','graph','tree','dynamic-programming'], difficulty: ['medium','hard'] },
+  Oracle: { dsa: ['arrays','strings','linked-list','tree','dynamic-programming'], difficulty: ['medium','hard'] },
+  SAP: { dsa: ['arrays','strings','tree','graph','dynamic-programming'], difficulty: ['medium','hard'] },
+  EY: { dsa: ['arrays','strings','linked-list','stack','queue','tree-basics'], difficulty: ['easy','medium'] },
+};
+
+function getCompaniesForProblem(topic, tags, difficulty) {
+  const t = (topic || '').toLowerCase();
+  const tagsLower = (tags || []).map(x => x.toLowerCase());
+  const matches = [];
+  for (const [company, patterns] of Object.entries(COMPANY_TAG_MAP)) {
+    let score = 0;
+    if (patterns.dsa.some(pt => t.includes(pt))) score += 2;
+    score += tagsLower.filter(tag => patterns.dsa.some(pt => tag.includes(pt))).length;
+    if (patterns.difficulty.includes(difficulty)) score += 1;
+    if (score >= 2) matches.push(company);
+  }
+  return matches;
+}
+
 const seedCodingProblems = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
@@ -318,6 +353,7 @@ const seedCodingProblems = async () => {
     const now = new Date();
     const problems = codingProblems.map((p, idx) => {
       const slug = `${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${idx}`;
+      const companies = getCompaniesForProblem(p.topic, p.tags, p.difficulty);
       return {
         title: p.title,
         slug,
@@ -325,6 +361,7 @@ const seedCodingProblems = async () => {
         difficulty: p.difficulty,
         topic: p.topic,
         tags: p.tags,
+        companies,
         constraints: ['1 <= input.length <= 1000', 'All inputs are valid'],
         examples: [{ input: 'Example input', output: 'Expected output', explanation: 'Explanation here' }],
         visibleTestCases: [

@@ -6,11 +6,12 @@ const CodeSubmission = require('../models/CodeSubmission');
 // Returns problems with `userStatus` derived from CodeSubmission.
 exports.getCodingProblems = async (req, res) => {
   try {
-    const { difficulty, topic, tags, search, page = 1, limit = 20 } = req.query;
+    const { difficulty, topic, tags, search, company, page = 1, limit = 20 } = req.query;
     const query = { isActive: true };
     if (difficulty) query.difficulty = difficulty;
     if (topic) query.topic = topic;
     if (tags) query.tags = { $in: tags.split(',') };
+    if (company) query.companies = company;
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -84,6 +85,15 @@ exports.getCodingProblem = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: { ...problem.toObject(), userStatus } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getCodingCompanies = async (req, res) => {
+  try {
+    const companies = await CodingProblem.distinct('companies');
+    res.status(200).json({ success: true, data: companies });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
