@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Code2, Mail, Lock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { INPUT_CLASSES, BUTTON_CLASSES } from '../utils/ui';
+import { usePageTitle } from '../hooks/usePageTitle';
 export default function Register() {
+  usePageTitle('Register');
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -40,7 +43,7 @@ export default function Register() {
             <div className="relative">
               <User className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="Your name" />
+                className={INPUT_CLASSES + ' pl-10'} placeholder="Your name" />
             </div>
           </div>
           <div>
@@ -48,7 +51,7 @@ export default function Register() {
             <div className="relative">
               <Mail className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="your@email.com" />
+                className={INPUT_CLASSES + ' pl-10'} placeholder="your@email.com" />
             </div>
           </div>
           <div>
@@ -56,7 +59,7 @@ export default function Register() {
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="••••••••" minLength={6} />
+                className={INPUT_CLASSES + ' pl-10'} placeholder="••••••••" minLength={6} />
             </div>
           </div>
           <div>
@@ -64,11 +67,11 @@ export default function Register() {
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input type="password" required value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" placeholder="••••••••" />
+                className={INPUT_CLASSES + ' pl-10'} placeholder="••••••••" />
             </div>
           </div>
           <button type="submit" disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50">
+            className={BUTTON_CLASSES.primary + ' w-full justify-center'}>
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
           <p className="text-gray-400 text-sm text-center">

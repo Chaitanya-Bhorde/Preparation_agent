@@ -4,7 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { Code2, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { INPUT_CLASSES, BUTTON_CLASSES } from '../utils/ui';
+import { usePageTitle } from '../hooks/usePageTitle';
 export default function Login() {
+  usePageTitle('Sign In');
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();

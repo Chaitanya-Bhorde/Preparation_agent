@@ -3,8 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { getCodingProblems, getCodingTags, getCodingTopics } from '../api';
 import { Search, CheckCircle, Circle, Clock } from 'lucide-react';
 import { DIFFICULTY_COLORS, SELECT_CLASSES } from '../utils/ui';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { useDebounce } from '../hooks/useDebounce';
+import { SkeletonTable } from '../components/Skeleton';
 
 export default function CodingProblems() {
+  usePageTitle('Coding Problems');
   const [problems, setProblems] = useState([]);
   const [tags, setTags] = useState([]);
   const [topics, setTopics] = useState([]);
@@ -14,6 +18,7 @@ export default function CodingProblems() {
   const [topicsError, setTopicsError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 400);
   const [difficulty, setDifficulty] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -27,7 +32,7 @@ export default function CodingProblems() {
     loadTagsAndTopics();
   }, []);
 
-  useEffect(() => { loadProblems(); }, [page, difficulty, selectedTag, selectedTopic, search]);
+  useEffect(() => { loadProblems(); }, [page, difficulty, selectedTag, selectedTopic, debouncedSearch]);
 
   const loadTagsAndTopics = async () => {
     setTagsError(null);

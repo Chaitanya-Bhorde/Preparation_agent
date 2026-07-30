@@ -1,72 +1,88 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Problems from './pages/Problems';
-import ProblemDetail from './pages/ProblemDetail';
-import CodingProblemDetail from './pages/CodingProblemDetail';
-import Analytics from './pages/Analytics';
-import Resume from './pages/Resume';
-import Admin from './pages/Admin';
-import Topics from './pages/Topics';
-import Companies from './pages/Companies';
-import Mistakes from './pages/Mistakes';
-import Goals from './pages/Goals';
-import Readiness from './pages/Readiness';
-import SQLProblems from './pages/SQLProblems';
-import SQLProblemDetail from './pages/SQLProblemDetail';
-import Leaderboard from './pages/Leaderboard';
-import InterviewExperiences from './pages/InterviewExperiences';
-import ProgressExport from './pages/ProgressExport';
-import AptitudePractice from './pages/AptitudePractice';
-import PracticeHub from './pages/PracticeHub';
-import DSAPractice from './pages/DSAPractice';
-import SQLPractice from './pages/SQLPractice';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
 import { LOADING_SPINNER } from './utils/ui';
+
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Problems = lazy(() => import('./pages/Problems'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const ProblemDetail = lazy(() => import('./pages/ProblemDetail'));
+const CodingProblemDetail = lazy(() => import('./pages/CodingProblemDetail'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Resume = lazy(() => import('./pages/Resume'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Topics = lazy(() => import('./pages/Topics'));
+const Companies = lazy(() => import('./pages/Companies'));
+const Mistakes = lazy(() => import('./pages/Mistakes'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Readiness = lazy(() => import('./pages/Readiness'));
+const SQLProblems = lazy(() => import('./pages/SQLProblems'));
+const SQLProblemDetail = lazy(() => import('./pages/SQLProblemDetail'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const ProgressExport = lazy(() => import('./pages/ProgressExport'));
+const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
+const DSAPractice = lazy(() => import('./pages/DSAPractice'));
+const SQLPractice = lazy(() => import('./pages/SQLPractice'));
+const MockInterview = lazy(() => import('./pages/MockInterview'));
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   return user ? children : <Navigate to="/login" />;
 }
+const PageLoading = () => (
+  <div className={LOADING_SPINNER}>
+    <div className="flex flex-col items-center gap-3">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      <span className="text-gray-500 text-sm">Loading page...</span>
+    </div>
+  </div>
+);
+
 function App() {
   const { user, loading } = useAuth();
   if (loading) {
     return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   }
   return (
-    <div className="min-h-screen bg-gray-950">
-      {user && <Navbar />}
-       <Routes>
-         <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-         <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
-         <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-         <Route path="/problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
-         <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
-         <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
-         <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
-         <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
-         <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
-          <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-          <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
-          <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
-          <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
-          <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
-          <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
-           <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
-           <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-           <Route path="/practice" element={<PrivateRoute><PracticeHub /></PrivateRoute>} />
-           <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
-           <Route path="/practice/sql" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
-           <Route path="/practice/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-           <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
-           <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
-          <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
-          <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
-       </Routes>
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-950">
+        {user && <Navbar />}
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+            <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+            <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
+            <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
+            <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
+            <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
+            <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
+            <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
+            <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
+            <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
+            <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
+            <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
+            <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
+            <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
+            <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
+            <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
+            <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
+            <Route path="/practice/sql" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
+            <Route path="/practice/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
+            <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
+            <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+            <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
+            <Route path="/mock-interview" element={<PrivateRoute><MockInterview /></PrivateRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </ErrorBoundary>
   );
 }
 export default App;
