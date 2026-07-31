@@ -1,0 +1,8 @@
+- [x] Analyze codebase structure
+- [ ] 1. Fix Navbar: Add Practice dropdown (DSA, SQL, Aptitude) + Company Wise dropdown
+- [ ] 2. Fix Dashboard: Remove student progress stats, only show features info + animations
+- [ ] 3. Fix DSAPractice.jsx: Fix loading issues, increase limit, add error handling
+- [ ] 4. Fix SQLPractice.jsx: Fix loading issues, increase limit, add error handling
+- [ ] 5. Fix Analytics.jsx: Add LeetCode-like green boxes heatmap for DSA, SQL, Aptitude
+- [ ] 6. Fix App.jsx: Update routes for new structure
+- [ ] 7. Verify everything works together

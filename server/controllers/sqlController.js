@@ -150,7 +150,10 @@ exports.runSQL = async (req, res) => {
 
 exports.submitSQL = async (req, res) => {
   try {
-    const { problemId, query } = req.body;
+    const body = req.body || {};
+    const problemId = body.problemId;
+    const query = body.query;
+    console.log('SQL SUBMIT BODY:', JSON.stringify(body));
     if (!problemId || !query) {
       return res.status(400).json({ success: false, message: 'Please provide problemId and query' });
     }
@@ -230,8 +233,14 @@ exports.submitSQL = async (req, res) => {
 
     // Dual-write to unified Submission model for analytics
     const subStatus = status === 'passed' ? 'accepted' : 'wrong_answer';
+    const traceLine = `SQL DUAL-WRITE TRACE: category=sql status=${subStatus} userId=${req.user.id} problemId=${problemId}\n`;
     try {
-      await Submission.create({
+      await require('fs').promises.appendFile(require('path').join(__dirname, '../logs/sql-dualwrite-debug.log'), traceLine);
+    } catch {}
+    console.log('SQL DUAL-WRITE TRACE:', { category: 'sql', status: subStatus, userId: req.user.id, problemId });
+    let created;
+    try {
+      created = await Submission.create({
         user: req.user.id,
         problem: problemId,
         code: query,
@@ -245,6 +254,11 @@ exports.submitSQL = async (req, res) => {
         category: 'sql',
         score: Math.round((passedCount / allTestCases.length) * 100),
       });
+      console.log('SQL DUAL-WRITE RESULT:', created.toObject());
+      const resultLine = `SQL DUAL-WRITE RESULT: ${JSON.stringify(created.toObject())}\n`;
+      try {
+        await require('fs').promises.appendFile(require('path').join(__dirname, '../logs/sql-dualwrite-debug.log'), resultLine);
+      } catch {}
     } catch (dualWriteErr) {
       console.error('SQL dual-write to Submission failed:', dualWriteErr.message);
     }
@@ -252,6 +266,33 @@ exports.submitSQL = async (req, res) => {
     if (status === 'passed') {
       updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
+
+    const Leaderboard = require('../models/Leaderboard');
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const weeklyAccepted = await Submission.countDocuments({ user: req.user.id, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });
+    const monthlyAccepted = await Submission.countDocuments({ user: req.user.id, createdAt: { $gte: oneMonthAgo }, type: 'submit', status: 'accepted' });
+    const totalSubs = await Submission.countDocuments({ user: req.user.id, type: 'submit' });
+    const acceptedSubs = await Submission.countDocuments({ user: req.user.id, type: 'submit', status: 'accepted' });
+    const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
+    const leaderboardUser = await User.findById(req.user.id);
+    await Leaderboard.findOneAndUpdate(
+      { user: req.user.id },
+      {
+        totalSolved: leaderboardUser.stats.totalSolved,
+        easySolved: leaderboardUser.stats.easySolved,
+        mediumSolved: leaderboardUser.stats.mediumSolved,
+        hardSolved: leaderboardUser.stats.hardSolved,
+        totalSubmissions: leaderboardUser.stats.totalSubmissions,
+        acceptanceRate,
+        atsScore: leaderboardUser.profile.atsScore || 0,
+        streak: leaderboardUser.stats.streak || 0,
+        weeklySolved: weeklyAccepted,
+        monthlySolved: monthlyAccepted,
+        lastUpdated: Date.now(),
+      },
+      { upsert: true, new: true }
+    );
 
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
