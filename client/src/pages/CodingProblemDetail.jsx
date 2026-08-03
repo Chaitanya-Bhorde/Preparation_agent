@@ -173,7 +173,11 @@ export default function CodingProblemDetail() {
       else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
       else toast.error('Sample tests failed');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to run code');
+      if (!error.response && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET')) {
+        toast.error('Code execution service is offline. Please ensure Docker Desktop is running.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to run code');
+      }
     } finally {
       setRunning(false);
     }
@@ -201,7 +205,11 @@ export default function CodingProblemDetail() {
       else if (data.data.errorType === 'RuntimeError') toast.error('Runtime error occurred');
       else toast.error(`${data.data.passedTestCases}/${data.data.totalTestCases} test cases passed`);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to submit code');
+      if (!error.response && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET')) {
+        toast.error('Code execution service is offline. Please ensure Docker Desktop is running.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to submit code');
+      }
     } finally {
       setSubmitting(false);
     }

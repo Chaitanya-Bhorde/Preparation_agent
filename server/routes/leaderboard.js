@@ -10,6 +10,7 @@ const router = express.Router();
 
 router.get('/', protect, getLeaderboard);
 router.get('/me', protect, getMyLeaderboardStats);
+router.get('/:category', protect, getLeaderboard);
 router.post('/update', protect, updateLeaderboard);
 
 module.exports = router;

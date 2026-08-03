@@ -6,3 +6,11 @@ build/
 .DS_Store
 coverage/
 uploads/
+judge0-server/.env.judge0
+judge0-server/.env.postgres
+server/server.err
+server/server.out
+server/.env
+live-users.json
+null
+

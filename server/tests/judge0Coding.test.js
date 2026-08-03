@@ -57,10 +57,10 @@ describe('computeVerdict', () => {
 describe('JUDGE0_STATUS', () => {
   it('should map status ids correctly', () => {
     expect(JUDGE0_STATUS[1]).toBe('queued');
-    expect(JUDGE0_STATUS[2]).toBe('queued');
-    expect(JUDGE0_STATUS[3]).toBe('processing');
-    expect(JUDGE0_STATUS[4]).toBe('accepted');
-    expect(JUDGE0_STATUS[5]).toBe('wrong_answer');
+    expect(JUDGE0_STATUS[2]).toBe('processing');
+    expect(JUDGE0_STATUS[3]).toBe('accepted');
+    expect(JUDGE0_STATUS[4]).toBe('wrong_answer');
+    expect(JUDGE0_STATUS[5]).toBe('time_limit_exceeded');
     expect(JUDGE0_STATUS[6]).toBe('compilation_error');
     expect(JUDGE0_STATUS[7]).toBe('runtime_error');
     expect(JUDGE0_STATUS[13]).toBe('internal_error');

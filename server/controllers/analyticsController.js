@@ -1,6 +1,61 @@
+const mongoose = require('mongoose');
 const Submission = require('../models/Submission');
 const User = require('../models/User');
 const Problem = require('../models/Problem');
+
+const CATEGORIES = ['dsa', 'sql', 'aptitude', 'overall'];
+
+function isValidCategory(cat) {
+  return CATEGORIES.includes(cat);
+}
+
+function categoryMatch(category, userId) {
+  const match = { type: 'submit', user: new mongoose.Types.ObjectId(userId) };
+  if (category !== 'overall') match.category = category;
+  return match;
+}
+
+function assertOwnScope(userId, reqUser) {
+  return userId === reqUser.id || reqUser.role === 'admin';
+}
+
+function dateStr(d) {
+  const x = new Date(d);
+  return `${x.getUTCFullYear()}-${String(x.getUTCMonth() + 1).padStart(2, '0')}-${String(x.getUTCDate()).padStart(2, '0')}`;
+}
+
+async function aggregateUserStats(category, userId) {
+  const docs = await Submission.find(categoryMatch(category, userId))
+    .select('status problem problemDifficulty problemTags createdAt')
+    .lean();
+  const attempted = new Set();
+  const solved = new Set();
+  const solvedByDifficulty = { easy: new Set(), medium: new Set(), hard: new Set() };
+  const tagTotal = {};
+  const tagSolved = {};
+  let totalSubmissions = 0;
+  let acceptedSubmissions = 0;
+  docs.forEach((sub) => {
+    totalSubmissions += 1;
+    if (sub.status === 'accepted') acceptedSubmissions += 1;
+    const pid = sub.problem ? sub.problem.toString() : null;
+    if (pid) {
+      attempted.add(pid);
+      if (sub.status === 'accepted') {
+        solved.add(pid);
+        const diff = sub.problemDifficulty || 'easy';
+        const bucket = solvedByDifficulty[diff] || solvedByDifficulty.easy;
+        bucket.add(pid);
+      }
+    }
+    (sub.problemTags || []).forEach((tag) => {
+      if (!tagTotal[tag]) { tagTotal[tag] = new Set(); tagSolved[tag] = new Set(); }
+      if (pid) tagTotal[tag].add(pid);
+      if (pid && sub.status === 'accepted') tagSolved[tag].add(pid);
+    });
+  });
+  return { attempted, solved, solvedByDifficulty, tagTotal, tagSolved, totalSubmissions, acceptedSubmissions };
+}
 
 function getDateRange(range) {
   const now = Date.now();
@@ -131,11 +186,17 @@ exports.getAnalytics = async (req, res) => {
       user: req.user.id,
       createdAt: { $gte: oneYearAgo },
       status: 'accepted',
-    }).select('createdAt');
+    }).select('createdAt category');
+    // Global heatmap (overview) + per-category heatmaps so DSA/SQL/Aptitude each render their OWN chart.
     const heatmapData = {};
+    const heatmapByCategory = { dsa: {}, sql: {}, aptitude: {} };
     yearSubmissions.forEach((sub) => {
       const date = sub.createdAt.toISOString().split('T')[0];
       heatmapData[date] = (heatmapData[date] || 0) + 1;
+      const cat = sub.category || 'dsa';
+      if (heatmapByCategory[cat]) {
+        heatmapByCategory[cat][date] = (heatmapByCategory[cat][date] || 0) + 1;
+      }
     });
 
     res.status(200).json({
@@ -153,6 +214,9 @@ exports.getAnalytics = async (req, res) => {
         rank: rank + 1,
         weakTopics: user.weakTopics || [],
         heatmapData,
+        heatmapDataDsa: heatmapByCategory.dsa,
+        heatmapDataSql: heatmapByCategory.sql,
+        heatmapDataAptitude: heatmapByCategory.aptitude,
         dsa: getCategoryStats('dsa'),
         sql: getCategoryStats('sql'),
         aptitude: getCategoryStats('aptitude'),
@@ -181,6 +245,241 @@ exports.getAdminAnalytics = async (req, res) => {
         totalUsers, totalStudents, totalProblems, totalSubmissions,
         problemDistribution: { easy: easyCount, medium: mediumCount, hard: hardCount },
         topStudents,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Per-module summary for a user (dsa | sql | aptitude | overall)
+// @route   GET /api/analytics/:category/summary/:userId
+exports.getCategorySummary = async (req, res) => {
+  try {
+    const { category, userId } = req.params;
+    if (!isValidCategory(category)) {
+      return res.status(400).json({ success: false, message: `Invalid category. Must be one of: ${CATEGORIES.join(', ')}` });
+    }
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this user' });
+    }
+
+    const { attempted, solved, solvedByDifficulty, totalSubmissions, acceptedSubmissions } = await aggregateUserStats(category, userId);
+    const acceptanceRate = totalSubmissions > 0 ? Math.round((acceptedSubmissions / totalSubmissions) * 100) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        category,
+        userId,
+        totalSolved: solved.size,
+        totalAttempted: attempted.size,
+        totalSubmissions,
+        acceptedSubmissions,
+        acceptanceRate,
+        difficulty: {
+          easy: solvedByDifficulty.easy.size,
+          medium: solvedByDifficulty.medium.size,
+          hard: solvedByDifficulty.hard.size,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Per-module daily activity heatmap + streak
+// @route   GET /api/analytics/:category/heatmap/:userId
+exports.getCategoryHeatmap = async (req, res) => {
+  try {
+    const { category, userId } = req.params;
+    if (!isValidCategory(category)) {
+      return res.status(400).json({ success: false, message: `Invalid category. Must be one of: ${CATEGORIES.join(', ')}` });
+    }
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this user' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneYearAgo = new Date(today);
+    oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+
+    const match = categoryMatch(category, userId);
+    match.createdAt = { $gte: oneYearAgo };
+    const subs = await Submission.find(match).select('status createdAt').lean();
+
+    const heatmap = {};
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(oneYearAgo);
+      d.setDate(d.getDate() + i);
+      heatmap[dateStr(d)] = { count: 0, accepted: 0 };
+    }
+    const acceptedDates = [];
+    subs.forEach((sub) => {
+      const ds = dateStr(sub.createdAt);
+      if (heatmap[ds]) {
+        heatmap[ds].count += 1;
+        if (sub.status === 'accepted') {
+          heatmap[ds].accepted += 1;
+          acceptedDates.push(ds);
+        }
+      }
+    });
+
+    const uniqueAccepted = [...new Set(acceptedDates)].sort().reverse();
+
+    let currentStreak = 0;
+    if (uniqueAccepted.length > 0) {
+      const todayStr = dateStr(today);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = dateStr(yesterday);
+      let cursor = uniqueAccepted[0] === todayStr ? new Date(today) : (uniqueAccepted[0] === yesterdayStr ? yesterday : null);
+      if (cursor) {
+        for (const ds of uniqueAccepted) {
+          if (dateStr(cursor) === ds) {
+            currentStreak += 1;
+            cursor.setDate(cursor.getDate() - 1);
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    let maxStreak = 0;
+    let temp = 0;
+    let prev = null;
+    for (const ds of uniqueAccepted) {
+      if (prev) {
+        const a = new Date(prev);
+        const b = new Date(ds);
+        temp = Math.round((a - b) / (1000 * 60 * 60 * 24)) === 1 ? temp + 1 : 1;
+      } else {
+        temp = 1;
+      }
+      maxStreak = Math.max(maxStreak, temp);
+      prev = ds;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { category, userId, currentStreak, maxStreak, heatmap },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Per-module topic-wise solved breakdown
+// @route   GET /api/analytics/:category/topics/:userId
+exports.getCategoryTopics = async (req, res) => {
+  try {
+    const { category, userId } = req.params;
+    if (!isValidCategory(category)) {
+      return res.status(400).json({ success: false, message: `Invalid category. Must be one of: ${CATEGORIES.join(', ')}` });
+    }
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this user' });
+    }
+
+    const docs = await Submission.find(categoryMatch(category, userId))
+      .select('status problem problemDifficulty problemTags')
+      .lean();
+
+    const tagTotal = {};
+    const tagSolved = {};
+    const tagSolvedByDiff = {};
+    docs.forEach((sub) => {
+      const pid = sub.problem ? sub.problem.toString() : null;
+      (sub.problemTags || []).forEach((tag) => {
+        if (!tagTotal[tag]) {
+          tagTotal[tag] = new Set();
+          tagSolved[tag] = new Set();
+          tagSolvedByDiff[tag] = { easy: new Set(), medium: new Set(), hard: new Set() };
+        }
+        if (pid) tagTotal[tag].add(pid);
+        if (pid && sub.status === 'accepted') {
+          tagSolved[tag].add(pid);
+          const diff = sub.problemDifficulty || 'easy';
+          const bucket = tagSolvedByDiff[tag][diff] || tagSolvedByDiff[tag].easy;
+          bucket.add(pid);
+        }
+      });
+    });
+
+    const topics = Object.keys(tagTotal).map((key) => ({
+      topic: key,
+      total: tagTotal[key].size,
+      solved: tagSolved[key].size,
+      acceptanceRate: tagTotal[key].size > 0 ? Math.round((tagSolved[key].size / tagTotal[key].size) * 100) : 0,
+      difficulty: {
+        easy: tagSolvedByDiff[key].easy.size,
+        medium: tagSolvedByDiff[key].medium.size,
+        hard: tagSolvedByDiff[key].hard.size,
+      },
+    })).sort((a, b) => b.solved - a.solved || b.total - a.total);
+
+    res.status(200).json({ success: true, data: { category, userId, topics } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Platform-wide insights across ALL users (admin-only)
+// @route   GET /api/analytics/overall/allusers
+exports.getPlatformAnalytics = async (req, res) => {
+  try {
+    const totalUsers = await Submission.aggregate([
+      { $match: { type: 'submit' } },
+      { $group: { _id: '$user' } },
+      { $count: 'activeUsers' },
+    ]);
+    const activeUsers = totalUsers[0] ? totalUsers[0].activeUsers : 0;
+
+    const totalStats = await Submission.aggregate([
+      { $match: { type: 'submit' } },
+      {
+        $group: {
+          _id: null,
+          totalSubmissions: { $sum: 1 },
+          acceptedSubmissions: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+        },
+      },
+    ]);
+    const stats = totalStats[0] || { totalSubmissions: 0, acceptedSubmissions: 0 };
+
+    const mostSolved = await Submission.aggregate([
+      { $match: { type: 'submit', status: 'accepted' } },
+      { $group: { _id: '$problem', solvedCount: { $sum: 1 } } },
+      { $sort: { solvedCount: -1 } },
+      { $limit: 10 },
+      { $project: { _id: 0, problemId: '$_id', solvedCount: 1 } },
+    ]);
+
+    const trendingTopics = await Submission.aggregate([
+      { $match: { type: 'submit' } },
+      { $unwind: { path: '$problemTags', preserveNullAndEmptyArrays: true } },
+      { $match: { problemTags: { $ne: null } } },
+      { $group: { _id: '$problemTags', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+      { $project: { _id: 0, topic: '$_id', count: 1 } },
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalUsers: activeUsers,
+        totalSubmissions: stats.totalSubmissions,
+        acceptedSubmissions: stats.acceptedSubmissions,
+        overallAcceptanceRate: stats.totalSubmissions > 0
+          ? Math.round((stats.acceptedSubmissions / stats.totalSubmissions) * 100)
+          : 0,
+        mostSolved,
+        trendingTopics,
       },
     });
   } catch (error) {

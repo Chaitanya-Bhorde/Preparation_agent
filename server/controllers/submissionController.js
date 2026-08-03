@@ -102,6 +102,8 @@ exports.runSubmission = async (req, res) => {
     submission.errorMessage = errorMessage;
     await submission.save();
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
+    const { createPracticeRecord } = require('./practiceHistoryController');
+    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
     res.status(201).json({
       success: true,
       data: submission,
@@ -211,6 +213,8 @@ exports.submitSolution = async (req, res) => {
       updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
+    const { createPracticeRecord } = require('./practiceHistoryController');
+    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
     res.status(201).json({
       success: true,
       data: submission,
@@ -354,6 +358,8 @@ exports.runSQL = async (req, res) => {
       updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
+    const { createPracticeRecord } = require('./practiceHistoryController');
+    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -454,6 +460,8 @@ exports.submitSQL = async (req, res) => {
       updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
     }
     updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
+    const { createPracticeRecord } = require('./practiceHistoryController');
+    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

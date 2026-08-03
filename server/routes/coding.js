@@ -27,9 +27,10 @@ router.post('/run', protect, async (req, res) => {
       memoryUsed: r.memoryUsed,
       error: r.error,
       errorType: r.errorType,
+      isSample: true,
     }));
 
-    res.status(200).json({ success: true, data: { status: 'completed', testCaseResults: response } });
+    res.status(200).json({ success: true, data: { status: 'completed', mode: 'run', testCaseResults: response } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -156,6 +157,43 @@ router.post('/submit', protect, async (req, res) => {
       { upsert: true, new: true }
     );
 
+    const visibleCount = (problem.visibleTestCases || []).length;
+    // Shape the HTTP response so hidden test-case content is never leaked to the
+    // frontend over the network. The persisted CodeSubmission keeps full data.
+    const shapedResults = results.map((r, idx) => {
+      const isSample = idx < visibleCount;
+      if (isSample) {
+        return {
+          input: r.input,
+          expectedOutput: r.expectedOutput,
+          actualOutput: r.output,
+          passed: r.passed,
+          executionTime: r.executionTime,
+          memoryUsed: r.memoryUsed,
+          errorType: r.errorType,
+          errorMessage: r.error || null,
+          isSample: true,
+        };
+      }
+      // Hidden case: strip all content-bearing fields.
+      return {
+        input: null,
+        expectedOutput: null,
+        actualOutput: null,
+        passed: r.passed,
+        executionTime: r.executionTime,
+        memoryUsed: r.memoryUsed,
+        errorType: r.errorType,
+        errorMessage: null,
+        isSample: false,
+      };
+    });
+    const firstFailedIdx = results.findIndex((r) => !r.passed);
+    const firstFailedIsHidden = firstFailedIdx >= visibleCount;
+    const safeFirstFailedInput = firstFailedIsHidden ? null : firstFailedInput;
+    const safeFirstFailedExpected = firstFailedIsHidden ? null : firstFailedExpected;
+    const safeFirstFailedActual = firstFailedIsHidden ? null : firstFailedActual;
+
     res.status(201).json({
       success: true,
       data: {
@@ -166,9 +204,11 @@ router.post('/submit', protect, async (req, res) => {
         totalTestCases,
         runtimeMs: submission.runtimeMs,
         memoryKb: submission.memoryKb,
-        firstFailedInput,
-        firstFailedExpected,
-        firstFailedActual,
+        firstFailedInput: safeFirstFailedInput,
+        firstFailedExpected: safeFirstFailedExpected,
+        firstFailedActual: safeFirstFailedActual,
+        mode: 'submit',
+        testCaseResults: shapedResults,
       },
     });
   } catch (error) {

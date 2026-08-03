@@ -5,7 +5,30 @@ const SQLTestCaseSchema = new mongoose.Schema({
   expectedOutputRows: [mongoose.Schema.Types.Mixed],
 }, { _id: false });
 
+const SQLSchemaTableSchema = new mongoose.Schema({
+  tableName: { type: String, required: true },
+  columns: [{
+    name: { type: String, required: true },
+    type: { type: String, required: true }
+  }],
+  notes: String,
+}, { _id: false });
+
+const SQLExampleSchema = new mongoose.Schema({
+  exampleNumber: { type: Number, required: true },
+  inputTables: [{
+    tableName: { type: String, required: true },
+    rows: [mongoose.Schema.Types.Mixed],
+  }],
+  outputTable: {
+    columns: [String],
+    rows: [mongoose.Schema.Types.Mixed],
+  },
+  explanation: String,
+}, { _id: false });
+
 const SQLProblemSchema = new mongoose.Schema({
+  problemNumber: { type: Number, unique: true, sparse: true },
   title: {
     type: String,
     required: [true, 'Please add a title'],
@@ -29,8 +52,12 @@ const SQLProblemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  topics: [{ type: String }],
   tags: [String],
   companies: [String],
+  schemaTables: [SQLSchemaTableSchema],
+  examples: [SQLExampleSchema],
+  constraints: [String],
   schemaSetupSQL: {
     type: String,
     required: true,

@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const connectDB = require('./config/db');
+const { isJudge0Reachable } = require('./utils/judge0Coding');
 let swaggerSpec = null;
 try {
   swaggerSpec = require('./config/swagger');
@@ -83,6 +84,7 @@ app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));
 app.use('/api/aptitude', require('./routes/aptitude'));
+app.use('/api/mock-interview', require('./routes/mockInterview'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });
 });
@@ -101,7 +103,7 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT || 5000);
 
 const startServer = (port) => {
   const server = app.listen(port, () => {
@@ -118,4 +120,29 @@ const startServer = (port) => {
 };
 
 startServer(PORT);
+
+// One-shot Judge0 reachability check on boot.
+// Does NOT crash the server — logs and moves on so analytics/leaderboard/etc. keep working.
+if (process.env.JUDGE0_API_URL) {
+  isJudge0Reachable()
+    .then((ok) => {
+      if (ok) {
+        console.log(`✅ Judge0 connected at ${process.env.JUDGE0_API_URL}`);
+      } else {
+        console.warn(
+          `⚠️  Judge0 not reachable at ${process.env.JUDGE0_API_URL} — ` +
+          'code execution will fail until Docker Desktop is started ' +
+          '(run: docker compose up -d in judge0-server/) or JUDGE0_API_KEY is set for hosted mode'
+        );
+      }
+    })
+    .catch(() => {
+      console.warn(
+        `⚠️  Judge0 health check errored for ${process.env.JUDGE0_API_URL} — ` +
+        'code execution will fail until Docker Desktop is started ' +
+        '(run: docker compose up -d in judge0-server/) or JUDGE0_API_KEY is set for hosted mode'
+      );
+    });
+}
+
 module.exports = app;

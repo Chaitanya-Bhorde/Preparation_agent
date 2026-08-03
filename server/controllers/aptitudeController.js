@@ -6,9 +6,10 @@ const { updateStreak } = require('../utils/streak');
 
 exports.getQuestions = async (req, res) => {
   try {
-    const { category, difficulty, tags, topic, search, company, page = 1, limit = 20 } = req.query;
+    const { category, categories, difficulty, tags, topic, search, company, page = 1, limit = 20 } = req.query;
     const query = { isActive: true };
     if (category) query.category = category;
+    if (categories) query.category = { $in: categories.split(',') };
     if (difficulty) query.difficulty = difficulty;
     if (tags) query.tags = { $in: tags.split(',') };
     if (company) query.companies = company;

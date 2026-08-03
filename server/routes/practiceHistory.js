@@ -1,10 +1,10 @@
 const express = require('express');
-const { runSubmission, submitSolution, getSubmissions, getSubmission, runSQL, submitSQL } = require('../controllers/submissionController');
-const practiceHistoryController = require('../controllers/practiceHistoryController');
-const { protect } = require('../middleware/auth');
 const router = express.Router();
-router.post('/run', protect, runSubmission);
-router.post('/submit', protect, submitSolution);
+const { protect } = require('../middleware/auth');
+const practiceHistoryController = require('../controllers/practiceHistoryController');
+const submissionController = require('../controllers/submissionController');
+
+// POST /api/submissions - create practice history record (called by execution flow)
 router.post('/', protect, async (req, res) => {
   try {
     const { submissionId } = req.body;
@@ -28,14 +28,23 @@ router.post('/', protect, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-router.post('/sql/run', protect, runSQL);
-router.post('/sql/submit', protect, submitSQL);
-router.get('/', protect, getSubmissions);
+
+// GET /api/submissions/history
 router.get('/history', protect, practiceHistoryController.getHistory);
+
+// GET /api/submissions/summary/:userId
 router.get('/summary/:userId', protect, practiceHistoryController.getSummary);
+
+// GET /api/submissions/languages/:userId
 router.get('/languages/:userId', protect, practiceHistoryController.getLanguages);
+
+// GET /api/submissions/skills/:userId
 router.get('/skills/:userId', protect, practiceHistoryController.getSkills);
+
+// GET /api/submissions/streak/:userId
 router.get('/streak/:userId', protect, practiceHistoryController.getStreak);
+
+// GET /api/submissions/recent/:userId
 router.get('/recent/:userId', protect, practiceHistoryController.getRecentAccepted);
-router.get('/:id', protect, getSubmission);
+
 module.exports = router;

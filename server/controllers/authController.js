@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
@@ -106,6 +107,56 @@ exports.updateProfile = async (req, res) => {
       { new: true, runValidators: true }
     );
     res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const generateResetToken = () => crypto.randomBytes(32).toString('hex');
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found with that email' });
+    }
+
+    const resetToken = generateResetToken();
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save({ validateBeforeSave: false });
+
+    // In production, email this link. For local/dev we return it so the UI can navigate directly.
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;
+    res.status(200).json({
+      success: true,
+      message: 'Password reset token generated',
+      resetToken,
+      resetUrl,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const resetToken = req.params.resettoken;
+    const user = await User.findOne({
+      resetPasswordToken: resetToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    sendTokenResponse(user, 200, res);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

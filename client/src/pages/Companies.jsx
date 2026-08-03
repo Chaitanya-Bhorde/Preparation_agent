@@ -1,15 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { getCompanies, getCompanyProblems, getCompanyInfo } from '../api';
 import { PAGE_CONTAINER, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
-import { Building2, ChevronRight, Loader2, BookOpen, BarChart3, HelpCircle } from 'lucide-react';
+import { Building2, ChevronRight, Loader2, BookOpen, BarChart3, HelpCircle, Code2, Database, Brain } from 'lucide-react';
 export default function Companies() {
+  const { slug } = useParams();
   const [companies, setCompanies] = useState([]);
   const [selected, setSelected] = useState(null);
   const [problems, setProblems] = useState([]);
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [practiceType, setPracticeType] = useState('all');
   useEffect(() => { loadCompanies(); }, []);
+  useEffect(() => {
+    if (slug && companies.length > 0) {
+      const company = companies.find(c => c.slug === slug);
+      if (company) selectCompany(slug);
+    }
+  }, [slug, companies]);
   const loadCompanies = async () => {
     try {
       const { data } = await getCompanies();

@@ -65,12 +65,13 @@ const validateProblemSchema = (problem) => {
 };
 
 const callLLM = async (prompt, retryCount = 1) => {
-  if (!process.env.LLM_API_KEY) {
+  const groqApiKey = process.env.GROQ_API_KEY || process.env.LLM_API_KEY;
+  if (!groqApiKey) {
     const fs = require('fs');
     const path = require('path');
     const fallbackPath = path.join(__dirname, '../../generated_problem.json');
     if (fs.existsSync(fallbackPath)) {
-      console.warn('[DSA] LLM_API_KEY not configured; using local fallback problem from generated_problem.json. This fallback is for development/testing only.');
+      console.warn('[DSA] GROQ_API_KEY/LLM_API_KEY not configured; using local fallback problem from generated_problem.json. This fallback is for development/testing only.');
       const fallback = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
       return { problem: fallback, usedFallback: true };
     }
@@ -79,12 +80,12 @@ const callLLM = async (prompt, retryCount = 1) => {
 
   try {
     const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-      model: 'llama3-70b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.LLM_API_KEY}`,
+        'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json',
       },
     });

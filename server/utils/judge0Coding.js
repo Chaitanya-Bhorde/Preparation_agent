@@ -1,6 +1,23 @@
 const axios = require('axios');
 
-const JUDGE0_URL = process.env.JUDGE0_API_URL || 'http://localhost:2358';
+const JUDGE0_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
+const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
+
+// On the hosted ce.judge0.com / RapidAPI endpoint an API key is required.
+const judge0Headers = {
+  'Content-Type': 'application/json',
+};
+
+if (JUDGE0_API_KEY) {
+  judge0Headers['X-RapidAPI-Key'] = JUDGE0_API_KEY;
+  judge0Headers['X-RapidAPI-Host'] = 'judge0-ce.p.rapidapi.com';
+}
+
+const judge0Client = axios.create({
+  baseURL: JUDGE0_URL,
+  headers: judge0Headers,
+  timeout: 30000,
+});
 
 const LANGUAGE_IDS = {
   javascript: 63,
@@ -29,14 +46,6 @@ const JUDGE0_STATUS = {
   13: 'internal_error',
   14: 'exec_format_error',
 };
-
-const judge0Client = axios.create({
-  baseURL: JUDGE0_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 30000,
-});
 
 const MAX_POLL_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 1000;
@@ -304,3 +313,4 @@ exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;
 exports.normalizeLanguage = normalizeLanguage;
 exports.executeSingleCase = executeSingleCase;
+exports.isJudge0Reachable = isJudge0Reachable;

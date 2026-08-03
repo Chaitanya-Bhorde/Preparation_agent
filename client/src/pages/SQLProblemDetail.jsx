@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { getSQLProblem, runSQLQuery, submitSQLQuery, getSQLSubmissions, getSQLSubmission } from '../api';
-import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, BookOpen, History, Database } from 'lucide-react';
+import { getSQLProblem, runSQLQuery, submitSQLQuery } from '../api';
+import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, BookOpen, Database } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LOADING_SPINNER, DIFFICULTY_COLORS, BUTTON_CLASSES } from '../utils/ui';
 
@@ -19,12 +19,7 @@ export default function SQLProblemDetail() {
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-  const [activeTab, setActiveTab] = useState('description');
   const [bottomTab, setBottomTab] = useState('result');
-  const [submissions, setSubmissions] = useState([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [selectedSubmissionLoading, setSelectedSubmissionLoading] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
@@ -37,34 +32,6 @@ export default function SQLProblemDetail() {
       toast.error('Failed to load SQL problem');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadSubmissions = async () => {
-    if (!problem) return;
-    setSubmissionsLoading(true);
-    setSelectedSubmission(null);
-    try {
-      const { data } = await getSQLSubmissions({ problemId: problem._id, limit: 20 });
-      setSubmissions(data.data || []);
-    } catch (error) {
-      console.error('Failed to load submissions:', error);
-    } finally {
-      setSubmissionsLoading(false);
-    }
-  };
-
-  const viewSubmission = async (submissionId) => {
-    setSelectedSubmissionLoading(true);
-    try {
-      const { data } = await getSQLSubmission(submissionId);
-      if (data.success) {
-        setSelectedSubmission(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to load submission:', error);
-    } finally {
-      setSelectedSubmissionLoading(false);
     }
   };
 
@@ -116,11 +83,6 @@ export default function SQLProblemDetail() {
   const difficultyColor = (d) => DIFFICULTY_COLORS[d] || DIFFICULTY_COLORS.easy;
   const getStatusConfig = (status) => STATUS_CONFIG[status] || { icon: XCircle, color: 'text-red-400', bg: 'bg-red-900/20', label: status };
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    if (tab === 'submissions') loadSubmissions();
-  };
-
   const renderTable = (rows, label) => {
     if (!rows || rows.length === 0) {
       return <div className="text-gray-500 text-xs py-2">No rows returned</div>;
@@ -152,6 +114,120 @@ export default function SQLProblemDetail() {
     );
   };
 
+
+  const renderResultTab = () => {
+    if (!result) {
+      return (
+        <div className="text-gray-500 text-sm text-center py-4">
+          Click <span className="text-purple-400">Run</span> or <span className="text-green-400">Submit</span> to see results
+        </div>
+      );
+    }
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          {(() => {
+            const cfg = getStatusConfig(result.status);
+            const Icon = cfg.icon;
+            return (<><Icon className={`w-5 h-5 ${cfg.color}`} /><span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
+              <span className="text-gray-500 text-sm ml-auto">{result.testCasesPassed}/{result.totalTestCases} test cases passed</span>
+            </>);
+          })()}
+        </div>
+        {result.testCaseResults?.map((tc, idx) => {
+          const isSample = tc.isSample;
+          return (
+            <div key={idx} className={`mb-3 p-3 rounded-lg border ${tc.passed ? 'bg-green-900/20 border-green-800' : 'bg-red-900/20 border-red-800'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                {tc.passed ? <CheckCircle className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
+                <span className="text-gray-300 text-sm font-medium">
+                  {isSample ? `Sample Test Case ${idx + 1}` : `Hidden Test Case ${idx + 1}`}
+                </span>
+                <span className="text-xs text-gray-500 ml-auto">{tc.passed ? 'Passed' : 'Failed'}</span>
+              </div>
+              {tc.error && (
+                <div className="mb-2 p-2 bg-red-950 rounded text-red-400 text-xs font-mono">{tc.error}</div>
+              )}
+              {!tc.passed && (
+                <div className="space-y-2">
+                  {tc.missingRows?.length > 0 && (
+                    <div>
+                      <p className="text-orange-400 text-xs font-medium mb-1">Missing Rows (expected but not found):</p>
+                      {renderTable(tc.missingRows, 'Missing')}
+                    </div>
+                  )}
+                  {tc.extraRows?.length > 0 && (
+                    <div>
+                      <p className="text-yellow-400 text-xs font-medium mb-1">Extra Rows (found but not expected):</p>
+                      {renderTable(tc.extraRows, 'Extra')}
+                    </div>
+                  )}
+                  {tc.wrongValueRows?.length > 0 && (
+                    <div>
+                      <p className="text-red-400 text-xs font-medium mb-1">Wrong Values:</p>
+                      {tc.wrongValueRows.map((wv, wIdx) => (
+                        <div key={wIdx} className="mb-2 p-2 bg-gray-950 rounded border border-gray-800">
+                          <p className="text-gray-500 text-xs mb-1">Mismatched columns: {wv.mismatchedColumns?.join(', ')}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-green-400 text-xs mb-1">Expected:</p>
+                              <pre className="text-green-300 text-xs font-mono">{JSON.stringify(wv.expected, null, 2)}</pre>
+                            </div>
+                            <div>
+                              <p className="text-red-400 text-xs mb-1">Got:</p>
+                              <pre className="text-red-300 text-xs font-mono">{JSON.stringify(wv.actual, null, 2)}</pre>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {tc.actualRows?.length > 0 && tc.expectedRows?.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <p className="text-green-400 text-xs font-medium mb-1">Expected Output:</p>
+                        {renderTable(tc.expectedRows, 'Expected')}
+                      </div>
+                      <div>
+                        <p className="text-red-400 text-xs font-medium mb-1">Your Output:</p>
+                        {renderTable(tc.actualRows, 'Actual')}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderTestCasesTab = () => {
+    if (!result || result.mode !== 'submit') {
+      return (
+        <div className="text-gray-500 text-sm text-center py-4">
+          Submit your query to see per-test-case results
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-2">
+        {result.testCaseResults?.map((tc, idx) => (
+          <div key={idx} className={`p-2 rounded text-sm ${tc.passed ? 'bg-green-900/20' : 'bg-red-900/20'}`}>
+            <div className="flex items-center gap-2">
+              {tc.passed ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
+              <span className="text-gray-300 text-xs">
+                {tc.isSample ? `Sample Test Case ${idx + 1}` : `Hidden Test Case ${idx + 1}`}
+              </span>
+              <span className="text-xs text-gray-500 ml-auto">{tc.passed ? 'Passed' : 'Failed'}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (loading) {
     return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
   }
@@ -159,20 +235,18 @@ export default function SQLProblemDetail() {
     return <div className={LOADING_SPINNER}><span className="text-gray-400">SQL problem not found</span></div>;
   }
 
+
   return (
-    <div className="h-[calc(100vh-57px)] bg-gray-950 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
-        <div className="flex items-center gap-4 min-w-0">
+    <div className="min-h-screen bg-gray-950 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
+
+      {/* Header: #number. title + difficulty + run/submit */}
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800 shrink-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Link to="/sql" className="text-gray-400 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></Link>
-          <Database className="w-4 h-4 text-purple-400 shrink-0" />
-          <h1 className="text-white font-semibold truncate">{problem.title}</h1>
-          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${difficultyColor(problem.difficulty)}`}>{problem.difficulty}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-900/30 text-purple-400 shrink-0">{problem.topic}</span>
-          <div className="hidden md:flex gap-1 text-xs text-gray-500">
-            {problem.tags?.map((tag) => (<span key={tag} className="bg-gray-800 px-2 py-0.5 rounded">{tag}</span>))}
-          </div>
+          <h1 className="text-white font-semibold text-lg truncate">#{problem.problemNumber} {problem.title}</h1>
+          <span className={`text-xs px-2.5 py-1 rounded-full shrink-0 font-medium ${difficultyColor(problem.difficulty)}`}>{problem.difficulty}</span>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button onClick={handleRun} disabled={running || submitting} className={BUTTON_CLASSES.secondaryCompact}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {running ? 'Running...' : 'Run'}
@@ -184,237 +258,217 @@ export default function SQLProblemDetail() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-1/2 flex flex-col overflow-hidden border-r border-gray-800">
-          <div className="flex border-b border-gray-800 shrink-0">
-            <button onClick={() => handleTabChange('description')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              <BookOpen className="w-4 h-4" /> Description
-            </button>
-            <button onClick={() => handleTabChange('submissions')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'submissions' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              <History className="w-4 h-4" /> Submissions
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            {activeTab === 'description' && (
-              <>
-                <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">{problem.description}</div>
-                {problem.schemaSetupSQL && (
-                  <div className="mt-6">
-                    <h3 className="text-white font-semibold mb-3">Schema</h3>
-                    <pre className="bg-gray-900 p-4 rounded-lg border border-gray-800 text-gray-300 text-sm font-mono overflow-x-auto whitespace-pre-wrap">
-                      {problem.schemaSetupSQL}
-                    </pre>
-                  </div>
-                )}
-                {problem.sampleTestCases?.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-white font-semibold mb-3">Expected Output (Sample)</h3>
-                    {renderTable(problem.sampleTestCases[0]?.expectedOutputRows, 'Expected Output')}
-                  </div>
-                )}
-              </>
-            )}
-            {activeTab === 'submissions' && (
-              <div>
-                {submissionsLoading ? (
-                  <div className="text-gray-400 text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
-                ) : submissions.length === 0 ? (
-                  <div className="text-gray-400 text-center py-8">
-                    <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No submissions yet. Write a query and hit Submit!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {submissions.map((sub) => {
-                      const cfg = getStatusConfig(sub.status);
-                      const Icon = cfg.icon;
-                      const isSelected = selectedSubmission && selectedSubmission._id === sub._id;
-                      return (
-                        <div key={sub._id}
-                          onClick={() => viewSubmission(sub._id)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'border-purple-500 bg-purple-900/20' : `${cfg.bg} border-gray-800 hover:border-gray-700`}`}>
-                          <div className="flex items-center gap-2">
-                            <Icon className={`w-4 h-4 ${cfg.color}`} />
-                            <span className={`text-sm ${cfg.color}`}>{cfg.label}</span>
-                            <span className="text-gray-500 text-xs ml-auto">{new Date(sub.createdAt).toLocaleString()}</span>
-                          </div>
-                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                            <span>{sub.testCasesPassed}/{sub.totalTestCases} passed</span>
-                            <span className="capitalize">SQL</span>
-                          </div>
-                          {isSelected && (
-                            <div className="mt-3 pt-3 border-t border-gray-700">
-                              {selectedSubmissionLoading ? (
-                                <div className="text-gray-400 text-center py-2"><Loader2 className="w-4 h-4 animate-spin mx-auto" /></div>
-                              ) : selectedSubmission && selectedSubmission.submittedQuery && (
-                                <div>
-                                  <pre className="bg-gray-950 p-3 rounded text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-800">
-                                    {selectedSubmission.submittedQuery}
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Tags row: topics + companies + tags */}
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-900/50 border-b border-gray-800 shrink-0 flex-wrap">
+        {(problem.topics || []).map((t) => (
+          <span key={t} className="text-xs px-2 py-1 rounded-full bg-purple-900/30 text-purple-400">{t}</span>
+        ))}
+        {(problem.companies || []).map((c) => (
+          <span key={c} className="text-xs px-2 py-1 rounded-full bg-blue-900/30 text-blue-400">{c}</span>
+        ))}
+        {(problem.tags || []).map((t) => (
+          <span key={t} className="text-xs px-2 py-1 rounded-full bg-gray-800 text-gray-400">{t}</span>
+        ))}
+      </div>
 
-        <div className="w-1/2 flex flex-col">
-          <div className="flex-1 min-h-0">
-            <div className="h-full flex flex-col">
-              <div className="bg-gray-900 px-4 py-2 border-b border-gray-800 flex items-center gap-2">
-                <Database className="w-4 h-4 text-purple-400" />
-                <span className="text-gray-300 text-sm font-medium">SQL Query Editor</span>
-              </div>
-              <Editor
-                height="100%"
-                language="sql"
-                value={query}
-                onChange={(value) => setQuery(value || '')}
-                theme="vs-dark"
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: 'on',
-                }}
-              />
-            </div>
-          </div>
+      {/* Problem content (scrollable) */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
 
-          <div className="border-t border-gray-800 bg-gray-900 flex flex-col shrink-0" style={{ maxHeight: '40%' }}>
-            <div className="flex border-b border-gray-800 shrink-0">
-              <button onClick={() => setBottomTab('result')}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'result' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                Result
-              </button>
-              <button onClick={() => setBottomTab('testcases')}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'testcases' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
-                Test Cases
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {bottomTab === 'result' && (
-                <div>
-                  {!result ? (
-                    <div className="text-gray-500 text-sm text-center py-4">
-                      Click <span className="text-purple-400">Run</span> or <span className="text-green-400">Submit</span> to see results
+          {/* SQL Schema */}
+          {problem.schemaTables?.length > 0 && (
+            <div>
+              <h3 className="text-white font-semibold text-base mb-3">SQL Schema</h3>
+              <div className="space-y-4">
+                {problem.schemaTables.map((table, tIdx) => (
+                  <div key={tIdx} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-800/50 border-b border-gray-800">
+                      <span className="text-blue-400 font-medium text-sm">Table: {table.tableName}</span>
                     </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        {(() => {
-                          const cfg = getStatusConfig(result.status);
-                          const Icon = cfg.icon;
-                          return (<><Icon className={`w-5 h-5 ${cfg.color}`} /><span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
-                            <span className="text-gray-500 text-sm ml-auto">{result.testCasesPassed}/{result.totalTestCases} test cases passed</span>
-                          </>);
-                        })()}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-gray-800/30">
+                            <th className="px-4 py-2 text-left text-gray-400 font-medium border-b border-gray-800">Column</th>
+                            <th className="px-4 py-2 text-left text-gray-400 font-medium border-b border-gray-800">Type</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(table.columns || []).map((col, cIdx) => (
+                            <tr key={cIdx} className={cIdx % 2 === 0 ? 'bg-gray-950' : 'bg-gray-900/30'}>
+                              <td className="px-4 py-2 text-gray-300 border-t border-gray-800 font-mono text-xs">{col.name}</td>
+                              <td className="px-4 py-2 text-gray-400 border-t border-gray-800 font-mono text-xs">{col.type}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {table.notes && (
+                      <div className="px-4 py-2 bg-gray-900/30 border-t border-gray-800">
+                        <p className="text-gray-500 text-xs italic">{table.notes}</p>
                       </div>
-                      {result.testCaseResults?.map((tc, idx) => {
-                        const isSample = tc.isSample;
-                        return (
-                          <div key={idx} className={`mb-3 p-3 rounded-lg border ${tc.passed ? 'bg-green-900/20 border-green-800' : 'bg-red-900/20 border-red-800'}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              {tc.passed ? <CheckCircle className="w-4 h-4 text-green-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
-                              <span className="text-gray-300 text-sm font-medium">
-                                {isSample ? `Sample Test Case ${idx + 1}` : `Hidden Test Case ${idx + 1}`}
-                              </span>
-                              <span className="text-xs text-gray-500 ml-auto">{tc.passed ? 'Passed' : 'Failed'}</span>
-                            </div>
-                            {tc.error && (
-                              <div className="mb-2 p-2 bg-red-950 rounded text-red-400 text-xs font-mono">{tc.error}</div>
-                            )}
-                            {!tc.passed && (
-                              <div className="space-y-2">
-                                {tc.missingRows?.length > 0 && (
-                                  <div>
-                                    <p className="text-orange-400 text-xs font-medium mb-1">Missing Rows (expected but not found):</p>
-                                    {renderTable(tc.missingRows, 'Missing')}
-                                  </div>
-                                )}
-                                {tc.extraRows?.length > 0 && (
-                                  <div>
-                                    <p className="text-yellow-400 text-xs font-medium mb-1">Extra Rows (found but not expected):</p>
-                                    {renderTable(tc.extraRows, 'Extra')}
-                                  </div>
-                                )}
-                                {tc.wrongValueRows?.length > 0 && (
-                                  <div>
-                                    <p className="text-red-400 text-xs font-medium mb-1">Wrong Values:</p>
-                                    {tc.wrongValueRows.map((wv, wIdx) => (
-                                      <div key={wIdx} className="mb-2 p-2 bg-gray-950 rounded border border-gray-800">
-                                        <p className="text-gray-500 text-xs mb-1">Mismatched columns: {wv.mismatchedColumns?.join(', ')}</p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div>
-                                            <p className="text-green-400 text-xs mb-1">Expected:</p>
-                                            <pre className="text-green-300 text-xs font-mono">{JSON.stringify(wv.expected, null, 2)}</pre>
-                                          </div>
-                                          <div>
-                                            <p className="text-red-400 text-xs mb-1">Got:</p>
-                                            <pre className="text-red-300 text-xs font-mono">{JSON.stringify(wv.actual, null, 2)}</pre>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {tc.actualRows?.length > 0 && tc.expectedRows?.length > 0 && (
-                                  <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <div>
-                                      <p className="text-green-400 text-xs font-medium mb-1">Expected Output:</p>
-                                      {renderTable(tc.expectedRows, 'Expected')}
-                                    </div>
-                                    <div>
-                                      <p className="text-red-400 text-xs font-medium mb-1">Your Output:</p>
-                                      {renderTable(tc.actualRows, 'Actual')}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-              {bottomTab === 'testcases' && (
-                <div>
-                  {!result || result.mode !== 'submit' ? (
-                    <div className="text-gray-500 text-sm text-center py-4">
-                      Submit your query to see per-test-case results
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {result.testCaseResults?.map((tc, idx) => (
-                        <div key={idx} className={`p-2 rounded text-sm ${tc.passed ? 'bg-green-900/20' : 'bg-red-900/20'}`}>
-                          <div className="flex items-center gap-2">
-                            {tc.passed ? <CheckCircle className="w-3 h-3 text-green-400 shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 shrink-0" />}
-                            <span className="text-gray-300 text-xs">
-                              {tc.isSample ? `Sample Test Case ${idx + 1}` : `Hidden Test Case ${idx + 1}`}
-                            </span>
-                            <span className="text-xs text-gray-500 ml-auto">{tc.passed ? 'Passed' : 'Failed'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Description */}
+          <div>
+            <h3 className="text-white font-semibold text-base mb-3">Problem Description</h3>
+            <div className="text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-900 rounded-lg border border-gray-800 p-4">
+              {problem.description}
+            </div>
+          </div>
+
+
+          {/* Examples */}
+          {problem.examples?.length > 0 && (
+            <div>
+              <h3 className="text-white font-semibold text-base mb-3">Examples</h3>
+              <div className="space-y-6">
+                {problem.examples.map((example) => (
+                  <div key={example.exampleNumber} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-800/50 border-b border-gray-800">
+                      <span className="text-white font-medium text-sm">Example {example.exampleNumber}:</span>
+                    </div>
+                    {(example.inputTables || []).map((inputTable, idx) => (
+                      <div key={idx} className="px-4 py-3 border-b border-gray-800">
+                        <p className="text-gray-400 text-xs mb-2 font-medium">Input:</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse bg-gray-950 rounded border border-gray-700 text-xs">
+                            <thead>
+                              <tr className="bg-gray-800">
+                                {inputTable.rows?.[0] && Object.keys(inputTable.rows[0]).map((col) => (
+                                  <th key={col} className="px-3 py-2 text-left text-gray-300 font-medium border-b border-gray-700 whitespace-nowrap">{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(inputTable.rows || []).map((row, rIdx) => (
+                                <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-gray-950' : 'bg-gray-900/30'}>
+                                  {Object.values(row).map((val, cIdx) => (
+                                    <td key={cIdx} className="px-3 py-2 text-gray-300 border-t border-gray-800 whitespace-nowrap">
+                                      {val !== null && val !== undefined ? String(val) : <span className="text-gray-600 italic">null</span>}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                    {example.outputTable && (
+                      <div className="px-4 py-3">
+                        <p className="text-gray-400 text-xs mb-2 font-medium">Output:</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse bg-gray-950 rounded border border-gray-700 text-xs">
+                            <thead>
+                              <tr className="bg-gray-800">
+                                {(example.outputTable.columns || []).map((col) => (
+                                  <th key={col} className="px-3 py-2 text-left text-gray-300 font-medium border-b border-gray-700 whitespace-nowrap">{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(example.outputTable.rows || []).map((row, rIdx) => (
+                                <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-gray-950' : 'bg-gray-900/30'}>
+                                  {(example.outputTable.columns || []).map((col, cIdx) => {
+                                    const val = row[col];
+                                    return (
+                                      <td key={cIdx} className="px-3 py-2 text-gray-300 border-t border-gray-800 whitespace-nowrap">
+                                        {val !== null && val !== undefined ? String(val) : <span className="text-gray-600 italic">null</span>}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                    {example.explanation && (
+                      <div className="px-4 py-3 bg-gray-900/30 border-t border-gray-800">
+                        <p className="text-gray-400 text-xs leading-relaxed">{example.explanation}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Constraints */}
+          {problem.constraints?.length > 0 && (
+            <div>
+              <h3 className="text-white font-semibold text-base mb-3">Constraints</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+                <ul className="space-y-1.5">
+                  {problem.constraints.map((constraint, idx) => (
+                    <li key={idx} className="text-gray-400 text-sm flex items-start gap-2">
+                      <span className="text-gray-600 mt-0.5">•</span>
+                      <span>{constraint}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+
+      {/* Editor + Results Panel */}
+      <div className="border-t border-gray-800 bg-gray-900 shrink-0" style={{ height: '45vh' }}>
+        <div className="h-full flex flex-col">
+          <div className="flex border-b border-gray-800 shrink-0">
+            <button onClick={() => setBottomTab('editor')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'editor' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <Database className="w-4 h-4" /> SQL Query Editor
+            </button>
+            <button onClick={() => setBottomTab('result')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'result' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <BookOpen className="w-4 h-4" /> Result
+            </button>
+            <button onClick={() => setBottomTab('testcases')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'testcases' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <CheckCircle className="w-4 h-4" /> Test Cases
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {bottomTab === 'editor' && (
+              <div className="h-full">
+                <Editor
+                  height="100%"
+                  language="sql"
+                  value={query}
+                  onChange={(value) => setQuery(value || '')}
+                  theme="vs-dark"
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
+                />
+              </div>
+            )}
+            {bottomTab === 'result' && (
+              <div className="h-full overflow-y-auto p-4">
+                {renderResultTab()}
+              </div>
+            )}
+            {bottomTab === 'testcases' && (
+              <div className="h-full overflow-y-auto p-4">
+                {renderTestCasesTab()}
+              </div>
+            )}
           </div>
         </div>
       </div>

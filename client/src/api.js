@@ -23,6 +23,8 @@ export const logout = () => API.get('/auth/logout');
 export const refreshToken = () => API.get('/auth/refresh');
 export const getMe = () => API.get('/auth/me');
 export const updateProfile = (data) => API.put('/auth/profile', data);
+export const forgotPassword = (email) => API.post('/auth/forgotpassword', { email });
+export const resetPassword = (token, password) => API.put(`/auth/resetpassword/${token}`, { password });
 export const getProblems = (params) => API.get('/problems', { params });
 export const getProblem = (slug) => API.get(`/problems/${slug}`);
 export const createProblem = (data) => API.post('/problems', data);
@@ -49,8 +51,15 @@ export const analyzeResumeFile = (file, role) => {
 };
 export const getRoleRequirements = () => API.get('/role-requirements');
 export const matchJD = (resumeText, jobDescription) => API.post('/jd-match/match', { resumeText, jobDescription });
-export const getAnalytics = () => API.get('/analytics');
+export const getAnalytics = (params) => API.get('/analytics', { params });
 export const getAdminAnalytics = () => API.get('/analytics/admin');
+
+// Per-module analytics (category: dsa | sql | aptitude | overall)
+export const getCategorySummary = (category, userId) => API.get(`/analytics/${category}/summary/${userId}`);
+export const getCategoryHeatmap = (category, userId) => API.get(`/analytics/${category}/heatmap/${userId}`);
+export const getCategoryTopics = (category, userId) => API.get(`/analytics/${category}/topics/${userId}`);
+// Platform-wide (admin-only) insights across all users
+export const getPlatformAnalyticsAllUsers = () => API.get('/analytics/overall/allusers');
 export const getTopicProgress = () => API.get('/topics/progress');
 export const getTopicDetails = (topic) => API.get(`/topics/${topic}`);
 export const getConceptNotes = () => API.get('/topics/notes/all');
@@ -113,10 +122,25 @@ export const getMyInterviewExperiences = () => API.get('/interview-experiences/m
 
 // Leaderboard
 export const getLeaderboard = (params) => API.get('/leaderboard', { params });
+export const getLeaderboardByCategory = (category, params) => API.get(`/leaderboard/${category}`, { params });
 export const getMyLeaderboardStats = () => API.get('/leaderboard/me');
 export const updateLeaderboard = () => API.post('/leaderboard/update');
 
 // Progress Export
 export const exportProgress = () => API.get('/progress/export');
+
+// Mock Interview
+export const startMockInterview = (data) => API.post('/mock-interview/start', data);
+export const submitMockAnswer = (data) => API.post('/mock-interview/answer', data);
+export const getMockInterviewResult = (id) => API.get(`/mock-interview/result/${id}`);
+
+// Practice History
+export const getPracticeHistory = (params) => API.get('/submissions/history', { params });
+export const getPracticeSummary = (userId) => API.get(`/submissions/summary/${userId}`);
+export const getPracticeLanguages = (userId) => API.get(`/submissions/languages/${userId}`);
+export const getPracticeSkills = (userId) => API.get(`/submissions/skills/${userId}`);
+export const getPracticeStreak = (userId) => API.get(`/submissions/streak/${userId}`);
+export const getPracticeRecent = (userId, limit = 10) => API.get(`/submissions/recent/${userId}`, { params: { limit } });
+export const createPracticeRecord = (submissionId) => API.post('/submissions', { submissionId });
 
 export default API;
