@@ -11,6 +11,7 @@ export default function Companies() {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [practiceType, setPracticeType] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('All');
   useEffect(() => { loadCompanies(); }, []);
   useEffect(() => {
     if (slug && companies.length > 0) {
@@ -94,8 +95,13 @@ export default function Companies() {
               {info.info?.interviewQuestions?.length > 0 && (
                 <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
                   <h3 className="text-white font-semibold mb-3 flex items-center gap-2"><HelpCircle className="w-4 h-4 text-purple-400" /> Interview Questions</h3>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {['All', 'Technical', 'Coding', 'System Design', 'Aptitude', 'HR'].map((cat) => (
+                      <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${activeCategory === cat ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{cat}</button>
+                    ))}
+                  </div>
                   <div className="space-y-3">
-                    {info.info.interviewQuestions.map((q, i) => (
+                    {info.info.interviewQuestions.filter(q => activeCategory === 'All' || q.category === activeCategory).map((q, i) => (
                       <div key={i} className="p-3 rounded-lg bg-gray-800/50">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-gray-200 text-sm font-medium">{q.question}</span>

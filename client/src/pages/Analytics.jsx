@@ -41,7 +41,7 @@ function SummaryCard({ label, value, icon: Icon, accent }) {
 
 export default function Analytics() {
   usePageTitle('Analytics');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
 
   const [activeTab, setActiveTab] = useState('overall');
@@ -51,9 +51,9 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || authLoading) return;
     loadTab(activeTab);
-  }, [activeTab, userId]);
+  }, [activeTab, userId, authLoading]);
 
   const loadTab = async (category) => {
     setLoading(true);
@@ -73,6 +73,10 @@ export default function Analytics() {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <div className={PAGE_CONTAINER}><div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div></div>;
+  }
 
   if (!userId) {
     return <div className={PAGE_CONTAINER}><p className="text-gray-400">Please log in to view analytics.</p></div>;
