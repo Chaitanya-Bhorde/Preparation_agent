@@ -80,10 +80,11 @@ export default function CodingProblemDetail() {
     if (!problem || !user) return;
     if (!draftLoaded) return;
     if (draftFound) return;
+    if (codeDirty) return;
     const starter = problem.starterCode?.[language] || getDefaultCode(language);
     setCode(starter);
     setCodeDirty(false);
-  }, [language, problem, user, draftLoaded, draftFound]);
+  }, [language, problem, user, draftLoaded, draftFound, codeDirty]);
 
   const loadProblem = async () => {
     try {
@@ -91,7 +92,6 @@ export default function CodingProblemDetail() {
       setProblem(data.data);
       setDraftLoaded(false);
       setDraftFound(false);
-      setInitialized(false);
       if (data.data && data.data.visibleTestCases) {
         setVisibleTestcases(data.data.visibleTestCases.map((tc, i) => ({ ...tc, id: `sample-${i}`, editable: false })));
       }
@@ -235,7 +235,7 @@ export default function CodingProblemDetail() {
   const saveTimerRef = { current: null };
 
   useEffect(() => {
-    if (!problem || !user || !initialized) return;
+    if (!problem || !user || !draftLoaded) return;
     if (!code) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
@@ -248,7 +248,7 @@ export default function CodingProblemDetail() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [code, problem, language, user, initialized]);
+  }, [code, problem, language, user, draftLoaded]);
 
   if (loading) {
     return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
