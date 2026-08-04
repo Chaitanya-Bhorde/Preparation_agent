@@ -10,6 +10,7 @@ exports.getQuestions = async (req, res) => {
     const query = { isActive: true };
     if (category) query.category = category;
     if (categories) query.category = { $in: categories.split(',') };
+    if (topic) query.category = { $in: topic.split(',') };
     if (difficulty) query.difficulty = difficulty;
     if (tags) query.tags = { $in: tags.split(',') };
     if (company) query.companies = company;

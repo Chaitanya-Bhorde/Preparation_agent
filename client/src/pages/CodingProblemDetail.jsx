@@ -49,12 +49,12 @@ export default function CodingProblemDetail() {
   const [selectedSubmissionLoading, setSelectedSubmissionLoading] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftFound, setDraftFound] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const [codeDirty, setCodeDirty] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
   useEffect(() => {
-    if (!problem || !user || initialized) return;
+    if (!problem || !user) return;
     let cancelled = false;
     async function loadDraft() {
       try {
@@ -62,19 +62,19 @@ export default function CodingProblemDetail() {
         if (!cancelled && data.success && data.data && data.data.code) {
           setCode(data.data.code);
           setDraftFound(true);
+          setCodeDirty(true);
         }
       } catch (error) {
         console.error('Failed to load draft:', error);
       } finally {
         if (!cancelled) {
           setDraftLoaded(true);
-          setInitialized(true);
         }
       }
     }
     loadDraft();
     return () => { cancelled = true; };
-  }, [problem ? problem._id : null, language, user, initialized]);
+  }, [problem ? problem._id : null, language, user]);
 
   useEffect(() => {
     if (!problem || !user) return;
@@ -82,6 +82,7 @@ export default function CodingProblemDetail() {
     if (draftFound) return;
     const starter = problem.starterCode?.[language] || getDefaultCode(language);
     setCode(starter);
+    setCodeDirty(false);
   }, [language, problem, user, draftLoaded, draftFound]);
 
   const loadProblem = async () => {
@@ -269,7 +270,15 @@ export default function CodingProblemDetail() {
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} className={SELECT_CLASSES}>
+          <select value={language} onChange={(e) => {
+            const newLang = e.target.value;
+            if (!codeDirty) {
+              const starter = problem?.starterCode?.[newLang] || getDefaultCode(newLang);
+              setCode(starter);
+              setCodeDirty(false);
+            }
+            setLanguage(newLang);
+          }} className={SELECT_CLASSES}>
             {LANGUAGES.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
           </select>
           <button onClick={handleRun} disabled={running || submitting} className={BUTTON_CLASSES.secondaryCompact}>
@@ -397,7 +406,13 @@ export default function CodingProblemDetail() {
               height="100%"
               language={MONACO_LANG_MAP[language] || 'javascript'}
               value={code}
-              onChange={(value) => setCode(value || '')}
+              onChange={(value) => {
+                setCode(value || '');
+                const starter = problem?.starterCode?.[language] || getDefaultCode(language);
+                if (!codeDirty && value !== starter) {
+                  setCodeDirty(true);
+                }
+              }}
               theme="vs-dark"
               options={{
                 minimap: { enabled: false },

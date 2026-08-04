@@ -102,6 +102,9 @@ const AptitudeQuestionSchema = new mongoose.Schema(
       enum: ['easy', 'medium', 'hard'],
       default: 'medium',
     },
+    topic: {
+      type: String,
+    },
     tags: [String],
     companies: [String],
     isActive: {
@@ -112,5 +115,12 @@ const AptitudeQuestionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+AptitudeQuestionSchema.pre('save', function (next) {
+  if (!this.topic && this.category) {
+    this.topic = this.category;
+  }
+  next();
+});
 
 module.exports = mongoose.model('AptitudeQuestion', AptitudeQuestionSchema);

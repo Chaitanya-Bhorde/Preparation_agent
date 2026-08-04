@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAptitudeQuestions, submitAptitudeAnswer, getAptitudeCompanies } from '../api';
+import { getAptitudeQuestions, submitAptitudeAnswer } from '../api';
 import { CheckCircle, XCircle, Loader2, BookOpen, BarChart3, ArrowLeft, Calculator, Brain, MessageSquareText, PieChart, Filter, Search } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -48,9 +48,7 @@ const SELECT_CLASSES = 'px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg 
 export default function AptitudePractice() {
   const [activeTopic, setActiveTopic] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [companies, setCompanies] = useState([]);
   const [difficulty, setDifficulty] = useState('');
-  const [company, setCompany] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [loading, setLoading] = useState(false);
@@ -60,25 +58,12 @@ export default function AptitudePractice() {
   const [result, setResult] = useState(null);
   const [stats, setStats] = useState({ total: 0, correct: 0 });
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await getAptitudeCompanies();
-        setCompanies(data.data || []);
-      } catch (error) {
-        console.error('Failed to load companies:', error);
-      }
-    };
-    load();
-  }, []);
-
   const loadQuestions = useCallback(async () => {
     if (!activeTopic) return;
     setLoading(true);
     try {
-      const params = { limit: 20, categories: activeTopic.categories.join(',') };
+      const params = { limit: 20, topic: activeTopic.categories.join(',') };
       if (difficulty) params.difficulty = difficulty;
-      if (company) params.company = company;
       if (debouncedSearch) params.search = debouncedSearch;
       const { data } = await getAptitudeQuestions(params);
       setQuestions(data.data || []);
@@ -90,17 +75,15 @@ export default function AptitudePractice() {
     } finally {
       setLoading(false);
     }
-  }, [activeTopic, difficulty, company, debouncedSearch]);
+  }, [activeTopic, difficulty, debouncedSearch]);
 
   useEffect(() => {
     loadQuestions();
   }, [loadQuestions]);
 
-
   const selectTopic = (topic) => {
     setActiveTopic(topic);
     setDifficulty('');
-    setCompany('');
     setSearch('');
   };
 
@@ -144,7 +127,7 @@ export default function AptitudePractice() {
           <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">
             <BookOpen className="w-7 h-7 text-blue-400" /> Aptitude Practice
           </h1>
-          <p className="text-gray-400">Pick a topic to start practicing. Refine by difficulty and company inside each topic.</p>
+          <p className="text-gray-400">Pick a topic to start practicing. Refine by difficulty inside each topic.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {APTITUDE_TOPICS.map((topic) => (
@@ -204,12 +187,6 @@ export default function AptitudePractice() {
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
-        <select value={company} onChange={(e) => setCompany(e.target.value)} className={SELECT_CLASSES}>
-          <option value="">All Companies</option>
-          {companies.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
       </div>
 
       {loading ? (
@@ -218,7 +195,7 @@ export default function AptitudePractice() {
         <div className="text-center py-12">
           <Filter className="w-10 h-10 mx-auto text-gray-600 mb-3" />
           <p className="text-gray-400">No questions found matching your filters</p>
-          <button onClick={() => { setDifficulty(''); setCompany(''); setSearch(''); }} className="text-blue-400 text-sm mt-2 hover:text-blue-300">Clear filters</button>
+          <button onClick={() => { setDifficulty(''); setSearch(''); }} className="text-blue-400 text-sm mt-2 hover:text-blue-300">Clear filters</button>
         </div>
       ) : (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
