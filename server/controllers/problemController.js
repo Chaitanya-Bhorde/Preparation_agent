@@ -1,6 +1,6 @@
 const Problem = require('../models/Problem');
 const Submission = require('../models/Submission');
-const { generateStarterCode } = require('../utils/codeGenerator');
+const { generateStarterCode, validateSignatureAgainstTestCases } = require('../utils/codeGenerator');
 
 exports.getProblems = async (req, res) => {
   try {
@@ -127,9 +127,30 @@ exports.getProblem = async (req, res) => {
   }
 };
 
+// Pick a representative signature (SQL problems have none, so this is skipped).
+const pickSignature = (body) => {
+  const sig = body.functionSignature || null;
+  if (!sig) return null;
+  return sig.javascript || sig.python || sig.java || sig.cpp || sig.c || null;
+};
+
 exports.createProblem = async (req, res) => {
   try {
     req.body.createdBy = req.user.id;
+    // Type sanity check: flag any mismatch between declared return type and the
+    // stored test-case expected outputs so it can't silently slip through again.
+    const checkSig = pickSignature(req.body);
+    const checkCases = req.body.testCases || [];
+    if (checkSig && checkCases.length > 0) {
+      const typeCheck = validateSignatureAgainstTestCases(checkSig, checkCases);
+      if (!typeCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Test case / declared return type mismatch',
+          problems: typeCheck.problems,
+        });
+      }
+    }
     const problem = await Problem.create(req.body);
     res.status(201).json({ success: true, data: problem });
   } catch (error) {
@@ -139,6 +160,18 @@ exports.createProblem = async (req, res) => {
 
 exports.updateProblem = async (req, res) => {
   try {
+    const checkSig = pickSignature(req.body);
+    const checkCases = req.body.testCases || [];
+    if (checkSig && checkCases.length > 0) {
+      const typeCheck = validateSignatureAgainstTestCases(checkSig, checkCases);
+      if (!typeCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Test case / declared return type mismatch',
+          problems: typeCheck.problems,
+        });
+      }
+    }
     const problem = await Problem.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,

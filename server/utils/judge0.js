@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { buildFullSubmissionCode } = require('./codeGenerator');
+const { outputsMatch } = require('./testCaseCompare');
 
 const LANGUAGE_IDS = {
   javascript: 63,
@@ -120,7 +121,7 @@ const formatError = (data) => {
   return null;
 };
 
-const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, isSample = false) => {
+const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, isSample = false, returnType) => {
   try {
     const token = await createJudge0Submission(sourceCode, languageId, input);
     const result = await pollJudge0Result(token);
@@ -130,7 +131,7 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
     const compileOutput = result.compile_output || '';
 
     if (result.status_id === 3) {
-      const passed = stdOut === (expectedOutput || '').trim();
+      const passed = outputsMatch(stdOut, expectedOutput, returnType);
       return {
         passed,
         input: input || '',
@@ -148,7 +149,7 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
 
     const errorInfo = formatError(result);
     return {
-      passed: result.status_id === 4 ? stdOut === (expectedOutput || '').trim() : false,
+      passed: result.status_id === 4 ? outputsMatch(stdOut, expectedOutput, returnType) : false,
       input: input || '',
       output: stdOut,
       expectedOutput: expectedOutput || '',
@@ -179,12 +180,12 @@ const executeSingleCase = async (sourceCode, languageId, input, expectedOutput, 
 
 const MAX_CONCURRENCY = 5;
 
-const runCasesConcurrently = async (cases, fullCode, languageId) => {
+const runCasesConcurrently = async (cases, fullCode, languageId, returnType) => {
   const results = [];
   for (let i = 0; i < cases.length; i += MAX_CONCURRENCY) {
     const batch = cases.slice(i, i + MAX_CONCURRENCY);
     const batchResults = await Promise.all(
-      batch.map((tc) => executeSingleCase(fullCode, languageId, tc.input, tc.expectedOutput, tc.isSample))
+      batch.map((tc) => executeSingleCase(fullCode, languageId, tc.input, tc.expectedOutput, tc.isSample, returnType))
     );
     results.push(...batchResults);
   }
@@ -196,10 +197,11 @@ exports.runCode = async (sourceCode, language, testCases, signature) => {
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
+  const returnType = signature && signature.returnType ? signature.returnType : '';
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
   const sampleCases = testCases.filter((tc) => !tc.isHidden);
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
-  return runCasesConcurrently(casesToRun, fullCode, languageId);
+  return runCasesConcurrently(casesToRun, fullCode, languageId, returnType);
 };
 
 exports.submitCode = async (sourceCode, language, testCases, signature) => {
@@ -207,8 +209,9 @@ exports.submitCode = async (sourceCode, language, testCases, signature) => {
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
+  const returnType = signature && signature.returnType ? signature.returnType : '';
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
-  return runCasesConcurrently(testCases, fullCode, languageId);
+  return runCasesConcurrently(testCases, fullCode, languageId, returnType);
 };
 
 exports.LANGUAGE_IDS = LANGUAGE_IDS;

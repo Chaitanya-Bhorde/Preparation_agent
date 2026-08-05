@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const CodingProblem = require('../models/CodingProblem');
 const { protect } = require('../middleware/auth');
+const { validateSignatureAgainstTestCases } = require('../utils/codeGenerator');
 const axios = require('axios');
 
 const DSA_PROMPT_TEMPLATE = (topic, difficulty, weakTags) => `You are a coding problem generator for a placement-prep platform. Generate ONE original DSA problem.
@@ -164,6 +165,26 @@ router.post('/generate', protect, async (req, res) => {
       starterCode: problem.starter_code,
       functionSignature: problem.function_signature,
     });
+
+    // Type sanity check: flag any mismatch between the declared return type and the
+    // generated test-case expected outputs so a bad problem never silently lands in DB.
+    const seedSignature =
+      problem.function_signature &&
+      (problem.function_signature.javascript ||
+        problem.function_signature.python ||
+        problem.function_signature.java ||
+        problem.function_signature.cpp);
+    const seedCases = [...codingProblem.visibleTestCases, ...codingProblem.hiddenTestCases];
+    if (seedSignature && seedCases.length > 0) {
+      const typeCheck = validateSignatureAgainstTestCases(seedSignature, seedCases);
+      if (!typeCheck.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Generated test cases do not match the declared return type',
+          problems: typeCheck.problems,
+        });
+      }
+    }
 
     await codingProblem.save();
 

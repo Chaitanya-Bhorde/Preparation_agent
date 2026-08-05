@@ -16,7 +16,8 @@ router.post('/run', protect, async (req, res) => {
     const sampleCases = (problem.visibleTestCases || []).filter((tc) => !tc.isHidden);
     const casesToRun = sampleCases.length > 0 ? sampleCases : (problem.visibleTestCases || []).slice(0, 2);
     const fullCode = buildDriverFromSignature(code, language, problem.functionSignature?.[language]);
-    const results = await runCode(code, language, casesToRun, fullCode);
+    const returnType = problem.functionSignature?.[language]?.returnType || '';
+    const results = await runCode(code, language, casesToRun, fullCode, returnType);
 
     const response = results.map((r) => ({
       input: r.input,
@@ -45,7 +46,8 @@ router.post('/submit', protect, async (req, res) => {
 
     const allTestCases = [...(problem.visibleTestCases || []), ...(problem.hiddenTestCases || [])];
     const fullCode = buildDriverFromSignature(code, language, problem.functionSignature?.[language]);
-    const results = await submitCode(code, language, allTestCases, fullCode);
+    const returnType = problem.functionSignature?.[language]?.returnType || '';
+    const results = await submitCode(code, language, allTestCases, fullCode, returnType);
     const { verdict, passedTestCases, totalTestCases, firstFailedInput, firstFailedExpected, firstFailedActual } = computeVerdict(results);
 
     const submission = await CodeSubmission.create({

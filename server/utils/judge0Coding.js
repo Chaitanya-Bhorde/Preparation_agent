@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { outputsMatch } = require('./testCaseCompare');
 
 const JUDGE0_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
@@ -107,7 +108,7 @@ const pollJudge0Submission = async (token) => {
   throw new Error('Judge0 polling exhausted max attempts while still in processing status');
 };
 
-const executeSingleCase = async (sourceCode, language, input, expectedOutput) => {
+const executeSingleCase = async (sourceCode, language, input, expectedOutput, returnType) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     return {
@@ -165,7 +166,7 @@ const executeSingleCase = async (sourceCode, language, input, expectedOutput) =>
     const compileOutput = data.compile_output || '';
 
     if (statusId === 4) {
-      const passed = stdOut === (expectedOutput || '').trim();
+      const passed = outputsMatch(stdOut, expectedOutput, returnType);
       const errorInfo = formatJudge0Error({ ...data, status_id: statusId });
       return {
         passed,
@@ -182,7 +183,7 @@ const executeSingleCase = async (sourceCode, language, input, expectedOutput) =>
     }
 
     if (statusId === 3) {
-      const passed = stdOut === (expectedOutput || '').trim();
+      const passed = outputsMatch(stdOut, expectedOutput, returnType);
       return {
         passed,
         input: input || '',
@@ -259,7 +260,7 @@ const buildDriverFromSignature = (sourceCode, language, functionSignature) => {
   }
 };
 
-exports.runCode = async (sourceCode, language, testCases, fullCodeOverride) => {
+exports.runCode = async (sourceCode, language, testCases, fullCodeOverride, returnType) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
@@ -269,13 +270,13 @@ exports.runCode = async (sourceCode, language, testCases, fullCodeOverride) => {
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
   const results = [];
   for (const testCase of casesToRun) {
-    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput);
+    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput, returnType);
     results.push(result);
   }
   return results;
 };
 
-exports.submitCode = async (sourceCode, language, testCases, fullCodeOverride) => {
+exports.submitCode = async (sourceCode, language, testCases, fullCodeOverride, returnType) => {
   const languageId = LANGUAGE_IDS[normalizeLanguage(language)];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
@@ -283,7 +284,7 @@ exports.submitCode = async (sourceCode, language, testCases, fullCodeOverride) =
   const fullCode = fullCodeOverride || buildDriver(sourceCode, language);
   const results = [];
   for (const testCase of testCases) {
-    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput);
+    const result = await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput, returnType);
     results.push(result);
   }
   return results;

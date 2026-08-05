@@ -1,3 +1,5 @@
+const { validateReturnTypeAgainstTestCases } = require('./testCaseCompare');
+
 function generateStarterCode(signature, language) {
   if (!signature) return getDefaultStub(language);
   const { name, params, returnType } = signature;
@@ -99,11 +101,53 @@ function mapCType(type) {
 
 function getDefaultStub(language) {
   const stubs = {
-    javascript: 'function solve() {\n    \n}\n',
-    python: 'def solve():\n    pass\n',
-    java: 'class Solution {\n    public static void solve() {\n        \n    }\n}\n',
-    cpp: 'class Solution {\npublic:\n    void solve() {\n        \n    }\n};\n',
-    c: 'void solve() {\n    \n}\n',
+    javascript: 'function solve(input) {\n  // Your code here\n  return input;\n}\n',
+    python: 'def solve(input):\n    # Your code here\n    return input\n',
+    java: `public class Solution {
+    public static String solve(String input) {
+        // Your code here
+        return input;
+    }
+
+    public static void main(String[] args) {
+        java.util.Scanner sc = new java.util.Scanner(System.in);
+        String input = sc.nextLine();
+        System.out.println(solve(input));
+        sc.close();
+    }
+}`,
+    cpp: `#include <iostream>
+#include <string>
+using namespace std;
+
+string solve(string input) {
+    // Your code here
+    return input;
+}
+
+int main() {
+    string input;
+    getline(cin, input);
+    cout << solve(input) << endl;
+    return 0;
+}`,
+    c: `#include <stdio.h>
+#include <string.h>
+
+void solve(char* input, char* output) {
+    // Your code here
+    strcpy(output, input);
+}
+
+int main() {
+    char input[10000];
+    char output[10000];
+    fgets(input, 10000, stdin);
+    input[strcspn(input, "\\n")] = 0;
+    solve(input, output);
+    printf("%s\\n", output);
+    return 0;
+}`,
   };
   return stubs[language] || stubs.javascript;
 }
@@ -636,8 +680,10 @@ function cPrintExpr(varName, type) {
 }
 
 function validateSignatureAgainstTestCases(signature, testCases) {
-  if (!signature || !testCases || testCases.length === 0) return { valid: true };
-  return { valid: true };
+  if (!signature || !testCases || testCases.length === 0) return { valid: true, problems: [] };
+  // Delegate to the shared, return-type-aware validator so a mismatch between the
+  // declared return type and the stored (string) expected outputs is flagged here.
+  return validateReturnTypeAgainstTestCases(signature.returnType, testCases);
 }
 
 module.exports = {
