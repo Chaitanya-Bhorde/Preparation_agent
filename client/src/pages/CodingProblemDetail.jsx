@@ -141,8 +141,8 @@ export default function CodingProblemDetail() {
     const defaults = {
       javascript: `function solve(input) {\n  // Your code here\n  return input;\n}\n`,
       python: `def solve(input):\n    # Your code here\n    return input\n`,
-      java: `class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n}`,
-      cpp: `string solve(string input) {\n    // Your code here\n    return input;\n}`,
+      java: `public class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        String input = sc.nextLine();\n        System.out.println(solve(input));\n        sc.close();\n    }\n}`,
+      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
     };
     return defaults[lang] || defaults.javascript;
   };
@@ -272,11 +272,9 @@ export default function CodingProblemDetail() {
         <div className="flex items-center gap-3 shrink-0">
           <select value={language} onChange={(e) => {
             const newLang = e.target.value;
-            if (!codeDirty) {
-              const starter = problem?.starterCode?.[newLang] || getDefaultCode(newLang);
-              setCode(starter);
-              setCodeDirty(false);
-            }
+            const starter = problem?.starterCode?.[newLang] || getDefaultCode(newLang);
+            setCode(starter);
+            setCodeDirty(false);
             setLanguage(newLang);
           }} className={SELECT_CLASSES}>
             {LANGUAGES.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
