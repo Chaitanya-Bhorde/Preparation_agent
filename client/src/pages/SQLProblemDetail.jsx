@@ -120,10 +120,11 @@ export default function SQLProblemDetail() {
     if (!result) {
       return (
         <div className="text-gray-500 text-sm text-center py-4">
-          Click <span className="text-purple-400">Run</span> or <span className="text-green-400">Submit</span> to see results
+          Click <span className="text-purple-400">Run</span> or <span className="text-green-400">Submit</span> to see results inline below the editor
         </div>
       );
     }
+    const isRun = result.mode === 'run';
     return (
       <div>
         <div className="flex items-center gap-2 mb-3">
@@ -135,8 +136,18 @@ export default function SQLProblemDetail() {
             </>);
           })()}
         </div>
+
+        {/* RUN (or submit w/ sample): show the actual query result rows immediately below the editor */}
+        {isRun && result.testCaseResults?.[0]?.actualRows?.length > 0 && (
+          <div className="mb-4 p-3 bg-gray-950 rounded-lg border border-gray-800">
+            <p className="text-blue-400 text-sm font-medium mb-2">Query Result (actual rows)</p>
+            {renderTable(result.testCaseResults[0].actualRows, 'Query Result')}
+          </div>
+        )}
+
         {result.testCaseResults?.map((tc, idx) => {
           const isSample = tc.isSample;
+          const hasRows = (tc.actualRows?.length > 0) || (tc.expectedRows?.length > 0);
           return (
             <div key={idx} className={`mb-3 p-3 rounded-lg border ${tc.passed ? 'bg-green-900/20 border-green-800' : 'bg-red-900/20 border-red-800'}`}>
               <div className="flex items-center gap-2 mb-2">
@@ -183,18 +194,19 @@ export default function SQLProblemDetail() {
                       ))}
                     </div>
                   )}
-                  {tc.actualRows?.length > 0 && tc.expectedRows?.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div>
-                        <p className="text-green-400 text-xs font-medium mb-1">Expected Output:</p>
-                        {renderTable(tc.expectedRows, 'Expected')}
-                      </div>
-                      <div>
-                        <p className="text-red-400 text-xs font-medium mb-1">Your Output:</p>
-                        {renderTable(tc.actualRows, 'Actual')}
-                      </div>
-                    </div>
-                  )}
+                </div>
+              )}
+              {/* EXPECTED vs ACTUAL — shown side-by-side for EVERY case (pass or fail) so you can compare without extra clicks */}
+              {hasRows && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <p className="text-green-400 text-xs font-medium mb-1">Expected Output:</p>
+                    {tc.expectedRows?.length > 0 ? renderTable(tc.expectedRows, 'Expected') : <div className="text-gray-600 text-xs py-2">(not shown)</div>}
+                  </div>
+                  <div>
+                    <p className="text-red-400 text-xs font-medium mb-1">Your Output (actual):</p>
+                    {tc.actualRows?.length > 0 ? renderTable(tc.actualRows, 'Actual') : <div className="text-gray-600 text-xs py-2">(no rows)</div>}
+                  </div>
                 </div>
               )}
             </div>
@@ -439,13 +451,9 @@ export default function SQLProblemDetail() {
             )}
           </div>
         </div>
-        {/* RIGHT: Editor + Results */}
+        {/* RIGHT: Editor + Results (results render inline below the editor) */}
         <div className="w-1/2 flex flex-col">
           <div className="flex border-b border-gray-800 shrink-0">
-            <button onClick={() => setBottomTab('editor')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'editor' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
-              <Database className="w-4 h-4" /> Query Editor
-            </button>
             <button onClick={() => setBottomTab('result')}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${bottomTab === 'result' ? 'text-white border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}>
               <BookOpen className="w-4 h-4" /> Result
@@ -455,9 +463,13 @@ export default function SQLProblemDetail() {
               <CheckCircle className="w-4 h-4" /> Test Cases
             </button>
           </div>
-          <div className="flex-1 overflow-hidden">
-            {bottomTab === 'editor' && (
-              <div className="h-full">
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Query Editor — ALWAYS visible on top */}
+            <div className="h-[45%] shrink-0 border-b border-gray-800 flex flex-col">
+              <div className="bg-gray-900 px-3 py-1.5 border-b border-gray-800 text-xs text-gray-400 flex items-center gap-1.5 shrink-0">
+                <Database className="w-3.5 h-3.5 text-purple-400" /> SQL Query Editor
+              </div>
+              <div className="flex-1 min-h-0">
                 <Editor
                   height="100%"
                   language="sql"
@@ -475,17 +487,12 @@ export default function SQLProblemDetail() {
                   }}
                 />
               </div>
-            )}
-            {bottomTab === 'result' && (
-              <div className="h-full overflow-y-auto p-4">
-                {renderResultTab()}
-              </div>
-            )}
-            {bottomTab === 'testcases' && (
-              <div className="h-full overflow-y-auto p-4">
-                {renderTestCasesTab()}
-              </div>
-            )}
+            </div>
+            {/* Results inline below the editor — no tab switch required to see output */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {bottomTab === 'result' && renderResultTab()}
+              {bottomTab === 'testcases' && renderTestCasesTab()}
+            </div>
           </div>
         </div>
       </div>
