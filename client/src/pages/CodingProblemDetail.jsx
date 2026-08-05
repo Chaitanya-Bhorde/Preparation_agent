@@ -20,6 +20,8 @@ const LANGUAGES = [
   { id: 'python', label: 'Python' },
   { id: 'java', label: 'Java' },
   { id: 'cpp', label: 'C++' },
+  { id: 'c', label: 'C' },
+  { id: 'csharp', label: 'C#' },
 ];
 
 const MONACO_LANG_MAP = {
@@ -27,6 +29,8 @@ const MONACO_LANG_MAP = {
   python: 'python',
   java: 'java',
   cpp: 'cpp',
+  c: 'c',
+  csharp: 'csharp',
 };
 
 export default function CodingProblemDetail() {
@@ -143,7 +147,9 @@ export default function CodingProblemDetail() {
       python: `def solve(input):\n    # Your code here\n    return input\n`,
       java: `public class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        String input = sc.nextLine();\n        System.out.println(solve(input));\n        sc.close();\n    }\n}`,
       cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-    };
+      c: `#include <stdio.h>\n#include <string.h>\n\nchar* solve(char* input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    char input[10000];\n    if (fgets(input, sizeof(input), stdin)) {\n        input[strcspn(input, "\n")] = 0;\n        printf("%s\n", solve(input));\n    }\n    return 0;\n}`,
+      csharp: `using System;\n\npublic class Solution {\n    public static string solve(string input) {\n        // Your code here\n        return input;\n    }\n\n    public static void Main(string[] args) {\n        string input = Console.ReadLine();\n        Console.WriteLine(solve(input));\n    }\n}`,
+  };
     return defaults[lang] || defaults.javascript;
   };
 

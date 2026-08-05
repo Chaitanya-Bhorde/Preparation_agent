@@ -14,6 +14,8 @@ function generateStarterCode(signature, language) {
       return generateCppStarter(name, params, returnType);
     case 'c':
       return generateCStarter(name, params, returnType);
+    case 'csharp':
+      return generateCSharpStarter(name, params, returnType);
     default:
       return getDefaultStub(language);
   }
@@ -62,6 +64,26 @@ function generateCppStarter(name, params, returnType) {
 function generateCStarter(name, params, returnType) {
   const paramList = params.map(p => `${mapCType(p.type)} ${p.name}`).join(', ');
   return `${mapCType(returnType)} ${name}(${paramList}) {\n    \n}\n`;
+}
+
+function generateCSharpStarter(name, params, returnType) {
+  const csharpTypeMap = {
+    'int': 'int', 'long': 'long', 'double': 'double', 'bool': 'bool',
+    'string': 'string', 'int[]': 'int[]', 'string[]': 'string[]',
+    'char': 'char', 'float': 'float', 'decimal': 'decimal',
+  };
+  const rt = csharpTypeMap[returnType] || returnType;
+  const paramList = params.map(p => `${mapCSharpType(p.type)} ${p.name}`).join(', ');
+  return `public class Solution {\n    public static ${rt} ${name}(${paramList}) {\n        \n    }\n}\n`;
+}
+
+function mapCSharpType(type) {
+  const map = {
+    'int': 'int', 'long': 'long', 'double': 'double', 'bool': 'bool',
+    'string': 'string', 'int[]': 'int[]', 'string[]': 'string[]',
+    'char': 'char', 'float': 'float',
+  };
+  return map[type] || type;
 }
 
 function mapJavaType(type) {
@@ -148,6 +170,19 @@ int main() {
     printf("%s\\n", output);
     return 0;
 }`,
+    csharp: `using System;
+
+public class Solution {
+    public static string solve(string input) {
+        // Your code here
+        return input;
+    }
+
+    public static void Main(string[] args) {
+        string input = Console.ReadLine();
+        Console.WriteLine(solve(input));
+    }
+}`,
   };
   return stubs[language] || stubs.javascript;
 }
@@ -171,6 +206,8 @@ function buildFullSubmissionCode(userCode, signature, testCases, language) {
       return buildJsDriver(userCode, funcName, params, returnType);
     case 'c':
       return buildCDriver(userCode, funcName, params, returnType);
+    case 'csharp':
+      return buildCSharpDriver(userCode, funcName, params, returnType);
     default:
       return userCode || '';
   }
@@ -662,6 +699,22 @@ int main() {
 `;
 }
 
+function buildCSharpDriver(userCode, funcName, params, returnType) {
+  const parsing = params.map((p, i) => csharpParseLine(p, i)).join('\n        ');
+  const args = params.map(p => p.name).join(', ');
+
+  return userCode + '\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string[] lines = Console.ReadLine()?.Split(\'\n\') ?? new string[0];\n        if (lines.Length == 0) return;\n        ' + parsing + '\n        ' + returnType + ' result = ' + funcName + '(' + args + ');\n        Console.WriteLine(result);\n    }\n}\n';
+}
+
+function csharpParseLine(p, i) {
+  if (p.type === 'int') return 'int ' + p.name + ' = int.Parse(lines[' + i + ']);';
+  if (p.type === 'long') return 'long ' + p.name + ' = long.Parse(lines[' + i + ']);';
+  if (p.type === 'double') return 'double ' + p.name + ' = double.Parse(lines[' + i + ']);';
+  if (p.type === 'bool') return 'bool ' + p.name + ' = bool.Parse(lines[' + i + ']);';
+  if (p.type === 'string') return 'string ' + p.name + ' = lines[' + i + '];';
+  return 'string ' + p.name + ' = lines[' + i + '];';
+}
+
 function cParseLine(p, idx) {
   if (p.type === 'int') return `int ${p.name} = atoi(lines[${idx}]);`;
   if (p.type === 'long') return `long long ${p.name} = atoll(lines[${idx}]);`;
@@ -690,4 +743,5 @@ module.exports = {
   generateStarterCode,
   buildFullSubmissionCode,
   validateSignatureAgainstTestCases,
-};
+  buildCDriver,
+}

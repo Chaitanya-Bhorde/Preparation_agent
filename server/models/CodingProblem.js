@@ -60,12 +60,16 @@ const CodingProblemSchema = new mongoose.Schema(
       java: { type: String, default: '' },
       python: { type: String, default: '' },
       javascript: { type: String, default: '' },
+      c: { type: String, default: '' },
+      csharp: { type: String, default: '' },
     },
     functionSignature: {
       java: FunctionSignatureSchema,
       cpp: FunctionSignatureSchema,
       python: FunctionSignatureSchema,
       javascript: FunctionSignatureSchema,
+      c: FunctionSignatureSchema,
+      csharp: FunctionSignatureSchema,
     },
     timeLimitMs: {
       type: Number,

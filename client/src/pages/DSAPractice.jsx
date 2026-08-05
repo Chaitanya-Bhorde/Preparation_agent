@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Filter, Search, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { BookOpen, Search, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
+import DifficultyFilter from '../components/DifficultyFilter';
 
 export default function DSAPractice() {
   const [problems, setProblems] = useState([]);
@@ -9,13 +10,11 @@ export default function DSAPractice() {
   const [error, setError] = useState(null);
   const [difficulty, setDifficulty] = useState('');
   const [search, setSearch] = useState('');
-  const [company, setCompany] = useState('');
-  const [companies, setCompanies] = useState([]);
   const debouncedSearch = useDebounce(search, 300);
 
   useEffect(() => {
     fetchProblems();
-  }, [difficulty, debouncedSearch, company]);
+  }, [difficulty, debouncedSearch]);
 
   const fetchProblems = useCallback(async () => {
     setLoading(true);
@@ -24,7 +23,6 @@ export default function DSAPractice() {
       const params = new URLSearchParams();
       if (difficulty) params.set('difficulty', difficulty);
       if (debouncedSearch) params.set('search', debouncedSearch);
-      if (company) params.set('company', company);
       params.set('limit', '50');
       const res = await fetch(`/api/coding-problems?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -38,22 +36,7 @@ export default function DSAPractice() {
     } finally {
       setLoading(false);
     }
-  }, [difficulty, debouncedSearch, company]);
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        const res = await fetch('/api/coding-problems/companies', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        const data = await res.json();
-        if (data.success) setCompanies(data.data.filter(Boolean));
-      } catch (error) {
-        console.error('Failed to fetch companies:', error);
-      }
-    };
-    fetchCompanies();
-  }, []);
+  }, [difficulty, debouncedSearch]);
 
   const getStatusColor = (status) => {
     if (status === 'solved') return 'text-green-400 bg-green-400/10';
@@ -75,7 +58,8 @@ export default function DSAPractice() {
         <p className="text-gray-400">Solve coding problems with real-time code execution</p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col gap-3 mb-4">
+        <DifficultyFilter value={difficulty} onChange={setDifficulty} className="self-start" />
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
@@ -86,26 +70,6 @@ export default function DSAPractice() {
             className="w-full pl-9 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-600"
           />
         </div>
-        <select
-          value={difficulty}
-          onChange={(e) => setDifficulty(e.target.value)}
-          className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-        >
-          <option value="">All Difficulties</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-        <select
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          className="px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
-        >
-          <option value="">All Companies</option>
-          {companies.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
       </div>
 
       {error && (
@@ -161,7 +125,7 @@ export default function DSAPractice() {
             <div className="text-center py-12">
               <BookOpen className="w-12 h-12 mx-auto text-gray-600 mb-3" />
               <p className="text-gray-400">No problems found matching your filters</p>
-              <button onClick={() => { setSearch(''); setDifficulty(''); setCompany(''); }} className="text-blue-400 text-sm mt-2 hover:text-blue-300">
+              <button onClick={() => { setSearch(''); setDifficulty(''); }} className="text-blue-400 text-sm mt-2 hover:text-blue-300">
                 Clear filters
               </button>
             </div>

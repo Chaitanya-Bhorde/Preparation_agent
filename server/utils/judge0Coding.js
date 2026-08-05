@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { outputsMatch } = require('./testCaseCompare');
+const { buildCDriver } = require('./codeGenerator');
 
 const JUDGE0_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
 const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY;
@@ -26,6 +27,7 @@ const LANGUAGE_IDS = {
   java: 62,
   cpp: 54,
   c: 50,
+  csharp: 51,
   go: 60,
   rust: 73,
   typescript: 74,
@@ -252,8 +254,12 @@ const buildDriverFromSignature = (sourceCode, language, functionSignature) => {
       return `${sourceCode}\nimport sys\nfor line in sys.stdin:\n    line=line.rstrip('\\n')\n    print(${fn}(${params}))`;
     case 'java':
       return `${sourceCode}\n\nimport java.util.Scanner;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) {\n            String input = sc.nextLine();\n            System.out.println(Solution.${fn}(${params}));\n        }\n        sc.close();\n    }\n}`;
+    case 'c':
+      return buildCDriver(sourceCode, fn, functionSignature.params || [], functionSignature.returnType || '');
     case 'cpp':
       return `${sourceCode}\n\n#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n    ios::sync_with_stdio(false);\n    cin.tie(NULL);\n    string input;\n    if(getline(cin,input)){\n        cout<<${fn}(${params});\n    }\n    return 0;\n}`;
+    case 'csharp':
+      return `${sourceCode}\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string input = Console.ReadLine();\n        Console.WriteLine(Solution.${fn}(${params}));\n    }\n}`;
     case 'javascript':
     default:
       return `${sourceCode}\n\nconst fs = require('fs');\nconst input = fs.readFileSync(0,'utf8').trim();\nconsole.log(${fn}(${params}));`;
