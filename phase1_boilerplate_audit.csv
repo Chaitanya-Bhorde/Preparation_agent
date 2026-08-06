@@ -1,0 +1,26 @@
+scope,language,problem,issue,severity
+boilerplate,java,,Generated starter has NO import statement (no `import java.util.*;`); relies on fully-qualified/fq-less references at runtime,Low
+boilerplate,java,,Fallback `getDefaultStub` includes `main()` AND `// Your code here` comment (violates "no main / no comments" spec),Medium
+boilerplate,cpp,,Generated `.class Solution{}` starter has NO includes (`<iostream>`,`<vector>`,`<string>` etc.) even when array/string types are used,Medium
+boilerplate,cpp,,Seed `functionSignature.returnType` uses JS-style `'number'` and `'list'` which are NOT in the C++ type map -> renders invalid `number solve(...)`,High
+boilerplate,c,,Generated starter is correct (no main, helper-only) when a signature exists; BUT fallback `getDefaultStub` includes `main()` + comment,Low
+boilerplate,c,,C driver models require an explicit size/count arg (e.g. `twoSum(nums,n,target)`) but signatures omit the count -> input-length mismatch risk,Medium
+boilerplate,csharp,,Generated starter `public static rt name(params)` has NO `main()` (matches spec) but ALSO no `using System;` header; method is static (driver-callable) rather than the `public void` instance form in the spec,Low
+boilerplate,csharp,,No compile check performed for C# in seed/tests (Judge0 C# path unverified),Medium
+boilerplate,python,,"generatePythonStarter emits hint comments `# return True/False` and `# return []` -> unnecessary explanatory comments (violates clean spec),Medium
+boilerplate,python,,Seed returnTypes use ambiguous `'list'` (Move Zeroes, Palindrome Partitioning) instead of `List[int]`/`List[List[str]]`,Medium
+boilerplate,javascript,,Generated `function name(params){}` is clean (no comments) - PASS,Low
+input-type,Two Sum,javascript,JS signature param `input` type 'string' (raw line) + returnType 'string' while Java/C++ use typed `int[]`/`vector<int>` -> cross-language return-type/param mismatch,High
+input-type,Binary Search,javascript,Param typed 'string' (raw input) but problem is int array + int target; test input is space separated ints,High
+input-type,Longest Substring,cpp,returnType 'number' not a C++ type -> generated code will not compile,High
+input-type,Maximum Subarray,cpp,returnType 'number' invalid for C++; JS/Python param 'string' mismatch vs Java int[],High
+input-type,Climbing Stairs,,All language signatures consistent (int),PASS
+input-type,Valid Parentheses,,All language signatures consistent (boolean/bool / string),PASS
+input-type,Number of Islands,python,Python param 'string' grid vs Java `char[][]`/C++ `vector<vector<char>>`; C++ returnType 'number' invalid,High
+input-type,Move Zeroes,python,ReturnType ambiguous/'list'; JS/Python param 'string' vs Java `int[]`,Medium
+input-type,Palindrome Partitioning,python,ReturnType 'list' (ambiguous); JS returnType 'string[][]' but python 'list' inconsistent,Medium
+input-type,Reverse a String,,All language signatures consistent (string) - PASS,Low
+data-model,,,No `languages.boilerplate` collection exists in schema; boilerplate is generated on-the-fly in server/utils/codeGenerator.js (generateStarterCode + getDefaultStub),High
+data-model,,,No `inputFormat` field (type/description/constraints) exists on any problem model; types come from functionSignature.params[].type, constraints from `constraints` array,High
+data-model,,,Two problem models coexist: `Problem` (seedData.js, legacy/REST Problems) and `CodingProblem` (CodingProblemDetail, routes/coding.js + dsa.js),Medium
+data-model,,,seedCodingProblemsExpanded.js seeds ~150 CodingProblem shells with title/difficulty/topic/tags ONLY - no functionSignature/starterCode/testCases -> falls back to getDefaultStub (has comments + main()),High

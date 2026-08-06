@@ -259,7 +259,7 @@ const buildDriverFromSignature = (sourceCode, language, functionSignature) => {
     case 'cpp':
       return `${sourceCode}\n\n#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n    ios::sync_with_stdio(false);\n    cin.tie(NULL);\n    string input;\n    if(getline(cin,input)){\n        cout<<${fn}(${params});\n    }\n    return 0;\n}`;
     case 'csharp':
-      return `${sourceCode}\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string input = Console.ReadLine();\n        Console.WriteLine(Solution.${fn}(${params}));\n    }\n}`;
+      return `${sourceCode}\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string input = Console.ReadLine();\n        Console.WriteLine(new Solution().${fn}(${params}));\n    }\n}`;
     case 'javascript':
     default:
       return `${sourceCode}\n\nconst fs = require('fs');\nconst input = fs.readFileSync(0,'utf8').trim();\nconsole.log(${fn}(${params}));`;

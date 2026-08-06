@@ -1,6 +1,7 @@
 const { validateReturnTypeAgainstTestCases } = require('./testCaseCompare');
 
 function generateStarterCode(signature, language) {
+  
   if (!signature) return getDefaultStub(language);
   const { name, params, returnType } = signature;
   switch (language) {
@@ -28,8 +29,7 @@ function generateJSStarter(name, params) {
 
 function generatePythonStarter(name, params, returnType) {
   const paramList = params.map(p => p.name).join(', ');
-  const hint = returnType === 'bool' ? '    # return True/False' : returnType === 'List[int]' || returnType === 'List[str]' ? '    # return []' : '';
-  return `def ${name}(${paramList}):\n${hint}\n    pass\n`;
+  return `def ${name}(${paramList}):\n    pass\n`;
 }
 
 function generateJavaStarter(name, params, returnType) {
@@ -38,10 +38,11 @@ function generateJavaStarter(name, params, returnType) {
     'String': 'String', 'int[]': 'int[]', 'String[]': 'String[]',
     'List<Integer>': 'java.util.List<Integer>', 'List<String>': 'java.util.List<String>',
     'int[][]': 'int[][]', 'char[][]': 'char[][]',
+    'number': 'int', 'list': 'java.util.List<Object>', 'number[]': 'int[]', 'number[][]': 'int[][]',
   };
   const rt = javaTypeMap[returnType] || returnType;
   const paramList = params.map(p => `${mapJavaType(p.type)} ${p.name}`).join(', ');
-  return `class Solution {\n    public ${rt} ${name}(${paramList}) {\n        \n    }\n}\n`;
+  return `import java.util.*;\n\nclass Solution {\n    public ${rt} ${name}(${paramList}) {\n        \n    }\n}\n`;
 }
 
 function generateCppStarter(name, params, returnType) {
@@ -55,15 +56,17 @@ function generateCppStarter(name, params, returnType) {
     'vector<char>': 'std::vector<char>',
     'vector<vector<string>>': 'std::vector<std::vector<std::string>>',
     'pair<int,int>': 'std::pair<int,int>',
+    'number': 'int', 'list': 'std::vector<int>', 'boolean': 'bool',
+    'number[]': 'std::vector<int>', 'number[][]': 'std::vector<std::vector<int>>',
   };
   const rt = cppTypeMap[returnType] || returnType;
   const paramList = params.map(p => `${mapCppType(p.type)} ${p.name}`).join(', ');
-  return `class Solution {\npublic:\n    ${rt} ${name}(${paramList}) {\n        \n    }\n};\n`;
+  return `#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\n${rt} ${name}(${paramList}) {\n    \n}\n`;
 }
 
 function generateCStarter(name, params, returnType) {
   const paramList = params.map(p => `${mapCType(p.type)} ${p.name}`).join(', ');
-  return `${mapCType(returnType)} ${name}(${paramList}) {\n    \n}\n`;
+  return `#include <stdio.h>\n#include <stdlib.h>\n\n${mapCType(returnType)} ${name}(${paramList}) {\n    \n}\n`;
 }
 
 function generateCSharpStarter(name, params, returnType) {
@@ -71,10 +74,12 @@ function generateCSharpStarter(name, params, returnType) {
     'int': 'int', 'long': 'long', 'double': 'double', 'bool': 'bool',
     'string': 'string', 'int[]': 'int[]', 'string[]': 'string[]',
     'char': 'char', 'float': 'float', 'decimal': 'decimal',
+    'number': 'int', 'boolean': 'bool', 'list': 'System.Collections.Generic.List<int>',
+    'number[]': 'int[]', 'number[][]': 'int[][]',
   };
   const rt = csharpTypeMap[returnType] || returnType;
   const paramList = params.map(p => `${mapCSharpType(p.type)} ${p.name}`).join(', ');
-  return `public class Solution {\n    public static ${rt} ${name}(${paramList}) {\n        \n    }\n}\n`;
+  return `using System;\nusing System.Collections.Generic;\n\npublic class Solution {\n    public ${rt} ${name}(${paramList}) {\n        \n    }\n}\n`;
 }
 
 function mapCSharpType(type) {
@@ -82,6 +87,8 @@ function mapCSharpType(type) {
     'int': 'int', 'long': 'long', 'double': 'double', 'bool': 'bool',
     'string': 'string', 'int[]': 'int[]', 'string[]': 'string[]',
     'char': 'char', 'float': 'float',
+    'number': 'int', 'boolean': 'bool',
+    'number[]': 'int[]', 'number[][]': 'int[][]',
   };
   return map[type] || type;
 }
@@ -93,6 +100,7 @@ function mapJavaType(type) {
     'int[][]': 'int[][]', 'char[][]': 'char[][]',
     'List<Integer>': 'java.util.List<Integer>', 'List<String>': 'java.util.List<String>',
     'ListNode': 'ListNode', 'TreeNode': 'TreeNode',
+    'number': 'int', 'number[]': 'int[]', 'number[][]': 'int[][]',
   };
   return map[type] || type;
 }
@@ -109,6 +117,8 @@ function mapCppType(type) {
     'vector<vector<string>>': 'std::vector<std::vector<std::string>>',
     'pair<int,int>': 'std::pair<int,int>',
     'ListNode*': 'ListNode*', 'TreeNode*': 'TreeNode*',
+    'number': 'int', 'boolean': 'bool',
+    'number[]': 'std::vector<int>', 'number[][]': 'std::vector<std::vector<int>>',
   };
   return map[type] || type;
 }
@@ -117,6 +127,7 @@ function mapCType(type) {
   const map = {
     'int': 'int', 'long': 'long', 'double': 'double', 'char': 'char',
     'char*': 'char*', 'int*': 'int*',
+    'number': 'int', 'boolean': 'int', 'number[]': 'int*', 'number[][]': 'int**',
   };
   return map[type] || type;
 }
@@ -389,7 +400,7 @@ function javaParseDecl(type, name, idx) {
 function buildCppDriver(userCode, funcName, params, returnType) {
   const parsing = params.map((p, i) => cppParseLine(p, i)).join('\n    ');
   const args = params.map(p => p.name).join(', ');
-  const invoke = `s.${funcName}(${args})`;
+  const invoke = `${funcName}(${args})`;
   const printExpr = cppPrintExpr('result', returnType);
 
   return `#include <bits/stdc++.h>
@@ -563,7 +574,6 @@ int main() {
     vector<string> lines = readAllLines();
     int idx = 0;
     ${parsing}
-    Solution s;
     auto result = ${invoke};
     cout << ${printExpr} << endl;
     return 0;
@@ -703,7 +713,7 @@ function buildCSharpDriver(userCode, funcName, params, returnType) {
   const parsing = params.map((p, i) => csharpParseLine(p, i)).join('\n        ');
   const args = params.map(p => p.name).join(', ');
 
-  return userCode + '\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string[] lines = Console.ReadLine()?.Split(\'\n\') ?? new string[0];\n        if (lines.Length == 0) return;\n        ' + parsing + '\n        ' + returnType + ' result = ' + funcName + '(' + args + ');\n        Console.WriteLine(result);\n    }\n}\n';
+  return userCode + '\n\nusing System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        string[] lines = Console.ReadLine()?.Split(\'\n\') ?? new string[0];\n        if (lines.Length == 0) return;\n        ' + parsing + '\n        ' + returnType + ' result = new Solution().' + funcName + '(' + args + ');\n        Console.WriteLine(result);\n    }\n}\n';
 }
 
 function csharpParseLine(p, i) {
