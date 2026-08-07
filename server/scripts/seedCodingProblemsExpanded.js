@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const CodingProblem = require('../models/CodingProblem');
+const { CURATED } = require('./curatedProblems');
 
 // A focused set of 150+ unique coding problems
 const codingProblems = [
@@ -345,34 +346,95 @@ function getCompaniesForProblem(topic, tags, difficulty) {
   return matches;
 }
 
+
+// Build clean starter code (no main(), no explanatory comments) from a typed signature.
+function buildTypedStarter(fs) {
+  const js = fs.javascript;
+  const py = fs.python;
+  const java = fs.java;
+  const cpp = fs.cpp;
+  const jsParams = (js.params || []).map((p) => p.name).join(', ');
+  const pyParams = (py.params || []).map((p) => p.name).join(', ');
+  const javaParams = (java.params || []).map((p) => `${p.type} ${p.name}`).join(', ');
+  const cppParams = (cpp.params || []).map((p) => `${p.type} ${p.name}`).join(', ');
+  return {
+    javascript: `function ${js.name}(${jsParams}) {\n    \n}\n`,
+    python: `def ${py.name}(${pyParams}):\n    pass\n`,
+    java: `import java.util.*;
+
+class Solution {
+    public ${java.returnType} ${java.name}(${javaParams}) {
+        
+    }
+}
+`,
+    cpp: `#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+using namespace std;
+
+${cpp.returnType} ${cpp.name}(${cppParams}) {
+    
+}
+`,
+  };
+}
+
 const seedCodingProblems = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
     await CodingProblem.deleteMany({});
     
     const now = new Date();
+    const uncurated = [];
     const problems = codingProblems.map((p, idx) => {
       const slug = `${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${idx}`;
       const companies = getCompaniesForProblem(p.topic, p.tags, p.difficulty);
+      const curated = CURATED[p.title];
+
+      if (!curated) {
+        // Phase 2C guard: every seeded problem must have a reviewed spec.
+        uncurated.push(p.title);
+      }
+
+      if (curated) {
+        const fs = curated.functionSignature;
+        return {
+          title: p.title,
+          slug,
+          description: curated.desc,
+          difficulty: p.difficulty,
+          topic: p.topic,
+          tags: p.tags,
+          companies,
+          constraints: curated.constraints,
+          examples: curated.examples,
+          visibleTestCases: [curated.sample && { input: curated.sample.input, expectedOutput: curated.sample.output, explanation: 'Sample' }].filter(Boolean),
+          hiddenTestCases: curated.hidden ? [{ input: curated.hidden.input, expectedOutput: curated.hidden.output }] : [],
+          starterCode: buildTypedStarter(fs),
+          functionSignature: fs,
+          timeLimitMs: p.difficulty === 'hard' ? 3000 : p.difficulty === 'medium' ? 2000 : 1500,
+          memoryLimitKb: 256,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
+
+      // Fallback shells are only kept for titles not yet reviewed (flagged above).
       return {
         title: p.title,
         slug,
-        description: `Solve the ${p.title} problem.`,
+        description: curated ? '' : `Solve the ${p.title} problem. (Spec not yet reviewed)`,
         difficulty: p.difficulty,
         topic: p.topic,
         tags: p.tags,
         companies,
         constraints: ['1 <= input.length <= 1000', 'All inputs are valid'],
-        examples: [{ input: 'Example input', output: 'Expected output', explanation: 'Explanation here' }],
-        visibleTestCases: [
-          { input: 'test-input-0', expectedOutput: 'expected-0' },
-          { input: 'test-input-1', expectedOutput: 'expected-1' },
-          { input: 'test-input-2', expectedOutput: 'expected-2' },
-        ],
-        hiddenTestCases: Array.from({ length: 10 }, (_, i) => ({
-          input: `hidden-input-${i}`,
-          expectedOutput: `hidden-expected-${i}`,
-        })),
+        examples: [],
+        visibleTestCases: [],
+        hiddenTestCases: [],
         starterCode: {
           javascript: 'function solve(input) {\n  // Your code here\n  return null;\n}',
           python: 'def solve(input):\n    # Your code here\n    return None',
@@ -392,6 +454,11 @@ const seedCodingProblems = async () => {
         updatedAt: now,
       };
     });
+
+    if (uncurated.length) {
+      console.log(`[SPEC-VALIDATION] ${uncurated.length} problem(s) lack a reviewed spec and keep placeholder shells:`);
+      uncurated.slice(0, 25).forEach((t) => console.log(`  - ${t}`));
+    }
 
     const seenTitles = new Map();
     const duplicates = [];
