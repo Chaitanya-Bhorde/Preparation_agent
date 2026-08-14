@@ -21,16 +21,12 @@ const Companies = lazy(() => import('./pages/Companies'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Readiness = lazy(() => import('./pages/Readiness'));
-const SQLProblems = lazy(() => import('./pages/SQLProblems'));
-const SQLProblemDetail = lazy(() => import('./pages/SQLProblemDetail'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const ProgressExport = lazy(() => import('./pages/ProgressExport'));
-const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
-const DSAPractice = lazy(() => import('./pages/DSAPractice'));
 const MockInterview = lazy(() => import('./pages/MockInterview'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));
-const SQLPractice = lazy(() => import('./pages/SQLPractice'));
 const InterviewExperiences = lazy(() => import('./pages/InterviewExperiences'));
+const DSAPractice = lazy(() => import('./pages/DSAPractice'));
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
@@ -63,6 +59,7 @@ function App() {
             <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
             <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
             <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
+            <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
             <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
@@ -72,12 +69,6 @@ function App() {
             <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
             <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
             <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
-            <Route path="/sql" element={<PrivateRoute><SQLProblems /></PrivateRoute>} />
-            <Route path="/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-            <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
-            <Route path="/practice/sql" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
-            <Route path="/practice/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
-            <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
             <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
             <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
             <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />

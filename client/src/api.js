@@ -10,7 +10,11 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (window.location.pathname !== '/login') {
+      // Only redirect to login from protected pages, not public/auth pages
+      const currentPath = window.location.pathname;
+      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+      const isPublicPath = publicPaths.some((path) => currentPath.startsWith(path));
+      if (!isPublicPath) {
         window.location.href = '/login';
       }
     }
@@ -87,15 +91,6 @@ export const saveDraft = (data) => API.post('/drafts', data);
 export const getDraft = (params) => API.get('/drafts', { params });
 export const getAllDrafts = () => API.get('/drafts/all');
 export const deleteDraft = (data) => API.delete('/drafts', { data });
-export const getSQLProblems = (params) => API.get('/sql/problems', { params });
-export const getSQLProblem = (slug) => API.get(`/sql/problems/${slug}`);
-export const runSQLQuery = (data) => API.post('/sql/run', data);
-export const submitSQLQuery = (data) => API.post('/sql/submit', data);
-export const getSQLSubmissions = (params) => API.get('/sql/submissions', { params });
-export const getSQLSubmission = (id) => API.get(`/sql/submissions/${id}`);
-export const getSQLTopics = () => API.get('/sql/topics');
-export const getSQLTags = () => API.get('/sql/tags');
-export const getSQLCompanies = () => API.get('/sql/companies');
 export const getCodingProblems = (params) => API.get('/coding-problems', { params });
 export const getCodingProblem = (slug) => API.get(`/coding-problems/${slug}`);
 export const getCodingTags = () => API.get('/coding-problems/tags');
@@ -104,12 +99,6 @@ export const getCodingCompanies = () => API.get('/coding-problems/companies');
 export const getCodingSubmissions = (params) => API.get('/coding/submissions', { params });
 export const generateDSAProblem = (data) => API.post('/dsa/generate', data);
 export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
-
-// Aptitude
-export const getAptitudeQuestions = (params) => API.get('/aptitude/questions', { params });
-export const getAptitudeCategories = () => API.get('/aptitude/categories');
-export const getAptitudeCompanies = () => API.get('/aptitude/companies');
-export const submitAptitudeAnswer = (data) => API.post('/aptitude/submit', data);
 
 // Interview Experiences
 export const getInterviewExperiences = (params) => API.get('/interview-experiences', { params });

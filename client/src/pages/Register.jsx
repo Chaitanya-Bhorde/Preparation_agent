@@ -23,7 +23,9 @@ export default function Register() {
       toast.success('Account created! Welcome to PrepAgent!');
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      const errMsg = error.response?.data?.message;
+      const message = Array.isArray(errMsg) ? errMsg.join('\n') : (errMsg || 'Registration failed');
+      toast.error(message);
     } finally {
       setLoading(false);
     }

@@ -97,7 +97,12 @@ export default function CodingProblemDetail() {
       setDraftLoaded(false);
       setDraftFound(false);
       if (data.data && data.data.visibleTestCases) {
-        setVisibleTestcases(data.data.visibleTestCases.map((tc, i) => ({ ...tc, id: `sample-${i}`, editable: false })));
+        setVisibleTestcases(data.data.visibleTestCases.map((tc, i) => ({
+          ...tc,
+          expectedOutput: tc.expectedOutput ?? tc.output ?? '',
+          id: `sample-${i}`,
+          editable: false,
+        })));
       }
     } catch (error) {
       toast.error('Failed to load problem');
@@ -146,9 +151,9 @@ export default function CodingProblemDetail() {
       javascript: `function solve(input) {\n  // Your code here\n  return input;\n}\n`,
       python: `def solve(input):\n    # Your code here\n    return input\n`,
       java: `public class Solution {\n    public static String solve(String input) {\n        // Your code here\n        return input;\n    }\n\n    public static void main(String[] args) {\n        java.util.Scanner sc = new java.util.Scanner(System.in);\n        String input = sc.nextLine();\n        System.out.println(solve(input));\n        sc.close();\n    }\n}`,
-      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    string input;\n    getline(cin, input);\n    cout << solve(input) << endl;\n    return 0;\n}`,
-      c: `#include <stdio.h>\n#include <string.h>\n\nchar* solve(char* input) {\n    // Your code here\n    return input;\n}\n\nint main() {\n    char input[10000];\n    if (fgets(input, sizeof(input), stdin)) {\n        input[strcspn(input, "\n")] = 0;\n        printf("%s\n", solve(input));\n    }\n    return 0;\n}`,
-      csharp: `using System;\n\npublic class Solution {\n    public static string solve(string input) {\n        // Your code here\n        return input;\n    }\n\n    public static void Main(string[] args) {\n        string input = Console.ReadLine();\n        Console.WriteLine(solve(input));\n    }\n}`,
+      cpp: `#include <iostream>\n#include <string>\nusing namespace std;\n\nstring solve(string input) {\n    // Your code here\n    return input;\n}\n`,
+      c: `#include <stdio.h>\n#include <string.h>\n\nchar* solve(char* input) {\n    // Your code here\n    return input;\n}\n`,
+      csharp: `using System;\n\npublic class Solution {\n    public static string solve(string input) {\n        // Your code here\n        return input;\n    }\n}`,
   };
     return defaults[lang] || defaults.javascript;
   };
@@ -178,6 +183,7 @@ export default function CodingProblemDetail() {
       if (data.data.status === 'accepted') toast.success('Sample tests passed!');
       else if (data.data.status === 'compilation_error') toast.error('Compilation failed');
       else if (data.data.status === 'runtime_error') toast.error('Runtime error occurred');
+      else if (data.data.status === 'time_limit_exceeded') toast.error('Time limit exceeded');
       else toast.error('Sample tests failed');
     } catch (error) {
       if (!error.response && (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET')) {
@@ -263,6 +269,16 @@ export default function CodingProblemDetail() {
     return <div className={LOADING_SPINNER}><span className="text-gray-400">Problem not found</span></div>;
   }
 
+  // Examples for the description tab: prefer a dedicated `examples` field,
+  // otherwise derive them from the visible/sample test cases.
+  const examples = problem.examples?.length
+    ? problem.examples
+    : (problem.visibleTestCases || []).map((tc) => ({
+        input: tc.input ?? '',
+        output: tc.output ?? tc.expectedOutput ?? '',
+        explanation: tc.explanation,
+      }));
+
   return (
     <div className="h-[calc(100vh-57px)] bg-gray-950 flex flex-col" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-800 shrink-0">
@@ -316,10 +332,10 @@ export default function CodingProblemDetail() {
             {activeTab === 'description' && (
               <>
                 <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">{problem.description}</div>
-                {problem.examples?.length > 0 && (
+                {examples.length > 0 && (
                   <div className="mt-6">
                     <h3 className="text-white font-semibold mb-3">Examples</h3>
-                    {problem.examples.map((ex, idx) => (
+                    {examples.map((ex, idx) => (
                       <div key={idx} className="bg-gray-900 rounded-lg p-4 mb-3 border border-gray-800">
                         <p className="text-gray-400 text-sm mb-1">Input:</p>
                         <pre className="bg-gray-950 p-2 rounded text-gray-300 text-sm mb-2 overflow-x-auto">{ex.input}</pre>

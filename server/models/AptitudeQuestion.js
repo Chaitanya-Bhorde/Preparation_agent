@@ -6,121 +6,22 @@ const OptionSchema = new mongoose.Schema({
 
 const AptitudeQuestionSchema = new mongoose.Schema(
   {
-    category: {
-      type: String,
-      enum: [
-        'quant',
-        'number-system',
-        'percentages',
-        'profit-loss',
-        'ratio-proportion',
-        'averages',
-        'partnership',
-        'mixture-allegation',
-        'time-work',
-        'pipes-cisterns',
-        'time-speed-distance',
-        'boats-streams',
-        'trains',
-        'simple-interest',
-        'compound-interest',
-        'ages',
-        'clocks',
-        'calendars',
-        'permutation-combination',
-        'probability',
-        'progressions',
-        'geometry',
-        'mensuration',
-        'data-interpretation',
-        'data-sufficiency',
-        'verbal',
-        'logical',
-        'blood-relations',
-        'direction-sense',
-        'coding-decoding',
-        'seating-arrangement',
-        'puzzles',
-        'syllogism',
-        'statement-conclusion',
-        'statement-assumption',
-        'cause-effect',
-        'input-output',
-        'ranking',
-        'number-series',
-        'alphabet-series',
-        'analogy',
-        'odd-one-out',
-        'cubes-dice',
-        'mirror-image',
-        'paper-folding',
-        'pattern-recognition',
-        'critical-reasoning',
-        'decision-making',
-        'reading-comprehension',
-        'grammar',
-        'error-detection',
-        'sentence-improvement',
-        'sentence-correction',
-        'fill-blanks',
-        'para-jumbles',
-        'sentence-arrangement',
-        'vocabulary',
-        'synonyms',
-        'antonyms',
-        'idioms-phrases',
-        'one-word-substitution',
-        'active-passive-voice',
-        'direct-indirect-speech',
-        'cloze-test'
-      ],
-      required: true,
-    },
-    question: {
-      type: String,
-      required: true,
-    },
+    category: { type: String, required: true },
+    question: { type: String, required: true },
     options: {
       type: [OptionSchema],
       required: true,
-      validate: {
-        validator: function (arr) { return Array.isArray(arr) && arr.length >= 2; },
-        message: 'At least 2 options are required',
-      },
+      validate: { validator: function (arr) { return Array.isArray(arr) && arr.length >= 2; }, message: 'At least 2 options are required' },
     },
-    correctIndex: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    explanation: {
-      type: String,
-      required: true,
-    },
-    difficulty: {
-      type: String,
-      enum: ['easy', 'medium', 'hard'],
-      default: 'medium',
-    },
-    topic: {
-      type: String,
-    },
+    correctIndex: { type: Number, required: true, min: 0 },
+    explanation: { type: String, required: true },
+    difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
+    topic: { type: String },
     tags: [String],
     companies: [String],
-    isActive: {
-      type: Boolean,
-      default: true },
+    isActive: { type: Boolean, default: true },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
-AptitudeQuestionSchema.pre('save', function (next) {
-  if (!this.topic && this.category) {
-    this.topic = this.category;
-  }
-  next();
-});
 
 module.exports = mongoose.model('AptitudeQuestion', AptitudeQuestionSchema);

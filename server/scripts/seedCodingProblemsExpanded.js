@@ -4,6 +4,7 @@ const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const CodingProblem = require('../models/CodingProblem');
 const { CURATED } = require('./curatedProblems');
+const { generateTestCases } = require('./testCaseGenerators');
 
 // A focused set of 150+ unique coding problems
 const codingProblems = [
@@ -390,6 +391,7 @@ const seedCodingProblems = async () => {
     const uncurated = [];
     const problems = codingProblems.map((p, idx) => {
       const slug = `${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${idx}`;
+      const problemId = `CP-${String(idx + 1).padStart(4, '0')}-${p.difficulty.toUpperCase()}`;
       const companies = getCompaniesForProblem(p.topic, p.tags, p.difficulty);
       const curated = CURATED[p.title];
 
@@ -400,7 +402,11 @@ const seedCodingProblems = async () => {
 
       if (curated) {
         const fs = curated.functionSignature;
+        const testCases = generateTestCases(p.title, curated);
+        const sample = testCases.sampleTests;
+        const hidden = testCases.hiddenTests;
         return {
+          problemId,
           title: p.title,
           slug,
           description: curated.desc,
@@ -410,8 +416,10 @@ const seedCodingProblems = async () => {
           companies,
           constraints: curated.constraints,
           examples: curated.examples,
-          visibleTestCases: [curated.sample && { input: curated.sample.input, expectedOutput: curated.sample.output, explanation: 'Sample' }].filter(Boolean),
-          hiddenTestCases: curated.hidden ? [{ input: curated.hidden.input, expectedOutput: curated.hidden.output }] : [],
+          visibleTestCases: testCases.visibleTestCases,
+          hiddenTestCases: testCases.hiddenTestCases,
+          sampleTests: sample,
+          hiddenTests: hidden,
           starterCode: buildTypedStarter(fs),
           functionSignature: fs,
           timeLimitMs: p.difficulty === 'hard' ? 3000 : p.difficulty === 'medium' ? 2000 : 1500,
@@ -424,6 +432,7 @@ const seedCodingProblems = async () => {
 
       // Fallback shells are only kept for titles not yet reviewed (flagged above).
       return {
+        problemId,
         title: p.title,
         slug,
         description: curated ? '' : `Solve the ${p.title} problem. (Spec not yet reviewed)`,
@@ -435,6 +444,8 @@ const seedCodingProblems = async () => {
         examples: [],
         visibleTestCases: [],
         hiddenTestCases: [],
+        sampleTests: [],
+        hiddenTests: [],
         starterCode: {
           javascript: 'function solve(input) {\n  // Your code here\n  return null;\n}',
           python: 'def solve(input):\n    # Your code here\n    return None',

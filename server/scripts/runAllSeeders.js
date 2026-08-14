@@ -5,6 +5,7 @@ const seeders = [
   'seedConceptNotes.js',
   'seedCodingProblemsExpanded.js',
   'seedSQLProblemsExpanded.js',
+  'seedAptitudeQuestions.js',
 ];
 
 async function runSeeders() {

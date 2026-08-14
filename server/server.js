@@ -16,6 +16,12 @@ try {
 }
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 connectDB();
+
+// Auto-start Judge0 if not running (development only)
+const { autoStart } = require('./utils/autoStartJudge0');
+if (process.env.NODE_ENV !== 'production') {
+  autoStart().catch(err => console.error('Auto-start error:', err));
+}
 const app = express();
 app.use(helmet());
 const allowedOrigins = [
@@ -27,7 +33,12 @@ const allowedOrigins = [
 ].filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow no-origin requests and the explicitly listed origins.
     if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      // In development, allow any localhost origin/port so Vite running on a
+      // non-default port (e.g. 5176 when 5173 is busy) is not CORS-blocked.
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -41,7 +52,7 @@ app.use(cookieParser());
 
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 50,
   message: { success: false, message: 'Too many attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -76,14 +87,12 @@ app.use('/api/mistakes', require('./routes/mistakes'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/readiness', require('./routes/readiness'));
 app.use('/api/drafts', require('./routes/drafts'));
-app.use('/api/sql', require('./routes/sql'));
 app.use('/api/coding', require('./routes/coding'));
 app.use('/api/coding-problems', require('./routes/codingProblems'));
 app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));
-app.use('/api/aptitude', require('./routes/aptitude'));
 app.use('/api/mock-interview', require('./routes/mockInterview'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });

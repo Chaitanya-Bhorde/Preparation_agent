@@ -1,5 +1,27 @@
 const mongoose = require('mongoose');
 
+const InputFormatSchema = new mongoose.Schema({
+  paramName: { type: String, required: true },
+  type: { type: String, required: true },
+  constraints: { type: String },
+}, { _id: false });
+
+const OutputFormatSchema = new mongoose.Schema({
+  type: { type: String, required: true },
+  description: { type: String },
+}, { _id: false });
+
+const SampleTestSchema = new mongoose.Schema({
+  input: { type: String, required: true },
+  output: { type: String, required: true },
+  explanation: { type: String },
+}, { _id: false });
+
+const HiddenTestSchema = new mongoose.Schema({
+  input: { type: String, required: true },
+  output: { type: String, required: true },
+}, { _id: false });
+
 const FunctionParamSchema = new mongoose.Schema({
   name: { type: String, required: true },
   type: { type: String, required: true },
@@ -11,15 +33,14 @@ const FunctionSignatureSchema = new mongoose.Schema({
   returnType: { type: String, required: true },
 }, { _id: false });
 
-const TestCaseSchema = new mongoose.Schema({
-  input: { type: String, required: true },
-  expectedOutput: { type: String, required: true },
-  explanation: String,
-  category: String,
-});
-
 const CodingProblemSchema = new mongoose.Schema(
   {
+    problemId: {
+      type: String,
+      required: [true, 'Please add a problemId'],
+      unique: true,
+      trim: true,
+    },
     title: {
       type: String,
       required: [true, 'Please add a title'],
@@ -45,29 +66,24 @@ const CodingProblemSchema = new mongoose.Schema(
     },
     tags: [String],
     companies: [String],
+    inputFormat: [InputFormatSchema],
+    outputFormat: OutputFormatSchema,
+    sampleTests: [SampleTestSchema],
+    hiddenTests: [HiddenTestSchema],
     constraints: [String],
-    examples: [
-      {
-        input: String,
-        output: String,
-        explanation: String,
-      },
-    ],
-    visibleTestCases: [TestCaseSchema],
-    hiddenTestCases: [TestCaseSchema],
     starterCode: {
-      cpp: { type: String, default: '' },
-      java: { type: String, default: '' },
-      python: { type: String, default: '' },
       javascript: { type: String, default: '' },
+      python: { type: String, default: '' },
+      java: { type: String, default: '' },
+      cpp: { type: String, default: '' },
       c: { type: String, default: '' },
       csharp: { type: String, default: '' },
     },
     functionSignature: {
+      javascript: FunctionSignatureSchema,
+      python: FunctionSignatureSchema,
       java: FunctionSignatureSchema,
       cpp: FunctionSignatureSchema,
-      python: FunctionSignatureSchema,
-      javascript: FunctionSignatureSchema,
       c: FunctionSignatureSchema,
       csharp: FunctionSignatureSchema,
     },
@@ -97,6 +113,7 @@ CodingProblemSchema.index({ topic: 1 });
 CodingProblemSchema.index({ difficulty: 1 });
 CodingProblemSchema.index({ title: 1 });
 CodingProblemSchema.index({ topic: 1, difficulty: 1 });
+CodingProblemSchema.index({ problemId: 1 });
 
 CodingProblemSchema.pre('save', function () {
   this.slug = this.title

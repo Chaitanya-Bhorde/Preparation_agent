@@ -32,40 +32,15 @@ const SqlTableSchema = new mongoose.Schema({
 
 const ProblemSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: [true, 'Please add a title'],
-      trim: true,
-      unique: true,
-    },
-    slug: {
-      type: String,
-      unique: true,
-    },
-    description: {
-      type: String,
-      required: [true, 'Please add a description'],
-    },
-    difficulty: {
-      type: String,
-      enum: ['easy', 'medium', 'hard'],
-      required: true,
-    },
+    title: { type: String, required: [true, 'Please add a title'], trim: true, unique: true },
+    slug: { type: String, unique: true },
+    description: { type: String, required: [true, 'Please add a description'] },
+    difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true },
     tags: [String],
     companies: [String],
     constraints: String,
-    category: {
-      type: String,
-      enum: ['DSA', 'SQL'],
-      default: 'DSA',
-    },
-    examples: [
-      {
-        input: String,
-        output: String,
-        explanation: String,
-      },
-    ],
+    category: { type: String, enum: ['DSA', 'SQL'], default: 'DSA' },
+    examples: [{ input: String, output: String, explanation: String }],
     testCases: [TestCaseSchema],
     functionSignature: {
       java: FunctionSignatureSchema,
@@ -87,42 +62,23 @@ const ProblemSchema = new mongoose.Schema(
       cpp: { type: String, default: '' },
       c: { type: String, default: '' },
     },
-    solution: {
-      type: String,
-    },
-    timeLimit: {
-      type: Number,
-      default: 2,
-    },
-    memoryLimit: {
-      type: Number,
-      default: 256,
-    },
+    solution: { type: String },
+    timeLimit: { type: Number, default: 2 },
+    memoryLimit: { type: Number, default: 256 },
     totalSubmissions: { type: Number, default: 0 },
     acceptedSubmissions: { type: Number, default: 0 },
     acceptanceRate: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    // SQL-specific fields
-    sqlSchema: {
-      tables: [SqlTableSchema],
-    },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    sqlSchema: { tables: [SqlTableSchema] },
     expectedResultSet: [mongoose.Schema.Types.Mixed],
     schemaSetup: { type: String, default: '' },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 ProblemSchema.pre('save', function () {
-  this.slug = this.title
-    .toLowerCase()
-    .replace(/[^a-zA-Z0-9]/g, '-')
-    .replace(/-+/g, '-');
+  this.slug = this.title.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-');
 });
 
 module.exports = mongoose.model('Problem', ProblemSchema);

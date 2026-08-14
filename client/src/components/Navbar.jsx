@@ -101,7 +101,7 @@ export default function Navbar() {
               Home
             </Link>
 
-            {/* Practice Dropdown (DSA / SQL / Aptitude) */}
+            {/* Practice Dropdown (DSA) */}
             <div className="relative" ref={practiceRef}>
               <button
                 type="button"
@@ -123,20 +123,6 @@ export default function Navbar() {
                     <span>
                       <span className="block font-medium">DSA</span>
                       <span className="block text-xs text-gray-500">Data Structures & Algorithms</span>
-                    </span>
-                  </Link>
-                  <Link to="/practice/sql" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                    <Database className="w-5 h-5 text-emerald-400 shrink-0" />
-                    <span>
-                      <span className="block font-medium">SQL</span>
-                      <span className="block text-xs text-gray-500">Database query problems</span>
-                    </span>
-                  </Link>
-                  <Link to="/practice/aptitude" className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
-                    <Brain className="w-5 h-5 text-purple-400 shrink-0" />
-                    <span>
-                      <span className="block font-medium">Aptitude</span>
-                      <span className="block text-xs text-gray-500">Quant, Logical & Verbal MCQs</span>
                     </span>
                   </Link>
                 </div>
@@ -233,12 +219,6 @@ export default function Navbar() {
             <div className="px-2 py-1 text-xs text-gray-500 uppercase tracking-wider">Practice</div>
             <Link to="/practice/dsa" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
               <Code2 className="w-4 h-4 text-blue-400" /> DSA Practice
-            </Link>
-            <Link to="/practice/sql" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
-              <Database className="w-4 h-4 text-emerald-400" /> SQL Practice
-            </Link>
-            <Link to="/practice/aptitude" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
-              <Brain className="w-4 h-4 text-purple-400" /> Aptitude Practice
             </Link>
             <div className="px-2 py-1 text-xs text-gray-500 uppercase tracking-wider mt-1">Company Wise</div>
             {companies.slice(0, 8).map((c) => (

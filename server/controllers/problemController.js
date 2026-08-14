@@ -65,7 +65,7 @@ exports.getProblems = async (req, res) => {
     });
 
     const data = problems.map((p) => ({
-      ...p.toObject(),
+      ...(typeof p.toObject === "function" ? p.toObject() : p),
       userStatus: problemStatusMap[p._id.toString()] || 'unsolved',
     }));
 
@@ -106,7 +106,7 @@ exports.getProblem = async (req, res) => {
       }).select('status');
       if (attempted) userStatus = 'attempted';
     }
-    const problemObj = problem.toObject();
+    const problemObj = typeof problem.toObject === "function" ? problem.toObject() : problem;
     if (problemObj.starterCode) {
       const generatedStarter = {};
       for (const lang of ['javascript', 'python', 'java', 'cpp', 'c']) {

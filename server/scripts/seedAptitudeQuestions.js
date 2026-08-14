@@ -603,12 +603,9 @@ const questions = [
 
 const run = async () => {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
-  const questionsWithCompanies = questions.map(q => ({
-    ...q,
-    companies: getCompaniesForQuestion(q.category, q.tags, q.difficulty),
-  }));
-  const res = await AptitudeQuestion.insertMany(questionsWithCompanies);
-  console.log(`Seeded ${res.length} aptitude questions with company tags`);
+  await AptitudeQuestion.deleteMany({});
+  const res = await AptitudeQuestion.insertMany(questions);
+  console.log(`Seeded ${res.length} aptitude questions`);
   await mongoose.disconnect();
   process.exit(0);
 };
