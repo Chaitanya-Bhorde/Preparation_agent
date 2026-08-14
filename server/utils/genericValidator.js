@@ -264,12 +264,12 @@ function mapType(typeToken) {
  * Compute the expected output STRING for a test input by running the stored
  * reference solution in-process with the parsed positional args.
  */
-function computeExpectedFromReference(problem, inputJson) {
+function computeExpectedFromReference(problem, input) {
   if (!problem || !problem.referenceSolution || !problem.referenceSolution.code) {
     throw new Error('genericValidator: problem has no referenceSolution to compute expected output');
   }
   const fn = createSolveFunction(problem.referenceSolution.code);
-  const args = _parseDetailed(inputJson, problem.inputFormat).args;
+  const args = parseTestCaseInput(problem, input).args;
   const value = fn.apply(null, args);
   return serializeValue(value, problem.outputFormat);
 }
@@ -355,37 +355,45 @@ function resolveExecutor(problem, userCode, language, opts) {
 async function validateSingleTestCase(problem, userCode, language, testCase, opts) {
   const o = opts || {};
   const runner = resolveExecutor(problem, userCode, language, o);
-  const result = {
+    const result = {
     testCaseId: (testCase && (testCase._id || testCase.testCaseId || testCase.id)) || null,
     input: testCase && testCase.input,
     expected: '',
     actual: '',
     passed: false,
     error: null,
+    errorType: null,
     time: 0,
   };
   try {
-    const detail = _parseDetailed(testCase.input, problem.inputFormat);
+    const detail = parseTestCaseInput(problem, testCase.input);
     result.expected =
       testCase.expectedOutput != null && String(testCase.expectedOutput).trim() !== ''
         ? String(testCase.expectedOutput).trim()
         : computeExpectedFromReference(problem, testCase.input);
+
+    const signature = (problem.functionSignature && problem.functionSignature[language]) || null;
 
     const exec = await runner({
       code: userCode,
       language,
       args: detail.args,
       stdin: detail.stdin,
+      format: detail.format,
+      signature,
+      expected: result.expected,
       returnType: problem.outputFormat && problem.outputFormat.type,
       testCaseId: result.testCaseId,
     });
 
-    result.actual = (exec && exec.output) || '';
+        result.actual = (exec && exec.output) || '';
     result.error = (exec && exec.error) || null;
+    result.errorType = (exec && exec.errorType) || (result.error ? 'RuntimeError' : null);
     result.time = (exec && exec.executionTime) || 0;
     result.passed = !result.error && compareOutputs(result.expected, result.actual, problem.outputFormat);
-  } catch (e) {
+    } catch (e) {
     result.error = (e && e.message) || String(e);
+    result.errorType = 'RuntimeError';
   }
   return result;
 }
@@ -427,13 +435,168 @@ async function validateUserCode(problemOrId, userCode, language, opts) {
   const allSamplesPassed = sampleResults.length > 0 && samplePassed === sampleResults.length;
   const hiddenCount = testCases.filter((tc) => tc.isHidden).length;
 
-  return {
+    return {
+    results,
     sampleResults,
     allSamplesPassed,
     hidden: { wouldRun: allSamplesPassed, count: hiddenCount },
     summary: samplePassed + '/' + sampleResults.length + ' passed',
     passed: results.filter((r) => r.passed).length,
     total: results.length,
+  };
+}
+
+/**
+ * DB-INTEGRATION LAYER -----------------------------------------------------
+ * The functions below let the generic engine work against the platform's REAL
+ * database documents (CodingProblem) and FUTURE admin-created problems with zero
+ * per-problem code:
+ *   - Existing docs store test input as LINE-BASED stdin strings (e.g.
+ *     "[2,7,11,15]\n9") under sampleTests/hiddenTests with an `output` field,
+ *     and their metadata lives in functionSignature (inputFormat/outputFormat
+ *     are typically empty). normalizeProblem() derives the generic metadata.
+ *   - New admin docs may use JSON test inputs + inputFormat/outputFormat.
+ * parseTestCaseInput() detects and handles BOTH formats.
+ */
+
+/**
+ * Derive generic inputFormat/outputFormat metadata from a per-language function
+ * signature ({ name, params:[{name,type}], returnType }).
+ */
+function deriveFormatFromSignature(fnSig) {
+  const params = (fnSig && fnSig.params) || [];
+  return {
+    inputFormat: { fields: params.map((p) => ({ name: p.name, type: p.type })) },
+    outputFormat: { type: (fnSig && fnSig.returnType) || '' },
+  };
+}
+
+/** Parse one legacy line-based value into its JS value using the declared type. */
+function parseLineValue(type, raw) {
+  const t = String(type || '').toLowerCase();
+  const v = raw == null ? '' : String(raw).trim();
+  if (t.endsWith(']') || t.includes('[]')) return JSON.parse(v);
+  if (/int|number|long|float|double|decimal/.test(t)) return v === '' ? 0 : Number(v);
+  if (t === 'boolean' || t === 'bool') return v.toLowerCase() === 'true';
+  if (t === 'char') return v === '' ? '' : v[0];
+  return v; // string / raw
+}
+
+/** Convert a legacy LINE-BASED test input into positional args (field order). */
+function lineInputToArgs(lineInput, fields) {
+  const lines = String(lineInput == null ? '' : lineInput).split('\n');
+  return fields.map((f, i) => parseLineValue(f.type, lines[i]));
+}
+
+/**
+ * Parse a test-case input string into { args, stdin, format }. Handles BOTH the
+ * new JSON-object format ('{"nums":[...],"target":5}') and the legacy line-based
+ * format ('[2,7,11,15]\n9') used by every existing database problem.
+ */
+function parseTestCaseInput(problem, input) {
+  const s = String(input == null ? '' : input).trim();
+  const fields = ((problem && problem.inputFormat && problem.inputFormat.fields) || []);
+  if (s.startsWith('{')) {
+    const detail = _parseDetailed(input, problem.inputFormat);
+    return { args: detail.args, stdin: detail.stdin, format: 'json', missing: detail.missing };
+  }
+  return {
+    args: fields.length > 0 ? lineInputToArgs(s, fields) : [s],
+    stdin: input == null ? '' : String(input),
+    format: 'line',
+    missing: [],
+  };
+}
+
+/** Pick the most usable per-language function signature from a problem doc. */
+function pickSignature(doc) {
+  const fns = (doc && doc.functionSignature) || {};
+  return fns.javascript || fns.typescript || Object.values(fns).find(Boolean) || null;
+}
+
+/**
+ * Normalize ANY CodingProblem database document into the generic problem shape
+ * the engine consumes. Existing docs (empty inputFormat, line-based tests under
+ * sampleTests/hiddenTests with `output`, metadata in functionSignature) and new
+ * admin docs (inputFormat/outputFormat + JSON testCases) BOTH map to the same
+ * shape — this is the compatibility layer that makes ONE validator serve every
+ * problem, present and future.
+ */
+function normalizeProblem(doc) {
+  if (!doc) return null;
+  const sig = pickSignature(doc);
+  const hasFields = doc.inputFormat && Array.isArray(doc.inputFormat.fields) && doc.inputFormat.fields.length > 0;
+  const derived = sig
+    ? deriveFormatFromSignature(sig)
+    : { inputFormat: { fields: [] }, outputFormat: { type: '' } };
+
+  const problem = {
+    _id: doc._id,
+    title: doc.title,
+    slug: doc.slug,
+    problemId: doc.problemId,
+    inputFormat: hasFields ? doc.inputFormat : derived.inputFormat,
+    outputFormat: (doc.outputFormat && doc.outputFormat.type) ? doc.outputFormat : derived.outputFormat,
+    referenceSolution: doc.referenceSolution || null,
+    functionSignature: doc.functionSignature || null,
+    testCases: [],
+  };
+
+  if (Array.isArray(doc.testCases) && doc.testCases.length > 0) {
+    problem.testCases = doc.testCases.map((tc) => ({
+      input: tc.input,
+      expectedOutput: (tc.expectedOutput != null ? tc.expectedOutput : tc.output) ?? '',
+      isHidden: !!tc.isHidden,
+      explanation: tc.explanation || '',
+    }));
+    return problem;
+  }
+
+  const samples = (doc.sampleTests || []).map((tc) => ({
+    input: tc.input,
+    expectedOutput: (tc.output != null ? tc.output : tc.expectedOutput) ?? '',
+    isHidden: false,
+    explanation: tc.explanation || '',
+  }));
+  const hidden = (doc.hiddenTests || []).map((tc) => ({
+    input: tc.input,
+    expectedOutput: (tc.output != null ? tc.output : tc.expectedOutput) ?? '',
+    isHidden: true,
+  }));
+  problem.testCases = samples.concat(hidden);
+  return problem;
+}
+
+/**
+ * Build a runTestCase-compatible executor that runs user code through the
+ * platform's EXISTING sandbox (Judge0/localExecutor), never in-process for
+ * untrusted user code. `deps.buildDriverFromSignature` and
+ * `deps.executeSingleCase` come from server/utils/judge0Coding.js. The driver is
+ * built from the problem's per-language function signature, so the correct
+ * function name and typed line/JSON parsing are used automatically.
+ */
+function createSandboxExecutor(deps) {
+  const buildDriver = deps && deps.buildDriverFromSignature;
+  const execute = deps && deps.executeSingleCase;
+  if (typeof buildDriver !== 'function' || typeof execute !== 'function') {
+    throw new Error('genericValidator.createSandboxExecutor: buildDriverFromSignature and executeSingleCase are required');
+  }
+  return async (task) => {
+    const fullCode = buildDriver(task.code, task.language, task.signature || null);
+    const raw = await execute(
+      fullCode,
+      task.language,
+      task.stdin != null ? task.stdin : '',
+      task.expected || '',
+      task.returnType || ''
+    );
+    return {
+      output: raw.output || '',
+      error: raw.error || null,
+      errorType: raw.errorType || null,
+      executionTime: raw.executionTime || 0,
+      statusId: raw.status_id || null,
+    };
   };
 }
 
@@ -476,7 +639,10 @@ module.exports = {
   computeExpectedFromReference,
   buildFunctionSignature,
   runReferenceTestCases,
-  createInProcessExecutor,
+    createInProcessExecutor,
+  createSandboxExecutor,
+  normalizeProblem,
+  parseTestCaseInput,
   mapType,
   validateOutput,
   deepEqual,
