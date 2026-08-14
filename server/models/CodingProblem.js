@@ -70,6 +70,14 @@ const CodingProblemSchema = new mongoose.Schema(
     outputFormat: OutputFormatSchema,
     sampleTests: [SampleTestSchema],
     hiddenTests: [HiddenTestSchema],
+    // Metadata-driven reference solver. `code` is a self-contained JS function
+    // expression (`function solve(...) {...}`) taking the problem's positional
+    // args; consumed by genericValidator.computeExpectedFromReference when a
+    // stored expected output is absent. Not exposed to learners.
+    referenceSolution: {
+      code: { type: String, default: '' },
+      language: { type: String, default: 'javascript' },
+    },
     constraints: [String],
     starterCode: {
       javascript: { type: String, default: '' },
