@@ -1,5 +1,5 @@
 const express = require('express');
-const { runCode, submitCode, computeVerdict, buildDriverFromSignature, executeSingleCase } = require('../utils/judge0Coding');
+const { runCode, buildDriverFromSignature, executeSingleCase } = require('../utils/judge0Coding');
 const genericValidator = require('../utils/genericValidator');
 const CodeSubmission = require('../models/CodeSubmission');
 const CodingProblem = require('../models/CodingProblem');
@@ -9,10 +9,11 @@ const { updateStreak } = require('../utils/streak');
 const router = express.Router();
 
 // ===========================================================================
-// Phase 3.1 — Generic, metadata-driven submission validation.
-// /submit-v2 validates via genericValidator.validateUserCode (normalized from
+// Phase 3.2 — Generic, metadata-driven submission validation (merged).
+// POST /submit validates via genericValidator.validateUserCode (normalized from
 // the live CodingProblem document) instead of the legacy judge0Coding.submitCode
-// path. The execution sandbox is reused unchanged via createSandboxExecutor
+// path; the former /submit-v2 route is deprecated/removed in favour of /submit.
+// The execution sandbox is reused unchanged via createSandboxExecutor
 // (-> buildDriverFromSignature + executeSingleCase), which selects Judge0 or
 // the localExecutor based on CODING_EXECUTION_ENGINE. No per-problem logic.
 // ===========================================================================
@@ -175,183 +176,23 @@ router.post('/run', protect, async (req, res) => {
 router.post('/submit', protect, async (req, res) => {
   try {
     const { problemId, language, code } = req.body;
-    const userId = req.user.id;
+    if (!problemId) return res.status(400).json({ success: false, message: 'Missing problemId' });
+    if (!language) return res.status(400).json({ success: false, message: 'Missing language' });
+    if (!code) return res.status(400).json({ success: false, message: 'Missing user code' });
+
     const problem = await CodingProblem.findById(problemId);
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
-    const normalizeTest = (tc) => ({ input: tc.input, expectedOutput: tc.output, isHidden: !!tc.isHidden });
-    const allTestCases = [
-      ...(problem.sampleTests || []).map(normalizeTest),
-      ...(problem.hiddenTests || []).map(normalizeTest),
-    ];
-    const fullCode = buildDriverFromSignature(code, language, problem.functionSignature?.[language]);
-    const returnType = problem.functionSignature?.[language]?.returnType || '';
-    const results = await submitCode(code, language, allTestCases, fullCode, returnType);
-    const { verdict, passedTestCases, totalTestCases, firstFailedInput, firstFailedExpected, firstFailedActual } = computeVerdict(results);
+    // Phase 3.2: /submit now validates via the generic, metadata-driven engine
+    // (formerly /submit-v2). Visible samples run first as a LeetCode-style gate;
+    // hidden cases run only when every sample passes and are never returned.
+    const { verdict, results, passedTestCases, totalTestCases } =
+      await validateViaGenericValidator(problem, code, language);
 
-    const submission = await CodeSubmission.create({
-      user: userId,
-      problem: problem._id,
-      language,
-      code,
-      verdict,
-      passedTestCases,
-      totalTestCases,
-      runtimeMs: Math.max(...results.map((r) => r.executionTime || 0), 0),
-      memoryKb: Math.max(...results.map((r) => r.memoryUsed || 0), 0),
-      testCaseResults: results.map((r) => ({
-        input: r.input,
-        expectedOutput: r.expectedOutput,
-        actualOutput: r.output,
-        passed: r.passed,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
-        errorType: r.errorType,
-        errorMessage: r.error || null, // Show error message for all failures
-      })),
-      firstFailedInput,
-      firstFailedExpected,
-      firstFailedActual,
-    });
-
-    await CodingProblem.findByIdAndUpdate(problem._id, {
-      $inc: { totalSubmissions: 1, ...(verdict === 'Accepted' ? { acceptedSubmissions: 1 } : {}) },
-    });
-
-    const User = require('../models/User');
-    const Leaderboard = require('../models/Leaderboard');
-    const Submission = require('../models/Submission');
-
-    const status = verdict === 'Accepted' ? 'accepted' : 'wrong_answer';
-    
-    await Submission.create({
-      user: userId,
-      problem: problemId,
-      code,
-      language,
-      status,
-      type: 'submit',
-      passedTestCases,
-      totalTestCases,
-      problemDifficulty: problem.difficulty,
-      problemTags: problem.tags,
-      category: 'dsa',
-      testCaseResults: results.map((r) => ({
-        testCase: null,
-        passed: r.passed,
-        input: r.input,
-        expectedOutput: r.expectedOutput,
-        actualOutput: r.output,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
-        errorType: r.errorType,
-        errorMessage: r.error || null,
-        isSample: false,
-      })),
-      score: Math.round((passedTestCases / totalTestCases) * 100),
-    });
-
-    if (status === 'accepted') {
-      const existingAccepted = await Submission.findOne({
-        user: userId,
-        problem: problemId,
-        status: 'accepted',
-        type: 'submit',
-      });
-      if (!existingAccepted) {
-        const solvedIncrement = problem.difficulty === 'easy'
-          ? { 'stats.easySolved': 1, 'stats.totalSolved': 1 }
-          : problem.difficulty === 'medium'
-          ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1 }
-          : { 'stats.hardSolved': 1, 'stats.totalSolved': 1 };
-        await User.findByIdAndUpdate(userId, { $inc: solvedIncrement });
-      }
-      // BUG 1 FIX: Update streak for DSA/Judge0 accepted submissions
-      updateStreak(userId).catch(err => console.error('Streak update failed:', err.message));
-    }
-    await User.findByIdAndUpdate(userId, { $inc: { 'stats.totalSubmissions': 1 } });
-
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const weeklySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });
-    const monthlySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneMonthAgo }, type: 'submit', status: 'accepted' });
-    const totalSubs = await Submission.countDocuments({ user: userId, type: 'submit' });
-    const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' });
-    const user = await User.findById(userId);
-    const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
-
-    await Leaderboard.findOneAndUpdate(
-      { user: userId },
-      {
-        totalSolved: user.stats.totalSolved,
-        easySolved: user.stats.easySolved,
-        mediumSolved: user.stats.mediumSolved,
-        hardSolved: user.stats.hardSolved,
-        totalSubmissions: user.stats.totalSubmissions,
-        acceptanceRate,
-        atsScore: user.profile.atsScore || 0,
-        streak: user.stats.streak || 0,
-        weeklySolved,
-        monthlySolved,
-        lastUpdated: Date.now(),
-      },
-      { upsert: true, new: true }
+    const { submission, firstFailedIdx } = await persistSubmissionRecords(
+      req, problem, code, language, verdict, results, passedTestCases, totalTestCases
     );
-
-    const visibleCount = (problem.sampleTests || []).length;
-    // Shape the HTTP response so hidden test-case content is never leaked to the
-    // frontend over the network. The persisted CodeSubmission keeps full data.
-    const shapedResults = results.map((r, idx) => {
-      const isSample = idx < visibleCount;
-      if (isSample) {
-        return {
-          input: r.input,
-          expectedOutput: r.expectedOutput,
-          actualOutput: r.output,
-          passed: r.passed,
-          executionTime: r.executionTime,
-          memoryUsed: r.memoryUsed,
-          errorType: r.errorType,
-          errorMessage: r.error || null,
-          isSample: true,
-        };
-      }
-      // Hidden case: strip all content-bearing fields.
-      return {
-        input: null,
-        expectedOutput: null,
-        actualOutput: null,
-        passed: r.passed,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
-        errorType: r.errorType,
-        errorMessage: null,
-        isSample: false,
-      };
-    });
-    const firstFailedIdx = results.findIndex((r) => !r.passed);
-    const firstFailedIsHidden = firstFailedIdx >= visibleCount;
-    const safeFirstFailedInput = firstFailedIsHidden ? null : firstFailedInput;
-    const safeFirstFailedExpected = firstFailedIsHidden ? null : firstFailedExpected;
-    const safeFirstFailedActual = firstFailedIsHidden ? null : firstFailedActual;
-
-    res.status(201).json({
-      success: true,
-      data: {
-        ...submission.toObject(),
-        status: verdict === 'Accepted' ? 'accepted' : 'wrong_answer',
-        verdict,
-        passedTestCases,
-        totalTestCases,
-        runtimeMs: submission.runtimeMs,
-        memoryKb: submission.memoryKb,
-        firstFailedInput: safeFirstFailedInput,
-        firstFailedExpected: safeFirstFailedExpected,
-        firstFailedActual: safeFirstFailedActual,
-        mode: 'submit',
-        testCaseResults: shapedResults,
-      },
-    });
+    await sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -522,30 +363,6 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
     },
   });
 }
-
-/** Phase 3.1: /submit-v2 — validates via the generic, metadata-driven engine. */
-router.post('/submit-v2', protect, async (req, res) => {
-  try {
-    const { problemId, language, code } = req.body;
-    if (!problemId) return res.status(400).json({ success: false, message: 'Missing problemId' });
-    if (!language) return res.status(400).json({ success: false, message: 'Missing language' });
-    if (!code) return res.status(400).json({ success: false, message: 'Missing user code' });
-
-    const problem = await CodingProblem.findById(problemId);
-    if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
-
-    // Wire genericValidator.validateUserCode into the submission flow.
-    const { verdict, results, passedTestCases, totalTestCases } =
-      await validateViaGenericValidator(problem, code, language);
-
-    const { submission, firstFailedIdx } = await persistSubmissionRecords(
-      req, problem, code, language, verdict, results, passedTestCases, totalTestCases
-    );
-    await sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 router.get('/submissions', protect, async (req, res) => {
   try {

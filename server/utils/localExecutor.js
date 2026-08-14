@@ -121,6 +121,13 @@ async function executeSingleCase(fullCode, language, input, expectedOutput, retu
       case 'typescript': {
         fs.writeFileSync(path.join(tmp, 'main.js'), fullCode);
         run = await runCmd('node', ['main.js'], { cwd: tmp, input: normalizedInput });
+        // The Node driver is CommonJS: a syntax error in the user's code is thrown
+        // at module-load time, surfacing as a non-zero exit with a stack trace.
+        // Classify that as CompileError (matching the Java/C/C++ compile path),
+        // not a generic RuntimeError.
+        if (run && run.code !== 0 && /SyntaxError\b/.test(run.stderr || '')) {
+          return fail({ input, expectedOutput, error: (run.stderr || run.stdout || 'Syntax error in user code.').trim(), errorType: 'CompileError', status: 'compilation_error', statusId: 6, time: Date.now() - t0 });
+        }
         break;
       }
       case 'python':
