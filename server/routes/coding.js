@@ -217,7 +217,7 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
     memoryKb: Math.max(...results.map((r) => r.memoryUsed || 0), 0),
     testCaseResults: results.map((r) => ({
       input: r.input,
-      expectedOutput: r.expected,
+      expectedOutput: r.expectedOutput,
       actualOutput: r.output,
       passed: r.passed,
       executionTime: r.executionTime,
@@ -226,7 +226,7 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
       errorMessage: r.error || null,
     })),
     firstFailedInput: firstFailed ? firstFailed.input : null,
-    firstFailedExpected: firstFailed ? firstFailed.expected : null,
+    firstFailedExpected: firstFailed ? firstFailed.expectedOutput : null,
     firstFailedActual: firstFailed ? firstFailed.output : null,
   });
 
