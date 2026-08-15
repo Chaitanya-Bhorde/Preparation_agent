@@ -1,0 +1,28 @@
+{
+  "pass": 12,
+  "fail": 0,
+  "totalMs": 117023,
+  "totalProblems": 51,
+  "pipelineOk": 47,
+  "inputParseQuirks": 4,
+  "hardCrashes": 0,
+  "inputParseQuirkTitles": [
+    "Course Schedule",
+    "Minimum Size Subarray Sum",
+    "Binary Search",
+    "Word Search"
+  ],
+  "isolationChecked": 3,
+  "engine": "local",
+  "languageCoverage": {
+    "javascript": "Accepted",
+    "java": "Accepted (compiled+ran)",
+    "cpp": "CompileError (driver build)",
+    "note": "Python/C# need Judge0/hosted engine"
+  },
+  "performance": {
+    "min": 318,
+    "avg": 367,
+    "max": 526
+  }
+}
