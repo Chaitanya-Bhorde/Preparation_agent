@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { getCodingProblem, runCode, submitCode, getCodingSubmissions, getCodingSubmission, getDraft, saveDraft } from '../api';
+import { getCodingProblem, runCode, submitCode, getCodingSubmissions, getCodingSubmission, getDraft, saveDraft, likeCodingProblem } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb, Plus, Trash2 } from 'lucide-react';
+import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb, Plus, Trash2, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LOADING_SPINNER, DIFFICULTY_COLORS, BUTTON_CLASSES, SELECT_CLASSES } from '../utils/ui';
 
@@ -54,6 +54,11 @@ export default function CodingProblemDetail() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftFound, setDraftFound] = useState(false);
   const [codeDirty, setCodeDirty] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [dislikes, setDislikes] = useState(0);
+  const [userLiked, setUserLiked] = useState(false);
+  const [userDisliked, setUserDisliked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
@@ -93,11 +98,16 @@ export default function CodingProblemDetail() {
   const loadProblem = async () => {
     try {
       const { data } = await getCodingProblem(slug);
-      setProblem(data.data);
+      const prob = data.data;
+      setProblem(prob);
+      setLikes(prob.likes ?? 0);
+      setDislikes(prob.dislikes ?? 0);
+      setUserLiked(!!prob.userLiked);
+      setUserDisliked(!!prob.userDisliked);
       setDraftLoaded(false);
       setDraftFound(false);
-      if (data.data && data.data.visibleTestCases) {
-        setVisibleTestcases(data.data.visibleTestCases.map((tc, i) => ({
+      if (prob && prob.visibleTestCases) {
+        setVisibleTestcases(prob.visibleTestCases.map((tc, i) => ({
           ...tc,
           expectedOutput: tc.expectedOutput ?? tc.output ?? '',
           id: `sample-${i}`,
@@ -228,10 +238,62 @@ export default function CodingProblemDetail() {
     }
   };
 
+  const toggleLike = async () => {
+    if (!problem || likeLoading) return;
+    setLikeLoading(true);
+    try {
+      const action = userLiked ? 'unlike' : 'like';
+      const { data } = await likeCodingProblem(problem._id, action);
+      setLikes(data.data.likes);
+      setDislikes(data.data.dislikes);
+      setUserLiked(data.data.userLiked);
+      setUserDisliked(data.data.userDisliked);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update reaction');
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  const toggleDislike = async () => {
+    if (!problem || likeLoading) return;
+    setLikeLoading(true);
+    try {
+      const action = userDisliked ? 'undislike' : 'dislike';
+      const { data } = await likeCodingProblem(problem._id, action);
+      setLikes(data.data.likes);
+      setDislikes(data.data.dislikes);
+      setUserLiked(data.data.userLiked);
+      setUserDisliked(data.data.userDisliked);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update reaction');
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
+  const restoreTemplate = () => {
+    const starter = problem?.starterCode?.[language] || getDefaultCode(language);
+    setCode(starter);
+    setCodeDirty(false);
+    toast.success('Template restored');
+  };
+
   const handleKeyDown = useCallback((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't' && e.shiftKey) {
+      e.preventDefault();
+      restoreTemplate();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       if (submitting || running) return;
+      e.preventDefault();
       handleSubmit();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+      if (submitting || running) return;
+      e.preventDefault();
+      handleRun();
     }
   }, [code, problem, submitting, running]);
 
@@ -290,6 +352,26 @@ export default function CodingProblemDetail() {
           <div className="hidden md:flex gap-1 text-xs text-gray-500">
             {problem.tags?.map((tag) => (<span key={tag} className="bg-gray-800 px-2 py-0.5 rounded">{tag}</span>))}
           </div>
+          <div className="flex items-center gap-1.5 shrink-0 border-l border-gray-700 pl-3">
+            <button
+              type="button"
+              onClick={toggleLike}
+              disabled={likeLoading}
+              title={userLiked ? 'Remove like' : 'Like this problem'}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${userLiked ? 'bg-green-900/40 text-green-400' : 'text-gray-400 hover:text-green-400 hover:bg-gray-800'}`}>
+              <ThumbsUp className="w-4 h-4" />
+              <span>{likes}</span>
+            </button>
+            <button
+              type="button"
+              onClick={toggleDislike}
+              disabled={likeLoading}
+              title={userDisliked ? 'Remove dislike' : 'Dislike this problem'}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors ${userDisliked ? 'bg-red-900/40 text-red-400' : 'text-gray-400 hover:text-red-400 hover:bg-gray-800'}`}>
+              <ThumbsDown className="w-4 h-4" />
+              <span>{dislikes}</span>
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <select value={language} onChange={(e) => {
@@ -301,6 +383,11 @@ export default function CodingProblemDetail() {
           }} className={SELECT_CLASSES}>
             {LANGUAGES.map((l) => (<option key={l.id} value={l.id}>{l.label}</option>))}
           </select>
+          <button onClick={restoreTemplate} disabled={running} title="Restore starter template (Ctrl+Shift+T)"
+            className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
+            <RotateCcw className="w-3.5 h-3.5" />
+            Template
+          </button>
           <button onClick={handleRun} disabled={running || submitting} className={BUTTON_CLASSES.secondaryCompact}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             {running ? 'Running...' : 'Run'}

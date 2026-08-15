@@ -1,0 +1,38 @@
+import { useState, useEffect } from 'react';
+import { getCodingSubmissions } from '../../api';
+import {
+  Loader2, CheckCircle, XCircle, AlertTriangle, Terminal, Clock,
+  ChevronLeft, ChevronRight, RotateCcw, X,
+} from 'lucide-react';
+
+const VERDICT_STYLES = {
+  Accepted: { icon: CheckCircle, cls: 'text-green-400' },
+  WrongAnswer: { icon: XCircle, cls: 'text-red-400' },
+  CompileError: { icon: Terminal, cls: 'text-orange-400' },
+  RuntimeError: { icon: AlertTriangle, cls: 'text-red-400' },
+  TLE: { icon: Clock, cls: 'text-yellow-400' },
+};
+
+const VERDICT_LABELS = {
+  Accepted: 'Accepted', WrongAnswer: 'Wrong Answer', CompileError: 'Compilation Error',
+  RuntimeError: 'Runtime Error', TLE: 'Time Limit Exceeded',
+};
+
+const STATUS_FILTERS = ['', 'Accepted', 'WrongAnswer', 'CompileError', 'RuntimeError', 'TLE'];
+const LANG_FILTERS = ['', 'javascript', 'python', 'java', 'cpp', 'c', 'csharp'];
+
+export default function SubmissionHistory({
+  problemId,
+  open,
+  onClose,
+  onResubmit,
+  title = 'Submission History',
+}) {
+  const [submissions, setSubmissions] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [languageFilter, setLanguageFilter] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
