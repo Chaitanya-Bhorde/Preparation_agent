@@ -95,7 +95,7 @@ const CodingProblemSchema = new mongoose.Schema(
       c: FunctionSignatureSchema,
       csharp: FunctionSignatureSchema,
     },
-    timeLimitMs: {
+         timeLimitMs: {
       type: Number,
       default: 2000,
     },
@@ -103,6 +103,22 @@ const CodingProblemSchema = new mongoose.Schema(
       type: Number,
       default: 256000,
     },
+    likes: {
+      type: Number,
+      default: 0,
+    },
+    dislikes: {
+      type: Number,
+      default: 0,
+    },
+    likedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+    dislikedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
     isActive: {
       type: Boolean,
       default: true,

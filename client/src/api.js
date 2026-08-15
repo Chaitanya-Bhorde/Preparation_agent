@@ -96,6 +96,8 @@ export const getCodingProblem = (slug) => API.get(`/coding-problems/${slug}`);
 export const getCodingTags = () => API.get('/coding-problems/tags');
 export const getCodingTopics = () => API.get('/coding-problems/topics');
 export const getCodingCompanies = () => API.get('/coding-problems/companies');
+export const getCodingProblemStats = () => API.get('/coding-problems/stats');
+export const likeCodingProblem = (problemId, action) => API.post(`/coding-problems/${problemId}/like`, { action });
 export const getCodingSubmissions = (params) => API.get('/coding/submissions', { params });
 export const generateDSAProblem = (data) => API.post('/dsa/generate', data);
 export const getCodingSubmission = (id) => API.get(`/coding/submissions/${id}`);
