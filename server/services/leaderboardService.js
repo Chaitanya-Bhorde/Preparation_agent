@@ -7,7 +7,7 @@ async function computeGlobalLeaderboard() {
       { $unwind: '$userDoc' },
       { $sort: { totalProblems: -1, acceptanceRate: -1 } },
       { $project: {
-        userId: 1, username: '$userDoc.username', email: '$userDoc.email',
+        userId: 1, username: '$userDoc.name', email: '$userDoc.email',
         totalProblems: 1, acceptanceRate: 1, rankingTier: 1,
         easyCount: 1, mediumCount: 1, hardCount: 1, currentStreak: 1, _id: 0
       } }
@@ -26,9 +26,9 @@ async function computeGlobalLeaderboard() {
     if (leaderboardDocs.length > 0) {
       await Leaderboard.insertMany(leaderboardDocs);
       console.log(`✅ Global leaderboard computed: ${leaderboardDocs.length} users ranked`);
-    }
+        }
 
-        return { type: 'Global', count: leaderboardDocs.length };
+    return { type: 'Global', count: leaderboardDocs.length };
   } catch (err) {
     console.error('❌ Error computing global leaderboard:', err.message);
     throw err;
@@ -57,7 +57,7 @@ async function computeCollegeLeaderboards() {
         { $match: { 'userDoc.collegeId': collegeId } },
         { $sort: { totalProblems: -1, acceptanceRate: -1 } },
         { $project: {
-          userId: 1, username: '$userDoc.username', email: '$userDoc.email',
+          userId: 1, username: '$userDoc.name', email: '$userDoc.email',
           totalProblems: 1, acceptanceRate: 1, rankingTier: 1,
           easyCount: 1, mediumCount: 1, hardCount: 1, currentStreak: 1, _id: 0
         } }
@@ -107,7 +107,7 @@ async function computeFriendLeaderboard(userId) {
       { $unwind: '$userDoc' },
       { $sort: { totalProblems: -1, acceptanceRate: -1 } },
       { $project: {
-        userId: 1, username: '$userDoc.username', email: '$userDoc.email',
+        userId: 1, username: '$userDoc.name', email: '$userDoc.email',
         totalProblems: 1, acceptanceRate: 1, rankingTier: 1,
         easyCount: 1, mediumCount: 1, hardCount: 1, currentStreak: 1, _id: 0
       } }
@@ -128,8 +128,9 @@ async function computeFriendLeaderboard(userId) {
     }
 
     return { type: 'Friend', userId, count: leaderboardDocs.length };
-  } catch (err) {
-        throw err;
+    } catch (err) {
+    console.error(`❌ Error computing friend leaderboard for user ${userId}:`, err.message);
+    throw err;
   }
 }
 

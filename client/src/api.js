@@ -112,10 +112,7 @@ export const voteInterviewExperience = (id, voteType) => API.post(`/interview-ex
 export const getMyInterviewExperiences = () => API.get('/interview-experiences/my');
 
 // Leaderboard
-export const getLeaderboard = (params) => API.get('/leaderboard', { params });
-export const getLeaderboardByCategory = (category, params) => API.get(`/leaderboard/${category}`, { params });
-export const getMyLeaderboardStats = () => API.get('/leaderboard/me');
-export const updateLeaderboard = () => API.post('/leaderboard/update');
+export const getGlobalLeaderboard = (params) => API.get('/leaderboard/global', { params });
 
 // Progress Export
 export const exportProgress = () => API.get('/progress/export');

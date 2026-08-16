@@ -21,7 +21,7 @@ const Companies = lazy(() => import('./pages/Companies'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Readiness = lazy(() => import('./pages/Readiness'));
-const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Leaderboard = lazy(() => import('./pages/GlobalLeaderboardPage'));
 const ProgressExport = lazy(() => import('./pages/ProgressExport'));
 const MockInterview = lazy(() => import('./pages/MockInterview'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));
@@ -69,7 +69,7 @@ function App() {
             <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
             <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
             <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />
-            <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
+            <Route path="/leaderboard" element={<PrivateRoute><GlobalLeaderboardPage /></PrivateRoute>} />
             <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
             <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
             <Route path="/mock-interview" element={<PrivateRoute><MockInterview /></PrivateRoute>} />

@@ -1,0 +1,117 @@
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a2a;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.leaderboard-row:hover {
+  background-color: #1e1e1e;
+}
+
+.leaderboard-row.current-user {
+  background-color: #2a1a0e;
+  font-weight: bold;
+}
+
+.leaderboard-row.current-user:hover {
+  background-color: #3a2a1e;
+}
+
+.rank-cell {
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.rank-badge {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  min-width: 28px;
+  text-align: center;
+  display: inline-block;
+}
+
+.user-info {
+  flex: 1;
+  padding: 0 16px;
+}
+
+.username {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.stats-cell {
+  flex: 1;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.stat-value {
+  color: #fff;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.stat.easy .stat-value {
+  color: #4CAF50;
+}
+
+.stat.medium .stat-value {
+  color: #FFC107;
+}
+
+.stat.hard .stat-value {
+  color: #F44336;
+}
+
+@media (max-width: 768px) {
+  .leaderboard-row {
+    padding: 8px 12px;
+  }
+
+  .rank-cell {
+    width: 35px;
+  }
+
+  .rank-badge {
+    font-size: 12px;
+    min-width: 24px;
+  }
+
+  .user-info {
+    padding: 0 8px;
+    flex: 1;
+  }
+
+  .username {
+    font-size: 12px;
+    max-width: 120px;
+  }
+}

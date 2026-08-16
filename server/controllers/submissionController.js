@@ -1,33 +1,48 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const User = require('../models/User');
-const Leaderboard = require('../models/Leaderboard');
+const UserStats = require('../models/UserStats');
 const { runCode, submitCode } = require('../utils/judge0');
 const { executeSQL } = require('../utils/sqlRunner');
 const { updateStreak } = require('../utils/streak');
 
-// Helper to update leaderboard after submission
+// Helper to update user stats after submission (feeds global leaderboard aggregation)
 const updateLeaderboardAfterSubmission = async (userId) => {
   try {
     const user = await User.findById(userId);
     if (!user) return;
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const weeklySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });
-    const monthlySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneMonthAgo }, type: 'submit', status: 'accepted' });
+
     const totalSubs = await Submission.countDocuments({ user: userId, type: 'submit' });
     const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' });
-    await Leaderboard.findOneAndUpdate(
-      { user: userId },
+    const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
+
+    const totalSolved = user.stats.totalSolved || 0;
+    const tierThresholds = [
+      { min: 100, tier: 'Diamond' },
+      { min: 60, tier: 'Platinum' },
+      { min: 30, tier: 'Gold' },
+      { min: 10, tier: 'Silver' },
+    ];
+    let rankingTier = 'Bronze';
+    for (const t of tierThresholds) {
+      if (totalSolved >= t.min) { rankingTier = t.tier; break; }
+    }
+
+    await UserStats.findOneAndUpdate(
+      { userId },
       {
-        totalSolved: user.stats.totalSolved, easySolved: user.stats.easySolved,
-        mediumSolved: user.stats.mediumSolved, hardSolved: user.stats.hardSolved,
-        totalSubmissions: user.stats.totalSubmissions,
-        acceptanceRate: totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0,
-        atsScore: user.profile.atsScore || 0, streak: user.stats.streak || 0,
-        weeklySolved, monthlySolved, lastUpdated: Date.now(),
+        userId,
+        totalProblems: totalSolved,
+        easyCount: user.stats.easySolved || 0,
+        mediumCount: user.stats.mediumSolved || 0,
+        hardCount: user.stats.hardSolved || 0,
+        totalSubmissions: totalSubs,
+        successfulSubmissions: acceptedSubs,
+        currentStreak: user.stats.streak || 0,
+        acceptanceRate,
+        rankingTier,
       },
-      { upsert: true }
+      { upsert: true, new: true }
     );
   } catch (error) {
     console.error('Leaderboard update failed:', error.message);

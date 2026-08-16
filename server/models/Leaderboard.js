@@ -5,8 +5,7 @@ const LeaderboardSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
-      index: true
+      required: true
     },
     username: { type: String, required: true },
     email: { type: String, required: true },

@@ -1,6 +1,14 @@
 const mongoose = require('mongoose');
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
+// Clear all cached models to pick up schema changes
+if (mongoose.models) {
+  Object.keys(mongoose.models).forEach(key => delete mongoose.models[key]);
+}
+if (mongoose.modelSchemas) {
+  Object.keys(mongoose.modelSchemas).forEach(key => delete mongoose.modelSchemas[key]);
+}
+
 const leaderboardService = require('../services/leaderboardService');
 
 const connection = mongoose.connection;
