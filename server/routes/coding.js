@@ -34,8 +34,9 @@ function getGenericSandboxExecutor() {
 
 /** Map a generic-validator per-case result to the legacy judge0 result shape
  *  ({ input, output, expectedOutput, passed, executionTime, memoryUsed, error,
- *  errorType, status, status_id }) so persistence/response-shaping is unchanged. */
-function toLegacyResult(r) {
+ *  errorType, status, status_id }) so persistence/response-shaping is unchanged.
+ *  NOTE: NO LONGER USED — generic validator results are consumed directly. */
+/* function toLegacyResult(r) {
   const errorType = r.errorType || null;
   const passed = !!r.passed;
   return {
@@ -50,7 +51,7 @@ function toLegacyResult(r) {
     status: passed ? 'accepted' : (errorType ? String(errorType).toLowerCase().replace(/error$/, '_error') : 'wrong_answer'),
     status_id: passed ? 3 : 4,
   };
-}
+} */
 
 /** Derive a fine-grained verdict mirroring computeVerdict() from the legacy path. */
 function verdictFromResults(results, passed, total) {
@@ -77,9 +78,9 @@ async function validateViaGenericValidator(problem, code, language) {
   const executor = getGenericSandboxExecutor();
   const baseOpts = { runTestCase: executor };
 
-  // 1) Visible samples (validateUserCode runs onlySample=true by default).
+    // 1) Visible samples (validateUserCode runs onlySample=true by default).
   const sampleRun = await genericValidator.validateUserCode(normalized, code, language, baseOpts);
-  const sampleResults = (sampleRun.results || []).map(toLegacyResult);
+  const sampleResults = sampleRun.results || [];
 
   if (!sampleRun.allSamplesPassed) {
     const passed = sampleResults.filter((r) => r.passed).length;
@@ -98,7 +99,7 @@ async function validateViaGenericValidator(problem, code, language) {
     onlySample: false,
     testCases: hiddenTC,
   });
-  const hiddenResults = (hiddenRun.results || []).map(toLegacyResult);
+    const hiddenResults = hiddenRun.results || [];
   const results = sampleResults.concat(hiddenResults);
   const passed = results.filter((r) => r.passed).length;
   return {
@@ -213,21 +214,22 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
     verdict,
     passedTestCases,
     totalTestCases,
-    runtimeMs: Math.max(...results.map((r) => r.executionTime || 0), 0),
+        runtimeMs: Math.max(...results.map((r) => r.time || 0), 0),
     memoryKb: Math.max(...results.map((r) => r.memoryUsed || 0), 0),
     testCaseResults: results.map((r) => ({
       input: r.input,
-      expectedOutput: r.expectedOutput,
-      actualOutput: r.output,
+      expected: r.expected,
+      actualOutput: r.actual,
       passed: r.passed,
-      executionTime: r.executionTime,
-      memoryUsed: r.memoryUsed,
+      executionTime: r.time || 0,
+      memoryUsed: 0,
       errorType: r.errorType,
       errorMessage: r.error || null,
+      isSample: r.isSample || false,
     })),
     firstFailedInput: firstFailed ? firstFailed.input : null,
-    firstFailedExpected: firstFailed ? firstFailed.expectedOutput : null,
-    firstFailedActual: firstFailed ? firstFailed.output : null,
+    firstFailedExpected: firstFailed ? firstFailed.expected : null,
+    firstFailedActual: firstFailed ? firstFailed.actual : null,
   });
 
   await CodingProblem.findByIdAndUpdate(problem._id, {
@@ -251,14 +253,14 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
     problemDifficulty: problem.difficulty,
     problemTags: problem.tags,
     category: 'dsa',
-    testCaseResults: results.map((r) => ({
+        testCaseResults: results.map((r) => ({
       testCase: null,
       passed: r.passed,
       input: r.input,
-      expectedOutput: r.expectedOutput,
-      actualOutput: r.output,
-      executionTime: r.executionTime,
-      memoryUsed: r.memoryUsed,
+      expectedOutput: r.expected,
+      actualOutput: r.actual,
+      executionTime: r.time || 0,
+      memoryUsed: 0,
       errorType: r.errorType,
       errorMessage: r.error || null,
       isSample: false,
@@ -317,16 +319,16 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
   const visibleCount = (problem.sampleTests || []).length;
   const firstFailedIsHidden = firstFailedIdx >= visibleCount && firstFailedIdx !== -1;
   const firstFailed = firstFailedIdx >= 0 ? results[firstFailedIdx] : null;
-  const shapedResults = results.map((r, idx) => {
+    const shapedResults = results.map((r, idx) => {
     const isSample = idx < visibleCount;
     if (isSample) {
       return {
         input: r.input,
-        expectedOutput: r.expectedOutput,
-        actualOutput: r.output,
+        expectedOutput: r.expected,
+        actualOutput: r.actual,
         passed: r.passed,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
+        executionTime: r.time || 0,
+        memoryUsed: 0,
         errorType: r.errorType,
         errorMessage: r.error || null,
         isSample: true,
@@ -337,8 +339,8 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
       expectedOutput: null,
       actualOutput: null,
       passed: r.passed,
-      executionTime: r.executionTime,
-      memoryUsed: r.memoryUsed,
+      executionTime: r.time || 0,
+      memoryUsed: 0,
       errorType: r.errorType,
       errorMessage: null,
       isSample: false,
@@ -356,8 +358,8 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
       runtimeMs: submission.runtimeMs,
       memoryKb: submission.memoryKb,
       firstFailedInput: firstFailedIsHidden ? null : (firstFailed ? firstFailed.input : null),
-      firstFailedExpected: firstFailedIsHidden ? null : (firstFailed ? firstFailed.expectedOutput : null),
-      firstFailedActual: firstFailedIsHidden ? null : (firstFailed ? firstFailed.output : null),
+            firstFailedExpected: firstFailedIsHidden ? null : (firstFailed ? firstFailed.expected : null),
+      firstFailedActual: firstFailedIsHidden ? null : (firstFailed ? firstFailed.actual : null),
       mode: 'submit',
       testCaseResults: shapedResults,
     },

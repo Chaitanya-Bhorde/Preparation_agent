@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const TestCaseResultSchema = new mongoose.Schema({
   input: { type: String, required: true },
-  expectedOutput: { type: String, required: true },
+  expected: { type: String, required: true },
   actualOutput: { type: String, default: '' },
   passed: { type: Boolean, required: true },
   executionTime: { type: Number, default: 0 },

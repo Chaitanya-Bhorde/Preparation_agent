@@ -142,7 +142,7 @@ async function main() {
     const visible = (pAny.sampleTests || []).length;
     const fullRun = await validateViaGenericValidator(pAny, CASES[0].correct, 'javascript');
     const shaped = fullRun.results.map((r, idx) => (idx < visible
-      ? { input: r.input, expected: r.expectedOutput, actual: r.output, passed: r.passed }
+            ? { input: r.input, expected: r.expected, actual: r.actual, passed: r.passed }
       : { input: null, expected: null, actual: null, passed: r.passed }));
     const hiddenLeaked = shaped.slice(visible).some((s) => s.input !== null || s.expected !== null || s.actual !== null);
     ok(!hiddenLeaked, 'hidden input/expected/actual stripped for ' + pAny.title + ' (hidden rows: ' + shaped.slice(visible).length + ')');
