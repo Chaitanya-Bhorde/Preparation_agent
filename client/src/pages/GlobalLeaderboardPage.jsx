@@ -1,8 +1,6 @@
-import React, { useContext } from 'react';
-import { useLeaderboard } from '../hooks/useLeaderboard';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import useLeaderboard from '../hooks/useLeaderboard';
 import LeaderboardTable from '../components/LeaderboardTable';
-import { Link } from 'react-router-dom';
 import '../components/LeaderboardRow.css';
 import '../components/LeaderboardTable.css';
 
@@ -78,7 +76,7 @@ const GlobalLeaderboardPage = () => {
             )}
           </div>
         )}
-      </pagination-control>
+      </div>
     </div>
   );
 };

@@ -21,7 +21,7 @@ const Companies = lazy(() => import('./pages/Companies'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Readiness = lazy(() => import('./pages/Readiness'));
-const Leaderboard = lazy(() => import('./pages/GlobalLeaderboardPage'));
+const GlobalLeaderboardPage = lazy(() => import('./pages/GlobalLeaderboardPage'));
 const ProgressExport = lazy(() => import('./pages/ProgressExport'));
 const MockInterview = lazy(() => import('./pages/MockInterview'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));

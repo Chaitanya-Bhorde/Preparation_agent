@@ -1,4 +1,5 @@
 import React from 'react';
+import LeaderboardRow from './LeaderboardRow';
 import './LeaderboardTable.css';
 
 const LeaderboardTable = ({ data, loading, error, pagination, onPageChange, currentUserId }) => {
@@ -45,7 +46,7 @@ const LeaderboardTable = ({ data, loading, error, pagination, onPageChange, curr
             isCurrentUser={currentUserId && user._id && user._id.toString() === currentUserId.toString()}
           />
         ))}
-      </table>
+      </div>
     </div>
   );
 };
