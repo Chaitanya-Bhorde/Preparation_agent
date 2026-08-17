@@ -1226,7 +1226,7 @@ function generateTestCases(title, spec) {
     const expectedOutput = solver.solve(input);
     sampleTests.push({
       input,
-      expectedOutput,
+      output: expectedOutput,
       explanation: 'Sample test case ' + (i + 1),
       isHidden: false
     });
@@ -1238,7 +1238,7 @@ function generateTestCases(title, spec) {
     const categories = ['edge', 'stress', 'random'];
     hiddenTests.push({
       input,
-      expectedOutput,
+      output: expectedOutput,
       category: categories[i % 3],
       isHidden: true
     });

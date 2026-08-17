@@ -6,6 +6,56 @@ const CodingProblem = require('../models/CodingProblem');
 const { CURATED } = require('./curatedProblems');
 const { generateTestCases } = require('./testCaseGenerators');
 
+// ---------------------------------------------------------------------------
+// Title-normalization scaffolding (Step 2).
+// generateTestCases() resolves a solver via testCaseGenerators.SOLVERS[title].
+// The skeleton titles in this file match the SOLVERS keys exactly for the 40
+// curated∩SOLVERS titles (they get real sample/hidden tests on a clean seed).
+// 11 OTHER curated titles have NO SOLVERS key and therefore no solver:
+//   Pascals Triangle, Increasing Triplet Subsequence, Valid Parentheses String,
+//   Number of Islands, Course Schedule, Word Search, Minimum Size Subarray Sum,
+//   Valid Palindrome II, Binary Search, Letter Combinations, Basic Calculator III.
+// These CANNOT be normalized to another solver safely — a wrong mapping yields
+// WRONG expected outputs. Only add same-problem (format-only) renames here.
+// None currently apply.
+// ---------------------------------------------------------------------------
+const TITLE_NORMALIZE = {
+  // '<skeleton title>': '<SOLVERS key>',  // same problem, different wording only
+};
+function getNormalizedTitle(title) {
+  return TITLE_NORMALIZE[title] || title;
+}
+
+// Fail-loud bulk insert. The original code logged `deduped.length` ("Seeded 265")
+// even when insertMany({ordered:false}) silently rejected documents, so the on-disk
+// count could disagree with the log. This logs the REAL persisted count and
+// surfaces per-document write errors so silent drops are impossible.
+async function insertWithFailLoud(docs) {
+  try {
+    const result = await CodingProblem.insertMany(docs, { ordered: false });
+    const inserted = Array.isArray(result) ? result.length : (result.insertedCount || 0);
+    console.log(`\u2705 Inserted ${inserted} of ${docs.length} coding problems.`);
+    if (inserted < docs.length) {
+      console.warn(`    \u26a0\ufe0f WARNING: ${docs.length - inserted} document(s) were silently rejected by MongoDB.`);
+    }
+    return inserted;
+  } catch (err) {
+    const nInserted = (err && err.result && (err.result.n || err.result.insertedCount)) || 0;
+    console.error(`\u274c insertMany rejected: ${err.message}`);
+    console.error(`    Inserted ${nInserted} of ${docs.length} before failure.`);
+    const getWE = err && err.result && typeof err.result.getWriteErrors === 'function'
+      ? err.result.getWriteErrors()
+      : (err.writeErrors || []);
+    if (getWE && getWE.length) {
+      getWE.forEach((w, i) => {
+        const doc = (w.index != null && docs[w.index]) || null;
+        console.error(`    [${i}] ${(w.err ? w.err.message : String(w)).slice(0, 220)}  title=${doc ? doc.title : '?'}`);
+      });
+    }
+    process.exit(1);
+  }
+}
+
 // A focused set of 150+ unique coding problems
 const codingProblems = [
   // Arrays (30 problems)
@@ -402,7 +452,7 @@ const seedCodingProblems = async () => {
 
       if (curated) {
         const fs = curated.functionSignature;
-        const testCases = generateTestCases(p.title, curated);
+                const testCases = generateTestCases(getNormalizedTitle(p.title), curated);
         const sample = testCases.sampleTests;
         const hidden = testCases.hiddenTests;
         return {
@@ -487,14 +537,13 @@ const seedCodingProblems = async () => {
       const deduped = problems.filter((p, idx, arr) => arr.findIndex(q => q.title === p.title) === idx);
       const removed = problems.length - deduped.length;
       console.log(`[PRE-FLIGHT] Removed ${removed} duplicate(s), proceeding with ${deduped.length} unique problems.`);
-      await CodingProblem.insertMany(deduped, { ordered: false });
-      console.log(`Seeded ${deduped.length} coding problems.`);
+            await insertWithFailLoud(deduped);
       process.exit(0);
       return;
     }
 
-    await CodingProblem.insertMany(problems, { ordered: false });
-    console.log(`Seeded ${problems.length} coding problems.`);
+    await insertWithFailLoud(problems);
+    process.exit(0);
     process.exit(0);
   } catch (error) {
     console.error('Seeding error:', error.message);
