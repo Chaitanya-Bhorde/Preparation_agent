@@ -7,6 +7,8 @@
  */
 const mongoose = require('mongoose');
 const axios = require('axios');
+const dotenv = require('dotenv');
+dotenv.config({ path: require('path').resolve(__dirname, '..', '.env') });
 const CodingProblem = require('../models/CodingProblem');
 
 async function regressionTest() {
@@ -18,11 +20,13 @@ async function regressionTest() {
 
     for (const problem of problems) {
       try {
-        const response = await axios.post('http://localhost:5000/api/coding/submit', {
+                const response = await axios.post('http://localhost:5000/api/coding/submit', {
           problemId: problem._id.toString(),
           userId: 'test-regression-user',
           language: 'javascript',
           code: 'function solve() { return 0; }',
+        }, {
+          headers: { Authorization: 'Bearer ' + (process.env.REGRESSION_TOKEN || '') },
         });
         if (response.status >= 200 && response.status < 300) { passed++; }
         else { failed++; failures.push({ problemId: problem._id, status: response.status }); }

@@ -265,7 +265,7 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
       errorMessage: r.error || null,
       isSample: false,
     })),
-    score: Math.round((passedTestCases / totalTestCases) * 100),
+        score: totalTestCases > 0 ? Math.round((passedTestCases / totalTestCases) * 100) : 0,
   });
 
   if (status === 'accepted') {
@@ -291,8 +291,8 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
   const user = await User.findById(userId);
   const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
 
-  await Leaderboard.findOneAndUpdate(
-    { user: userId },
+    await Leaderboard.findOneAndUpdate(
+    { userId: userId },
     {
       totalSolved: user.stats.totalSolved,
       easySolved: user.stats.easySolved,

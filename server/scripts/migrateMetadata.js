@@ -9,6 +9,8 @@
  * it is intentionally left untouched here.
  */
 const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+dotenv.config({ path: require('path').resolve(__dirname, '..', '.env') });
 const CodingProblem = require('../models/CodingProblem');
 
 async function migrate() {
