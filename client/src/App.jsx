@@ -27,6 +27,10 @@ const MockInterview = lazy(() => import('./pages/MockInterview'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));
 const InterviewExperiences = lazy(() => import('./pages/InterviewExperiences'));
 const DSAPractice = lazy(() => import('./pages/DSAPractice'));
+const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
+const AptitudeTopicPractice = lazy(() => import('./pages/AptitudeTopicPractice'));
+const AptitudeMockTest = lazy(() => import('./pages/AptitudeMockTest'));
+const LeaderboardHub = lazy(() => import('./pages/LeaderboardHub'));
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
@@ -60,6 +64,10 @@ function App() {
             <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
             <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
             <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
+            <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
+            <Route path="/practice/aptitude/topic/:topicId" element={<PrivateRoute><AptitudeTopicPractice /></PrivateRoute>} />
+            <Route path="/practice/aptitude/mock/:mockTestId" element={<PrivateRoute><AptitudeMockTest /></PrivateRoute>} />
+            <Route path="/leaderboard" element={<PrivateRoute><LeaderboardHub /></PrivateRoute>} />
             <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />

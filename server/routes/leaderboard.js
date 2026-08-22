@@ -120,4 +120,121 @@ router.post('/compute', protect, async (req, res) => {
   }
 });
 
+
+/**
+ * GET /api/leaderboard/aptitude
+ * Rank users by aptitude effort (questionsCorrect, bestScore, mock tests)
+ */
+router.get('/aptitude', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const AptitudeSubmission = require('../models/AptitudeSubmission');
+    const rows = await AptitudeSubmission.aggregate([
+      { $group: {
+          _id: '$userId',
+          questionsAttempted: { $sum: '$totalCount' },
+          questionsCorrect: { $sum: '$correctCount' },
+          mockTestsCompleted: { $sum: { $cond: [{ $eq: ['$type', 'mock-test'] }, 1, 0] } },
+          bestScore: { $max: '$score' },
+          avgScore: { $avg: '$score' },
+        } },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $project: {
+          userId: '$_id',
+          username: { $ifNull: ['$u.name', 'Unknown'] },
+          email: '$u.email',
+          questionsAttempted: 1,
+          questionsCorrect: 1,
+          mockTestsCompleted: 1,
+          bestScore: 1,
+          avgScore: 1,
+          accuracy: { $round: [{ $multiply: [{ $divide: ['$questionsCorrect', { $max: ['$questionsAttempted', 1] }] }, 100] }, 0] },
+        } },
+      { $sort: { questionsCorrect: -1, accuracy: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]);
+    const totalAgg = await AptitudeSubmission.aggregate([{ $group: { _id: '$userId' } }, { $count: 'n' }]);
+    const total = totalAgg[0] ? totalAgg[0].n : 0;
+    res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/leaderboard/sql
+ * Rank users by SQL accepted distinct problems + acceptance rate.
+ */
+router.get('/sql', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const Submission = require('../models/Submission');
+    const rows = await Submission.aggregate([
+      { $match: { type: 'submit', category: 'sql' } },
+      { $group: {
+          _id: '$user',
+          acceptedSubmissions: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
+          totalSubmissions: { $sum: 1 },
+          problemsSolved: { $addToSet: { $cond: [{ $eq: ['$status', 'accepted'] }, '$problem', '$REMOVE'] } },
+        } },
+      { $addFields: { solvedCount: { $size: '$problemsSolved' } } },
+      { $project: { userId: '$_id', acceptedSubmissions: 1, totalSubmissions: 1, solvedCount: 1, acceptanceRate: { $round: [{ $multiply: [{ $divide: ['$acceptedSubmissions', { $max: ['$totalSubmissions', 1] }] }, 100] }, 0] } } },
+      { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'u' } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $project: { userId: 1, username: { $ifNull: ['$u.name', ''] }, avatar: '$u.avatar', acceptedSubmissions: 1, totalSubmissions: 1, solvedCount: 1, acceptanceRate: 1 } },
+      { $sort: { solvedCount: -1, acceptanceRate: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]);
+    const totalAgg = await Submission.aggregate([{ $match: { user: { $exists: true }, category: 'sql' } }, { $group: { _id: '$user' } }, { $count: 'n' }]);
+    const total = totalAgg[0] ? totalAgg[0].n : 0;
+    res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/leaderboard/dsa
+ * DSA rankings from UserStats (kept consistent with the global leaderboard).
+ */
+router.get('/dsa', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const UserStats = require('../models/UserStats');
+    const rows = await UserStats.aggregate([
+      { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'u' } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $project: { userId: 1, username: { $ifNull: ['$u.name', ''] }, totalProblems: 1, acceptanceRate: 1, easyCount: 1, mediumCount: 1, hardCount: 1, streak: '$currentStreak' } },
+      { $sort: { totalProblems: -1, acceptanceRate: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]);
+    let total = await UserStats.countDocuments({});
+    if (rows.length === 0 && total === 0) {
+      // Fallback: reuse the persisted Global snapshot so the tab is never empty.
+      const leaderboardService = require('../services/leaderboardService');
+      const snap = await leaderboardService.getLeaderboard('Global', { limit, page });
+      const mapped = (snap.leaderboard || []).map(r => ({
+        userId: r.userId,
+        username: r.username || '',
+        totalProblems: r.totalProblems || 0,
+        acceptanceRate: r.acceptanceRate || 0,
+        easyCount: r.easyCount || 0,
+        mediumCount: r.mediumCount || 0,
+        hardCount: r.hardCount || 0,
+      }));
+      return res.json({ leaderboard: mapped, pagination: snap.pagination });
+    }
+    res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

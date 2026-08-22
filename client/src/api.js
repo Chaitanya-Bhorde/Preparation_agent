@@ -131,4 +131,18 @@ export const getPracticeStreak = (userId) => API.get(`/submissions/streak/${user
 export const getPracticeRecent = (userId, limit = 10) => API.get(`/submissions/recent/${userId}`, { params: { limit } });
 export const createPracticeRecord = (submissionId) => API.post('/submissions', { submissionId });
 
+
+// Aptitude Practice
+export const getAptitudeTopics = (params) => API.get('/aptitude/topics', { params });
+export const getAptitudeQuestions = (topicId) => API.get(`/aptitude/questions/${topicId}`);
+export const submitAptitudeAnswer = (data) => API.post('/aptitude/submit-answer', data);
+export const getAptitudeMockTests = () => API.get('/aptitude/mock-tests');
+export const submitAptitudeMock = (data) => API.post('/aptitude/submit-mock', data);
+export const getAptitudeResults = (submissionId) => API.get(`/aptitude/results/${submissionId}`);
+export const getAptitudeProgress = () => API.get('/aptitude/progress');
+export const getAptitudeMockQuestions = (mockTestId) => API.get(`/aptitude/mock/${mockTestId}/questions`);
+
+// Leaderboard sections (DSA / Aptitude / SQL)
+export const getLeaderboardSection = (section, params) => API.get(`/leaderboard/${section}`, { params });
+
 export default API;

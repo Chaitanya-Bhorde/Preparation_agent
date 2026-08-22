@@ -255,4 +255,63 @@ async function updateLeaderboardAptitude(userId, correctCount, score) {
   await leaderboard.save();
 }
 
+
+// GET /api/aptitude/mock/:mockTestId/questions
+// Returns the mock's meta + its 30 questions (solutions hidden).
+router.get('/mock/:mockTestId/questions', async (req, res) => {
+  try {
+    const { mockTestId } = req.params;
+    const mockTest = await AptitudeMockTest.findById(mockTestId).lean();
+    if (!mockTest) return res.status(404).json({ error: 'Mock test not found' });
+    const questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } })
+      .select('-explanation -solutionSteps -correctAnswer')
+      .lean();
+    // Shuffle deterministically so options order varies but stays stable per load.
+    const mock = { name: mockTest.name, description: mockTest.description, duration: mockTest.duration, totalQuestions: mockTest.totalQuestions, passingScore: mockTest.passingScore, category: mockTest.category };
+    res.json({ success: true, mock, questions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/aptitude/progress
+// Personal aptitude analytics: stats + badges (auth required).
+router.get('/progress', protect, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [achievements, agg] = await Promise.all([
+      UserAchievements.findOne({ userId }).lean(),
+      AptitudeSubmission.aggregate([
+        { $match: { userId: new (require('mongoose').Types).ObjectId(userId) } },
+        { $group: {
+            _id: null,
+            totalQuestions: { $sum: '$totalCount' },
+            correctQuestions: { $sum: '$correctCount' },
+            singleSubmissions: { $sum: { $cond: [{ $eq: ['$type', 'single-question'] }, 1, 0] } },
+            mockSubmissions: { $sum: { $cond: [{ $eq: ['$type', 'mock-test'] }, 1, 0] } },
+            mockTestsTaken: { $sum: { $cond: [{ $eq: ['$type', 'mock-test'] }, 1, 0] } },
+            bestScore: { $max: '$score' },
+            avgScore: { $avg: '$score' },
+          } },
+      ]).exec(),
+    ]);
+    const a = agg[0] || { totalQuestions: 0, correctQuestions: 0, singleSubmissions: 0, mockSubmissions: 0, mockTestsTaken: 0, bestScore: 0, avgScore: 0 };
+    const stats = {
+      totalQuestionsAttempted: (achievements && achievements.statistics.totalQuestionsAttempted) || a.totalQuestions,
+      totalCorrect: (achievements && achievements.statistics.totalCorrect) || a.correctQuestions,
+      accuracy: a.totalQuestions > 0 ? Math.round((a.correctQuestions / a.totalQuestions) * 100) : 0,
+      mockTestsTaken: a.mockTestsTaken,
+      bestScore: a.bestScore || 0,
+      averageScore: a.totalQuestions > 0 ? Math.round(a.avgScore) : 0,
+      currentStreak: (achievements && achievements.statistics.currentStreak) || 0,
+      longestStreak: (achievements && achievements.statistics.longestStreak) || 0,
+      categoryCounts: (achievements && achievements.statistics.categoryCounts) || { quantitative: { attempted: 0, correct: 0 }, logical: { attempted: 0, correct: 0 }, verbal: { attempted: 0, correct: 0 } },
+      badges: (achievements && achievements.badges) || [],
+    };
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
