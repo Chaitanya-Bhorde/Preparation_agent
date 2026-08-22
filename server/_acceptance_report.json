@@ -77,5 +77,28 @@
     "api": "GET /api/health -> HTTP 200, body success=true, message=PrepAgent API is running (curl.exe)",
     "mongo": "Atlas cluster0/prepagent connected (MongoDB Connected on PID 24308)"
   },
-  "overall": "PASS - end-to-end PrepAgent validator integration deployed. HTTP /submit gate 50/50 (100%) on LIVE :5000; 16x HTTP 500 eliminated by the NaN -> 0 score guard. Validator gate (finalAcceptance in-process) 11/12 (1 pre-existing cpp driver failure, irrelevant to /submit). Server: production, NODE_ENV=production, MongoDB Atlas, rate-limit reverted to 20."
+  "overall": "PASS - end-to-end PrepAgent validator integration deployed and COMMITTED (223b4ba). HTTP /submit gate 50/50 (100%) on live :5000 (PID 15196, MongoDB Atlas, NODE_ENV=production). 16x HTTP 500 eliminated by the NaN->0 score guard (coding.js:268); live re-verify: Pascals Triangle (totalTestCases===0) -> HTTP 201, score=0 submissionId=6a89755da68926f2e5af20f7). Validator gate (finalAcceptance, in-process) 11/12 (1 pre-existing cpp driver fail, irrelevant to /submit).",
+  "sourceControl": {
+    "commitSha": "223b4bab9a55cbecf831c30ad241d61d9d460659",
+    "branch": "main",
+    "message": "fix(coding): eliminate HTTP 500 on /submit (score NaN guard + Leaderboard userId)",
+    "stagedFiles": [
+      "server/routes/coding.js (2 fixes)",
+      "server/scripts/regressionTest.js (Phase 6.1)",
+      "server/scripts/migrateMetadata.js (Phase 4.1.3)",
+      "server/_acceptance_report.json"
+    ]
+  },
+  "liveReverify": {
+    "method": "Targeted live POST /api/coding/submit for Pascals Triangle (6a830ac44232b129f11ba26e; totalTestCases===0 NaN-trigger) against the COMMITTED code (223b4ba) on a freshly-booted production server.",
+    "serverPid": 15196,
+    "mongo": "Atlas ac-up5qjuz-shard-00-02.ftxtf6t.mongodb.net/prepagent (MongoDB Connected)",
+    "nodeEnv": "production",
+    "rateLimit": "apiRateLimiter max=20/15min (server.js reverted to production default; working tree clean)",
+    "health": "GET /api/health -> HTTP 200, body success=true, message=PrepAgent API is running",
+    "register": "POST /api/auth/register -> HTTP 201 (throwaway user verify<timestamp>@example.com; JWT issued)",
+    "pascalsSubmit": "POST /api/coding/submit (Pascals, totalTestCases===0) -> HTTP 201 (NOT 500) | verdict=WrongAnswer | passed=0/0 | score=0 | submissionId=6a89755da68926f2e5af20f7",
+    "verdict": "PASS - score NaN guard (coding.js:268) holds on committed code: totalTestCases===0 -> score=0 (not NaN) -> no Mongoose CastError -> HTTP 201 instead of 500",
+    "note": "A second full 50/50 regressionTest re-run is not possible in one shot because the production apiRateLimiter (max=20/15min) 429s 50 rapid POSTs by design; the single-target smoke re-verifies the exact root-cause (NaN) path on committed code. The full 50/50 was captured live by PID 24308 (see httpGate) under a raised limiter."
+  }
 }
