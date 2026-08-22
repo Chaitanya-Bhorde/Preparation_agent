@@ -2,6 +2,7 @@
 import { useAuth } from '../context/AuthContext';
 import { getCategorySummary, getCategoryHeatmap, getCategoryTopics } from '../api';
 import CalendarHeatmap from '../components/CalendarHeatmap';
+import AptitudeAnalyticsPanel from '../components/aptitude/AptitudeAnalyticsPanel';
 import { Loader2, TrendingUp, Code2, Database, Brain, CheckCircle2, Target, Gauge, Flame } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER, CARD_CLASSES } from '../utils/ui';
@@ -109,7 +110,9 @@ export default function Analytics() {
         })}
       </div>
 
-      {loading ? (
+      {activeTab === 'aptitude' ? (
+        <AptitudeAnalyticsPanel />
+      ) : loading ? (
         <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>
       ) : (
         <div className="space-y-6">
