@@ -1,612 +1,73 @@
 const mongoose = require('mongoose');
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const path = require('path');
+// Load server/.env (the URI the API server uses), fall back to root .env
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+const AptitudeTopic = require('../models/AptitudeTopic');
 const AptitudeQuestion = require('../models/AptitudeQuestion');
-
-const COMPANY_TAG_MAP = {
-  Google: { aptitude: ['logical','quant'], difficulty: ['medium','hard'] },
-  Amazon: { aptitude: ['quant','logical'], difficulty: ['medium','hard'] },
-  Microsoft: { aptitude: ['logical','quant'], difficulty: ['medium','hard'] },
-  Meta: { aptitude: ['logical'], difficulty: ['medium','hard'] },
-  TCS: { aptitude: ['quant','verbal','logical'], difficulty: ['easy','medium'] },
-  Infosys: { aptitude: ['quant','verbal','logical'], difficulty: ['easy','medium'] },
-  Wipro: { aptitude: ['quant','verbal'], difficulty: ['easy','medium'] },
-  Cognizant: { aptitude: ['quant','logical','verbal'], difficulty: ['easy','medium'] },
-  HCL: { aptitude: ['quant','verbal'], difficulty: ['easy','medium'] },
-  'Tech Mahindra': { aptitude: ['quant','logical','verbal'], difficulty: ['easy','medium'] },
-  Zensar: { aptitude: ['quant','verbal','logical'], difficulty: ['easy','medium'] },
-  Accenture: { aptitude: ['quant','logical','verbal'], difficulty: ['easy','medium'] },
-  Capgemini: { aptitude: ['quant','verbal','logical'], difficulty: ['easy','medium'] },
-  Deloitte: { aptitude: ['quant','logical'], difficulty: ['medium','hard'] },
-  IBM: { aptitude: ['quant','logical'], difficulty: ['medium','hard'] },
-  Oracle: { aptitude: ['quant','logical'], difficulty: ['medium','hard'] },
-  SAP: { aptitude: ['quant','logical'], difficulty: ['medium','hard'] },
-  EY: { aptitude: ['quant','verbal','logical'], difficulty: ['easy','medium'] },
-};
-
-function getCompaniesForQuestion(category, tags, difficulty) {
-  const cat = (category || '').toLowerCase();
-  const tagsLower = (tags || []).map(x => x.toLowerCase());
-  const matches = [];
-  for (const [company, patterns] of Object.entries(COMPANY_TAG_MAP)) {
-    let score = 0;
-    if (patterns.aptitude.some(pt => cat.includes(pt))) score += 2;
-    score += tagsLower.filter(tag => patterns.aptitude.some(pt => tag.includes(pt))).length;
-    if (patterns.difficulty.includes(difficulty)) score += 1;
-    if (score >= 2) matches.push(company);
-  }
-  return matches;
+const AptitudeMockTest = require('../models/AptitudeMockTest');
+const q1 = require('./_aptGen_quant');
+const q2 = require('./_aptGen_quant2');
+const l1 = require('./_aptGen_logical');
+const l2 = require('./_aptGen_logical2');
+const v1 = require('./_aptGen_verbal');
+const v2 = require('./_aptGen_verbal2');
+const meta = require('./_aptSub');
+const CAT = meta.CATEGORIES;
+const SUBTOPICS = meta.SUBTOPICS;
+const ALL = [].concat(CAT.quantitative, CAT.logical, CAT.verbal);
+const GENS = Object.assign({}, q1.G, q2.G, l1.G, l2.G, v1.G, v2.G);
+const srand = s => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
+const rngFor = (n, i) => function () { return srand(n.charCodeAt(0) * 1000 + i * 97 + srand(i + 1) * 1000); };
+const ri = (r, a, b) => Math.floor(r() * (b - a + 1)) + a;
+const pk = (r, arr) => arr[Math.floor(r() * arr.length)];
+const DIFF = ['easy', 'medium', 'hard'];
+function buildMCQ(o) {
+  const rng = typeof o.r === 'function' ? o.r : () => 0;
+  const it = [{ l: '', t: String(o.right), c: true }];
+  o.wrong.forEach(t => it.push({ l: '', t: String(t), c: false }));
+  for (let i = it.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [it[i], it[j]] = [it[j], it[i]]; }
+  it.forEach((x, idx) => { x.l = 'ABCD'[idx]; });
+  return { topicId: o.topicId, category: o.category, topic: o.topic, questionText: o.stem, options: it.map(x => ({ label: x.l, text: x.t, isCorrect: x.c })), correctAnswer: it.find(x => x.c).l, explanation: o.explanation, solutionSteps: o.steps || [o.explanation], difficulty: o.difficulty || pk(rng, DIFF), timeLimit: o.timeLimit || 90, source: o.source || 'TCS NQT' };
 }
-
-const questions = [
-  // ===== QUANTITATIVE (50+) =====
-  { category: 'quant', question: 'If A+B=15 and A-B=5, find A and B.', options: [{text:'A=10, B=5'},{text:'A=5, B=10'},{text:'A=7, B=8'},{text:'A=8, B=7'}], correctIndex: 0, explanation: 'Adding equations gives 2A=20 => A=10, then B=5.', tags: ['algebra'], difficulty: 'easy' },
-  { category: 'quant', question: 'What is 20% of 500?', options: [{text:'50'},{text:'100'},{text:'150'},{text:'200'}], correctIndex: 1, explanation: '20% of 500 = 0.2 * 500 = 100.', tags: ['percentages'], difficulty: 'easy' },
-  { category: 'quant', question: 'A shopkeeper gives 20% discount on Rs.500. Selling price?', options: [{text:'300'},{text:'400'},{text:'450'},{text:'350'}], correctIndex: 1, explanation: '20% of 500 = 100; 500-100 = 400.', tags: ['percentages'], difficulty: 'easy' },
-  { category: 'quant', question: 'If train travels 120 km in 2 hours, speed?', options: [{text:'40 km/h'},{text:'60 km/h'},{text:'120 km/h'},{text:'240 km/h'}], correctIndex: 1, explanation: 'Speed = Distance/Time = 120/2 = 60 km/h.', tags: ['time-speed-distance'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find next number: 2, 6, 12, 20, 30, ?', options: [{text:'36'},{text:'40'},{text:'42'},{text:'44'}], correctIndex: 2, explanation: 'Differences: 4,6,8,10 => next add 12 -> 42.', tags: ['series'], difficulty: 'medium' },
-  { category: 'quant', question: 'A man buys 12 apples at Rs.5 each from Rs.240. Money left?', options: [{text:'120'},{text:'180'},{text:'140'},{text:'200'}], correctIndex: 1, explanation: 'Cost = 12*5=60; left=240-60=180.', tags: ['arithmetic'], difficulty: 'easy' },
-  { category: 'quant', question: 'Simplify: 8/16', options: [{text:'1/2'},{text:'2/3'},{text:'3/4'},{text:'4/5'}], correctIndex: 0, explanation: '8/16 = 1/2.', tags: ['fractions'], difficulty: 'easy' },
-  { category: 'quant', question: 'A car covers 180 km in 3 hours. Speed in m/s?', options: [{text:'15'},{text:'16.67'},{text:'20'},{text:'18'}], correctIndex: 1, explanation: '180km/3h = 60km/h = 60*1000/3600 = 16.67 m/s.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find compound interest on Rs.1000 at 10% for 2 years.', options: [{text:'100'},{text:'210'},{text:'200'},{text:'121'}], correctIndex: 1, explanation: 'CI = 1000*(1.1^2 - 1) = 1000*(1.21-1) = 210.', tags: ['interest'], difficulty: 'medium' },
-  { category: 'quant', question: 'A can do work in 10 days, B in 15 days. Together?', options: [{text:'6'},{text:'5'},{text:'4'},{text:'7'}], correctIndex: 0, explanation: '1/10 + 1/15 = 5/30 = 1/6 => 6 days.', tags: ['work'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find profit %: CP=200, SP=250.', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'15%'}], correctIndex: 1, explanation: 'Profit = 50; % = 50/200*100 = 25%.', tags: ['profit-loss'], difficulty: 'easy' },
-  { category: 'quant', question: 'Ratio of two numbers is 3:4, sum is 35. Smaller?', options: [{text:'12'},{text:'15'},{text:'18'},{text:'20'}], correctIndex: 1, explanation: '3x+4x=35 => 7x=35 => x=5 => smaller=15.', tags: ['ratio'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find simple interest: P=1000, R=5%, T=2 years.', options: [{text:'50'},{text:'100'},{text:'150'},{text:'200'}], correctIndex: 1, explanation: 'SI = PRT/100 = 1000*5*2/100 = 100.', tags: ['interest'], difficulty: 'easy' },
-  { category: 'quant', question: 'A man rows 10 km/hr in still water. River 2 km/hr. Upstream speed?', options: [{text:'8'},{text:'12'},{text:'10'},{text:'6'}], correctIndex: 0, explanation: 'Upstream = 10 - 2 = 8 km/hr.', tags: ['time-speed-distance'], difficulty: 'easy' },
-  { category: 'quant', question: 'If 12 men complete work in 18 days, how many men for 24 days?', options: [{text:'6'},{text:'9'},{text:'12'},{text:'18'}], correctIndex: 1, explanation: 'M1D1 = M2D2 => 12*18 = M2*24 => M2=9.', tags: ['work'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find LCM of 12, 15, 20.', options: [{text:'60'},{text:'120'},{text:'180'},{text:'30'}], correctIndex: 0, explanation: 'LCM(12,15,20) = 60.', tags: ['number-system'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find HCF of 24, 36, 60.', options: [{text:'12'},{text:'6'},{text:'18'},{text:'24'}], correctIndex: 0, explanation: 'HCF(24,36,60) = 12.', tags: ['number-system'], difficulty: 'easy' },
-  { category: 'quant', question: 'A sum doubles in 5 years at SI. Rate?', options: [{text:'10%'},{text:'20%'},{text:'15%'},{text:'25%'}], correctIndex: 1, explanation: 'SI = P, so P = P*R*5/100 => R=20%.', tags: ['interest'], difficulty: 'medium' },
-  { category: 'quant', question: 'A is 30% more than B. How much % less is B than A?', options: [{text:'23.07%'},{text:'30%'},{text:'25%'},{text:'20%'}], correctIndex: 0, explanation: 'If B=100, A=130. B less than A = 30/130*100 = 23.07%.', tags: ['percentages'], difficulty: 'medium' },
-  { category: 'quant', question: 'A mixture of milk and water in ratio 3:2. Total 10L. Milk?', options: [{text:'4L'},{text:'6L'},{text:'5L'},{text:'3L'}], correctIndex: 1, explanation: 'Milk = 3/5 * 10 = 6L.', tags: ['ratio'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find average of first 20 natural numbers.', options: [{text:'10.5'},{text:'11'},{text:'10'},{text:'12'}], correctIndex: 0, explanation: 'Average = (1+20)/2 = 10.5.', tags: ['average'], difficulty: 'easy' },
-  { category: 'quant', question: 'A bat costs Rs.800. Sold at 10% loss. SP?', options: [{text:'720'},{text:'750'},{text:'700'},{text:'680'}], correctIndex: 0, explanation: 'Loss = 10% of 800 = 80; SP = 800-80 = 720.', tags: ['profit-loss'], difficulty: 'easy' },
-  { category: 'quant', question: 'If 3/4 of a number is 45, what is the number?', options: [{text:'60'},{text:'45'},{text:'30'},{text:'90'}], correctIndex: 0, explanation: 'Number = 45 * 4/3 = 60.', tags: ['algebra'], difficulty: 'easy' },
-  { category: 'quant', question: 'A batsman avg 40 in 10 matches. Scores 0 and 100 in next two. New avg?', options: [{text:'40'},{text:'38'},{text:'42'},{text:'36'}], correctIndex: 0, explanation: 'Total = 400+100 = 500; matches = 12; avg = 500/12 = 41.67. Closest is 40.', tags: ['average'], difficulty: 'medium' },
-  { category: 'quant', question: 'A man invests Rs.5000 at 8% p.a. for 2 years. Amount?', options: [{text:'5800'},{text:'6000'},{text:'5600'},{text:'6200'}], correctIndex: 0, explanation: 'SI = 5000*8*2/100 = 800; Amount = 5000+800 = 5800.', tags: ['interest'], difficulty: 'easy' },
-  { category: 'quant', question: 'The present age of father is 3 times son. After 5 years, sum 70. Present age of father?', options: [{text:'45'},{text:'50'},{text:'40'},{text:'48'}], correctIndex: 0, explanation: '3x+5 + x+5 = 70 => 4x+10=70 => x=15; father=45.', tags: ['age'], difficulty: 'medium' },
-  { category: 'quant', question: 'A can finish work in 6 days, B in 12 days. Together?', options: [{text:'4'},{text:'3'},{text:'5'},{text:'6'}], correctIndex: 0, explanation: '1/6 + 1/12 = 3/12 = 1/4 => 4 days.', tags: ['work'], difficulty: 'easy' },
-  { category: 'quant', question: 'By selling at Rs.600, loss 20%. CP?', options: [{text:'750'},{text:'700'},{text:'800'},{text:'720'}], correctIndex: 0, explanation: 'CP = 600 / 0.8 = 750.', tags: ['profit-loss'], difficulty: 'medium' },
-  { category: 'quant', question: 'The ratio of ages A:B = 5:7. After 4 years, ratio 3:4. Present age A?', options: [{text:'10'},{text:'15'},{text:'20'},{text:'25'}], correctIndex: 0, explanation: '5x+4 / 7x+4 = 3/4 => 20x+16 = 21x+12 => x=4 => A=20.', tags: ['age'], difficulty: 'medium' },
-  { category: 'quant', question: 'A man buys 10 articles for Rs.8. Sells 8 for Rs.10. Profit %?', options: [{text:'56.25%'},{text:'50%'},{text:'25%'},{text:'20%'}], correctIndex: 0, explanation: 'CP per article = 0.8; SP per article = 1.25; profit = 0.45; % = 0.45/0.8*100 = 56.25%', tags: ['profit-loss'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find greatest number dividing 135, 225, 315.', options: [{text:'45'},{text:'15'},{text:'9'},{text:'5'}], correctIndex: 0, explanation: 'HCF(135,225,315) = 45.', tags: ['number-system'], difficulty: 'easy' },
-  { category: 'quant', question: 'A boat goes 40 km upstream in 8 hours. Speed in still water 6 km/hr. Current speed?', options: [{text:'1'},{text:'2'},{text:'3'},{text:'4'}], correctIndex: 0, explanation: 'Upstream speed = 5; current = 6-5 = 1 km/hr.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find remainder when 2^10 is divided by 5.', options: [{text:'4'},{text:'3'},{text:'2'},{text:'1'}], correctIndex: 0, explanation: '2^4=16 mod5=1; 2^8=1; 2^10=2^8*2^2=4 mod5.', tags: ['number-system'], difficulty: 'medium' },
-  { category: 'quant', question: 'A dishonest dealer sells 900g for 1kg. Profit %?', options: [{text:'11.11%'},{text:'10%'},{text:'12%'},{text:'9%'}], correctIndex: 0, explanation: 'Sells 900g as 1000g; profit = 100g on 900g = 100/900*100 = 11.11%.', tags: ['profit-loss'], difficulty: 'medium' },
-  { category: 'quant', question: 'If 5 men + 7 boys earn Rs.3150 in 6 days, 6 men + 9 boys earn in 9 days?', options: [{text:'5775'},{text:'6000'},{text:'5500'},{text:'5000'}], correctIndex: 0, explanation: 'Using work equivalence, total earnings proportional to (5M+7B)*6; for (6M+9B)*9 = 5775.', tags: ['work'], difficulty: 'hard' },
-  { category: 'quant', question: 'Find single discount equivalent to 20% and 15%.', options: [{text:'32%'},{text:'35%'},{text:'30%'},{text:'25%'}], correctIndex: 0, explanation: 'Equivalent = 1 - (0.8*0.85) = 1 - 0.68 = 0.32 = 32%.', tags: ['percentages'], difficulty: 'medium' },
-  { category: 'quant', question: 'A sum becomes Rs.2420 in 2 years and Rs.2662 in 3 years at CI. Rate?', options: [{text:'10%'},{text:'12%'},{text:'15%'},{text:'8%'}], correctIndex: 0, explanation: 'Difference = 242; rate = 242/2200*100 = 11% approx. With options, 10% works best.', tags: ['interest'], difficulty: 'medium' },
-  { category: 'quant', question: 'Two pipes fill tank in 4 and 6 hours. Third empties in 8 hours. Together?', options: [{text:'3.43'},{text:'4'},{text:'5'},{text:'6'}], correctIndex: 0, explanation: '1/4+1/6-1/8 = 7/24 => 24/7 = 3.43 hours.', tags: ['work'], difficulty: 'hard' },
-  { category: 'quant', question: 'Average of 5 consecutive even numbers is 30. Largest?', options: [{text:'34'},{text:'36'},{text:'32'},{text:'38'}], correctIndex: 0, explanation: 'Numbers: 26,28,30,32,34 => largest 34.', tags: ['average'], difficulty: 'easy' },
-  { category: 'quant', question: 'A man spends 60% of income. Saves Rs.12000. Income?', options: [{text:'30000'},{text:'40000'},{text:'36000'},{text:'48000'}], correctIndex: 0, explanation: 'If 60% spent, 40% saved = 12000; income = 12000/0.4 = 30000.', tags: ['percentages'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find profit % if CP:SP = 5:6.', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'16.67%'}], correctIndex: 0, explanation: 'Profit = 1 on 5 => 20%.', tags: ['profit-loss'], difficulty: 'easy' },
-  { category: 'quant', question: 'A is 2 times B, B is 3 times C. Ratio A:B:C?', options: [{text:'6:3:1'},{text:'2:3:1'},{text:'3:2:1'},{text:'1:2:3'}], correctIndex: 0, explanation: 'A=2B, B=3C => A=6C => ratio 6:3:1.', tags: ['ratio'], difficulty: 'easy' },
-  { category: 'quant', question: 'Find next: 1, 1, 2, 6, 24, ?', options: [{text:'120'},{text:'48'},{text:'36'},{text:'72'}], correctIndex: 0, explanation: 'Pattern: n! => 1,1,2,6,24,120.', tags: ['series'], difficulty: 'medium' },
-  { category: 'quant', question: 'A train 100m long crosses pole in 10 sec. Speed?', options: [{text:'36 km/h'},{text:'30 km/h'},{text:'40 km/h'},{text:'32 km/h'}], correctIndex: 0, explanation: 'Speed = 100/10 = 10 m/s = 36 km/h.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'quant', question: 'If 30% of 40% of a number is 24, the number is?', options: [{text:'200'},{text:'300'},{text:'250'},{text:'150'}], correctIndex: 0, explanation: '0.3*0.4*x=24 => 0.12x=24 => x=200.', tags: ['percentages'], difficulty: 'easy' },
-  { category: 'quant', question: 'The difference between SI and CI on Rs.1000 for 2 years at 10%?', options: [{text:'10'},{text:'20'},{text:'5'},{text:'1'}], correctIndex: 0, explanation: 'SI=200, CI=210; diff=10.', tags: ['interest'], difficulty: 'medium' },
-  { category: 'quant', question: 'A is thrice as good as B. A completes work in 10 days. B?', options: [{text:'30'},{text:'15'},{text:'20'},{text:'25'}], correctIndex: 0, explanation: 'If A=3B, time ratio 1:3 => B takes 30 days.', tags: ['work'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find the greatest 4-digit number divisible by 12, 15, 18.', options: [{text:'9900'},{text:'9990'},{text:'9960'},{text:'9800'}], correctIndex: 0, explanation: 'LCM=180; largest 4-digit multiple = 9900.', tags: ['number-system'], difficulty: 'medium' },
-  { category: 'quant', question: 'If 7x + 5y = 35 and 14x + 10y = 70, solutions?', options: [{text:'Infinite'},{text:'None'},{text:'One'},{text:'Two'}], correctIndex: 0, explanation: 'Second eq is 2x first => dependent => infinite solutions.', tags: ['algebra'], difficulty: 'medium' },
-  { category: 'quant', question: 'A trader marks goods 50% above CP and gives 20% discount. Profit %?', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'15%'}], correctIndex: 0, explanation: 'MP=1.5CP; SP=1.5*0.8=1.2CP => 20% profit.', tags: ['profit-loss'], difficulty: 'medium' },
-  { category: 'quant', question: 'A can do work in 20 days, B in 30 days. A leaves after 5 days. B completes? Days?', options: [{text:'20'},{text:'15'},{text:'18'},{text:'22'}], correctIndex: 0, explanation: 'Work done by A in 5 days = 5/20=1/4; remaining 3/4 by B at 1/30 per day => 22.5 days approx 20.', tags: ['work'], difficulty: 'hard' },
-  { category: 'quant', question: 'Simple interest on Rs.800 for 3 years is Rs.120. Rate?', options: [{text:'5%'},{text:'6%'},{text:'4%'},{text:'8%'}], correctIndex: 0, explanation: '120 = 800*R*3/100 => R=5%.', tags: ['interest'], difficulty: 'easy' },
-  { category: 'quant', question: 'The sum of two numbers is 50 and difference is 10. Numbers?', options: [{text:'30, 20'},{text:'25, 25'},{text:'35, 15'},{text:'40, 10'}], correctIndex: 0, explanation: 'x+y=50, x-y=10 => 2x=60 => x=30, y=20.', tags: ['algebra'], difficulty: 'easy' },
-  { category: 'quant', question: 'A is 25% more than B. B is 20% less than C. A:C ratio?', options: [{text:'15:16'},{text:'3:4'},{text:'5:4'},{text:'4:3'}], correctIndex: 0, explanation: 'If C=100, B=80, A=100 => A:C = 100:100? Wait. Actually if B=100, A=125, C=125; ratio 1:1. But with options, closest is 15:16 if we assume B=100, then A=125, C=125? Hmm.', tags: ['ratio'], difficulty: 'medium' },
-  { category: 'quant', question: 'Find area of circle radius 7cm.', options: [{text:'154'},{text:'144'},{text:'164'},{text:'140'}], correctIndex: 0, explanation: 'Area = pi*r^2 = 22/7*49 = 154.', tags: ['geometry'], difficulty: 'easy' },
-  { category: 'quant', question: 'A man gains 10% on SP. Gain % on CP?', options: [{text:'11.11%'},{text:'10%'},{text:'12%'},{text:'9%'}], correctIndex: 0, explanation: 'If SP=110, CP=100; profit=10 => on CP = 10/100 = 10%? Wait typical answer is 11.11%.', tags: ['profit-loss'], difficulty: 'medium' },
-  { category: 'quant', question: 'If 40% fail in Maths, 30% in English, 10% both. Pass %?', options: [{text:'40%'},{text:'60%'},{text:'50%'},{text:'30%'}], correctIndex: 0, explanation: 'Fail atleast one = 40+30-10=60%; pass = 40%.', tags: ['percentages'], difficulty: 'medium' },
-  { category: 'quant', question: 'A watch sold at 20% profit. If CP and SP both reduced by Rs.100, profit 25%. CP?', options: [{text:'500'},{text:'400'},{text:'300'},{text:'600'}], correctIndex: 0, explanation: '1.2CP - 100 = 1.25(CP-100) => CP=500.', tags: ['profit-loss'], difficulty: 'hard' },
-  { category: 'quant', question: 'Find SI on Rs.600 at 5% for 4 years.', options: [{text:'120'},{text:'100'},{text:'150'},{text:'80'}], correctIndex: 0, explanation: 'SI = 600*5*4/100 = 120.', tags: ['interest'], difficulty: 'easy' },
-  { category: 'quant', question: 'A man walks 10 km north, turns right 5 km, right 10 km, left 5 km. Distance from start?', options: [{text:'10'},{text:'15'},{text:'5'},{text:'20'}], correctIndex: 0, explanation: 'Ends 5 km east of start? Actually north 10, east 5, south 10, east 5 => 10 km east. With options 10.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'quant', question: 'If a:b = 2:3, b:c = 4:5, then a:c?', options: [{text:'8:15'},{text:'2:5'},{text:'3:5'},{text:'4:5'}], correctIndex: 0, explanation: 'a:b = 2:3 => a=2k, b=3k; b:c = 4:5 => 3k=4m => k=4m/3. a=8m/3, c=5m => a:c=8:15.', tags: ['ratio'], difficulty: 'medium' },
-  { category: 'quant', question: 'A square of side 8cm. Diagonal?', options: [{text:'8√2'},{text:'16'},{text:'8√3'},{text:'12'}], correctIndex: 0, explanation: 'Diagonal = side*√2 = 8√2.', tags: ['geometry'], difficulty: 'easy' },
-  { category: 'quant', question: 'A cistern fills in 10 min, empties in 12 min. Both open?', options: [{text:'60'},{text:'55'},{text:'50'},{text:'65'}], correctIndex: 0, explanation: 'Net = 1/10 - 1/12 = 1/60 => 60 min.', tags: ['work'], difficulty: 'medium' },
-  { category: 'quant', question: 'If 3/5th of a number exceeds 2/5th by 12, the number is?', options: [{text:'60'},{text:'40'},{text:'30'},{text:'50'}], correctIndex: 0, explanation: '(3/5 - 2/5)x = 12 => x/5 = 12 => x=60.', tags: ['algebra'], difficulty: 'easy' },
-  { category: 'quant', question: 'A man deposits Rs.1000 at 5% for 2 years. Amount?', options: [{text:'1100'},{text:'1050'},{text:'1150'},{text:'1200'}], correctIndex: 0, explanation: 'SI=100, Amount=1100.', tags: ['interest'], difficulty: 'easy' },
-  { category: 'quant', question: 'Average of first 10 multiples of 5.', options: [{text:'27.5'},{text:'25'},{text:'30'},{text:'20'}], correctIndex: 0, explanation: 'Multiples: 5,10...50; avg = (5+50)/2 = 27.5.', tags: ['average'], difficulty: 'medium' },
-
-  // ===== VERBAL REASONING (50+) =====
-  { category: 'verbal', question: 'Choose the synonym of "happy".', options: [{text:'Sad'},{text:'Joyful'},{text:'Angry'},{text:'Tired'}], correctIndex: 1, explanation: 'Joyful means feeling or expressing great happiness.', tags: ['synonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose the antonym of "big".', options: [{text:'Large'},{text:'Huge'},{text:'Tiny'},{text:'Great'}], correctIndex: 2, explanation: 'Tiny is the opposite of big.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: '"She has been waiting ___ 2 hours."', options: [{text:'since'},{text:'for'},{text:'from'},{text:'by'}], correctIndex: 1, explanation: '"For" is used with durations.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: '"He succeeded ___ all difficulties."', options: [{text:'in'},{text:'with'},{text:'despite of'},{text:'despite'}], correctIndex: 3, explanation: '"Despite" is correct; "despite of" is incorrect.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: '"Despite of" is correct usage.', options: [{text:'True'},{text:'False'}], correctIndex: 1, explanation: 'Correct is "despite" or "in spite of".', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose the correct: "I haven\'t seen him ___ last Monday."', options: [{text:'since'},{text:'for'},{text:'from'},{text:'by'}], correctIndex: 0, explanation: '"Since" is used with point in time.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Pick the correct spelling.', options: [{text:'Accomodation'},{text:'Accommodation'},{text:'Acommodation'},{text:'Acommodation'}], correctIndex: 1, explanation: '"Accommodation" has double c and double m.', tags: ['spelling'], difficulty: 'easy' },
-  { category: 'verbal', question: '"I am agree" is grammatically correct.', options: [{text:'True'},{text:'False'}], correctIndex: 1, explanation: 'Correct form is "I agree" without "am".', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "benevolent".', options: [{text:'Kind'},{text:'Hostile'},{text:'Ignorant'},{text:'Cruel'}], correctIndex: 0, explanation: 'Benevolent means kind and generous.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "transient".', options: [{text:'Permanent'},{text:' Fleeting'},{text:'Temporary'},{text:'Brief'}], correctIndex: 0, explanation: 'Transient means temporary; antonym is permanent.', tags: ['antonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: '"He is taller ___ his brother."', options: [{text:'than'},{text:'then'},{text:'from'},{text:'to'}], correctIndex: 0, explanation: '"Taller than" is correct comparative form.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Select correct sentence.', options: [{text:'She did nothing but to cry'},{text:'She did nothing but cry'},{text:'She did nothing but crying'},{text:'She did nothing but cried'}], correctIndex: 1, explanation: '"Nothing but" + base verb.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Pick the odd one: Apple, Banana, Carrot, Grape.', options: [{text:'Apple'},{text:'Banana'},{text:'Carrot'},{text:'Grape'}], correctIndex: 2, explanation: 'Carrot is vegetable; others are fruits.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'verbal', question: '"The team have finished" is correct.', options: [{text:'True'},{text:'False'}], correctIndex: 0, explanation: 'Collective nouns can take plural verb in British English.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose synonym of "verbose".', options: [{text:'Wordy'},{text:'Concise'},{text:'Brief'},{text:'Laconic'}], correctIndex: 0, explanation: 'Verbose means using more words than needed.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "amateur".', options: [{text:'Professional'},{text:'Novice'},{text:'Beginner'},{text:'Learner'}], correctIndex: 0, explanation: 'Amateur means non-professional; antonym is professional.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: '"Neither Ramesh nor his brothers ___ present."', options: [{text:'were'},{text:'was'},{text:'is'},{text:'are'}], correctIndex: 1, explanation: 'With "neither...nor", verb agrees with nearer subject (brothers => were? Actually plural). Hmm, with brothers => were.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Find correctly spelled word.', options: [{text:'Definately'},{text:'Definitely'},{text:'Definitly'},{text:'Definietly'}], correctIndex: 1, explanation: 'Correct spelling is "definitely".', tags: ['spelling'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Active to passive: "She has completed the work."', options: [{text:'The work has been completed by her.'},{text:'The work have been completed by her.'},{text:'The work was completed by her.'},{text:'The work is completed by her.'}], correctIndex: 0, explanation: 'Present perfect passive.', tags: ['voice'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Pick the odd one: 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096.', options: [{text:'2'},{text:'4'},{text:'8'},{text:'16'}], correctIndex: 2, explanation: 'All are powers of 2; all fit. Trick: all even. No odd. Actually 8 is cube too? Hmm.', tags: ['odd-one-out'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Fill blank: "He was _____ his friend in need."', options: [{text:'beside'},{text:'besides'},{text:'beside'},{text:'by side'}], correctIndex: 0, explanation: '"Beside" means next to; "besides" means moreover.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose synonym of "ephemeral".', options: [{text:'Brief'},{text:'Lasting'},{text:'Permanent'},{text:'Eternal'}], correctIndex: 0, explanation: 'Ephemeral means short-lived.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of " amplify".', options: [{text:'Reduce'},{text:'Increase'},{text:'Enlarge'},{text:'Expand'}], correctIndex: 0, explanation: 'Amplify means to increase; antonym is reduce.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Direct to indirect: "She said, \'I am busy.\'"', options: [{text:'She said that she was busy.'},{text:'She said that I am busy.'},{text:'She said that she is busy.'},{text:'She said that she has been busy.'}], correctIndex: 0, explanation: 'Present to past: was.', tags: ['narration'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Fill blank: "The car ran ___ the bridge."', options: [{text:'across'},{text:'past'},{text:'through'},{text:'over'}], correctIndex: 0, explanation: '"Across" is used for moving from one side to another.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose correct sentence.', options: [{text:'He is senior than me'},{text:'He is senior to me'},{text:'He is senior from me'},{text:'He is senior for me'}], correctIndex: 1, explanation: '"Senior to" is correct comparative.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Pick odd one: Dog, Cat, Lion, Table.', options: [{text:'Dog'},{text:'Cat'},{text:'Lion'},{text:'Table'}], correctIndex: 3, explanation: 'Table is furniture; others animals.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "candid".', options: [{text:'Frank'},{text:'Cunning'},{text:'Deceitful'},{text:'Wily'}], correctIndex: 0, explanation: 'Candid means frank and honest.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "diligent".', options: [{text:'Lazy'},{text:'Hardworking'},{text:'Industrious'},{text:'Active'}], correctIndex: 0, explanation: 'Diligent means hardworking; antonym is lazy.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: '"Either you or he ___ right."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: 'With "either...or", verb agrees with nearer subject "he".', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Find correctly spelled.', options: [{text:'Occurance'},{text:'Occurrence'},{text:'Ocurance'},{text:'Occurance'}], correctIndex: 1, explanation: 'Double r and double e.', tags: ['spelling'], difficulty: 'easy' },
-  { category: 'verbal', question: '"Had I known, I would have come." is subjunctive.', options: [{text:'True'},{text:'False'}], correctIndex: 0, explanation: 'It expresses unreal past condition.', tags: ['grammar'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose synonym of "pensive".', options: [{text:'Thoughtful'},{text:'Cheerful'},{text:'Joyful'},{text:'Agreeable'}], correctIndex: 0, explanation: 'Pensive means engaged in deep thought.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "gregarious".', options: [{text:'Solitary'},{text:'Sociable'},{text:'Outgoing'},{text:'Friendly'}], correctIndex: 0, explanation: 'Gregarious means sociable; antonym is solitary.', tags: ['antonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Fill blank: "He is interested _____ learning French."', options: [{text:'in'},{text:'on'},{text:'at'},{text:'for'}], correctIndex: 0, explanation: '"Interested in" is correct preposition.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: '"One of the boys ___ absent."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"One of the + plural" takes singular verb.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Pick odd one: Circle, Triangle, Square, Rectangle.', options: [{text:'Circle'},{text:'Triangle'},{text:'Square'},{text:'Rectangle'}], correctIndex: 0, explanation: 'Circle has no sides; others polygons.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "mitigate".', options: [{text:'Alleviate'},{text:'Aggravate'},{text:'Increase'},{text:'Intensify'}], correctIndex: 0, explanation: 'Mitigate means to make less severe.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of "fervor".', options: [{text:'Apathy'},{text:'Enthusiasm'},{text:'Passion'},{text:'Zeal'}], correctIndex: 0, explanation: 'Fervor means passion; antonym is apathy.', tags: ['antonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Direct speech: "I am tired," she said.', options: [{text:'She said that she was tired.'},{text:'She said that I am tired.'},{text:'She said that she is tired.'},{text:'She said that she has been tired.'}], correctIndex: 0, explanation: 'Present to past in indirect speech.', tags: ['narration'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Find correctly spelled.', options: [{text:'Judgement'},{text:'Judgment'},{text:'Judgement'},{text:'Judgmment'}], correctIndex: 0, explanation: 'Both "judgement" and "judgment" exist; in American English "judgment" is preferred. Here judgement.', tags: ['spelling'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Fill blank: "The meeting was _____ by the chairman."', options: [{text:'presided'},{text:'president'},{text:'preside'},{text:'presidential'}], correctIndex: 0, explanation: 'Past participle "presided" is needed.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose synonym of "loquacious".', options: [{text:'Talkative'},{text:'Taciturn'},{text:'Reserved'},{text:'Silent'}], correctIndex: 0, explanation: 'Loquacious means very talkative.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of "courageous".', options: [{text:'Cowardly'},{text:'Brave'},{text:'Valiant'},{text:'Daring'}], correctIndex: 0, explanation: 'Courageous means brave; antonym is cowardly.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: '"Not only he but also his parents ___ invited."', options: [{text:'were'},{text:'was'},{text:'is'},{text:'has'}], correctIndex: 0, explanation: 'Verb agrees with nearer subject "parents" => plural.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Pick odd one: Pen, Pencil, Eraser, Paper.', options: [{text:'Pen'},{text:'Pencil'},{text:'Eraser'},{text:'Paper'}], correctIndex: 3, explanation: 'Paper is not a writing instrument; others are stationery used for writing.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "profound".', options: [{text:'Deep'},{text:'Shallow'},{text:'Superficial'},{text:'Trivial'}], correctIndex: 0, explanation: 'Profound means deep in meaning.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "transparent".', options: [{text:'Opaque'},{text:'Clear'},{text:'Open'},{text:'Visible'}], correctIndex: 0, explanation: 'Transparent means clear; antonym is opaque.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Fill blank: "She is _____ of snakes."', options: [{text:'afraid'},{text:'frighten'},{text:'scare'},{text:'fear'}], correctIndex: 0, explanation: '"Afraid of" is correct phrase.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose correct: "The number of people ___ increasing."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"The number of" takes singular verb.', tags: ['grammar'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Find correctly spelled.', options: [{text:'Separate'},{text:'Seperate'},{text:'Seprate'},{text:'Separite'}], correctIndex: 0, explanation: 'Correct: separate.', tags: ['spelling'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "verbose".', options: [{text:'Prolix'},{text:'Concise'},{text:'Succinct'},{text:'Laconic'}], correctIndex: 0, explanation: 'Prolix means wordy.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of "garrulous".', options: [{text:'Taciturn'},{text:'Talkative'},{text:'Chatty'},{text:'Verbose'}], correctIndex: 0, explanation: 'Garrulous means talkative; antonym is taciturn.', tags: ['antonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Direct speech: "I will come," he said.', options: [{text:'He said that he would come.'},{text:'He said that he will come.'},{text:'He said that he shall come.'},{text:'He said that he comes.'}], correctIndex: 0, explanation: 'Future "will" changes to "would" in indirect speech.', tags: ['narration'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Fill blank: "The river flows _____ the bridge."', options: [{text:'under'},{text:'below'},{text:'beneath'},{text:'all of these'}], correctIndex: 3, explanation: 'All are acceptable.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "audacious".', options: [{text:'Bold'},{text:'Timid'},{text:'Shy'},{text:'Cautious'}], correctIndex: 0, explanation: 'Audacious means daring and bold.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of "amiable".', options: [{text:'Hostile'},{text:'Friendly'},{text:'Affable'},{text:'Pleasant'}], correctIndex: 0, explanation: 'Amiable means friendly; antonym is hostile.', tags: ['antonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: '"Neither the boys nor the girl _____ called."', options: [{text:'was'},{text:'were'},{text:'have'},{text:'has'}], correctIndex: 0, explanation: 'Verb agrees with nearer subject "girl" (singular).', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Find correctly spelled.', options: [{text:'Occasion'},{text:'Occasion'},{text:'Occasion'},{text:'Occasion'}], correctIndex: 0, explanation: 'All same; pick first.', tags: ['spelling'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "trivial".', options: [{text:'Insignificant'},{text:'Important'},{text:'Serious'},{text:'Significant'}], correctIndex: 0, explanation: 'Trivial means unimportant.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "vivid".', options: [{text:'Dull'},{text:'Bright'},{text:'Lively'},{text:'Clear'}], correctIndex: 0, explanation: 'Vivid means bright/clear; antonym is dull.', tags: ['antonyms'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Fill blank: "The book consists _____ three parts."', options: [{text:'of'},{text:'in'},{text:'with'},{text:'by'}], correctIndex: 0, explanation: '"Consists of" is correct preposition.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose correct: "The news _____ not good."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"News" is singular uncountable noun.', tags: ['grammar'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Pick odd one: River, Lake, Ocean, Mountain.', options: [{text:'River'},{text:'Lake'},{text:'Ocean'},{text:'Mountain'}], correctIndex: 3, explanation: 'Mountain is landform; others water bodies.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'verbal', question: 'Choose synonym of "resemble".', options: [{text:'Impersonate'},{text:'Different'},{text:'Oppose'},{text:'Reject'}], correctIndex: 0, explanation: 'Resemble means to look like or be similar to.', tags: ['synonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose antonym of "pious".', options: [{text:'Impious'},{text:'Religious'},{text:'Devout'},{text:'Holy'}], correctIndex: 0, explanation: 'Pious means religious; antonym is impious.', tags: ['antonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Direct speech: "Do your work," the teacher said.', options: [{text:'The teacher told them to do their work.'},{text:'The teacher said to do the work.'},{text:'The teacher asked to do work.'},{text:'The teacher said do the work.'}], correctIndex: 0, explanation: 'Imperative to infinitive indirect.', tags: ['narration'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Find correctly spelled.', options: [{text:'Millennium'},{text:'Milennium'},{text:'Milennium'},{text:'Millennium'}], correctIndex: 0, explanation: 'Double l and double n.', tags: ['spelling'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Choose synonym of "vindicate".', options: [{text:'Justify'},{text:'Condemn'},{text:'Accuse'},{text:'Blame'}], correctIndex: 0, explanation: 'Vindicate means to clear from criticism.', tags: ['synonyms'], difficulty: 'hard' },
-  { category: 'verbal', question: 'Choose antonym of "ferocious".', options: [{text:'Gentle'},{text:'Fierce'},{text:'Savage'},{text:'Brutal'}], correctIndex: 0, explanation: 'Ferocious means fierce; antonym is gentle.', tags: ['antonyms'], difficulty: 'medium' },
-  { category: 'verbal', question: 'Fill blank: "He was bereaved _____ his parents."', options: [{text:'of'},{text:'from'},{text:'by'},{text:'with'}], correctIndex: 0, explanation: '"Bereaved of" is correct usage.', tags: ['grammar'], difficulty: 'hard' },
-  { category: 'verbal', question: '"The jury was divided" is correct English.', options: [{text:'True'},{text:'False'}], correctIndex: 0, explanation: 'Collective noun can be singular or plural; here singular works.', tags: ['grammar'], difficulty: 'medium' },
-
-  // ===== LOGICAL REASONING (50+) =====
-  { category: 'logical', question: 'All cats are mammals. Some mammals are black. Conclusion?', options: [{text:'All cats are black'},{text:'Some cats may be black'},{text:'No cats are black'},{text:'Cats are not mammals'}], correctIndex: 1, explanation: 'Some cats could be black, but not certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'If it rains, ground gets wet. Not wet. Follows?', options: [{text:'It rained'},{text:'It did not rain'},{text:'Cannot say'},{text:'Ground is dry'}], correctIndex: 1, explanation: 'Modus tollens: if rain implies wet and not wet, then no rain.', tags: ['reasoning'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 3, 5, 7, 9, 11.', options: [{text:'3'},{text:'5'},{text:'9'},{text:'11'}], correctIndex: 2, explanation: '9 is composite; others prime.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'A is taller than B. C is shorter than A. Tallest?', options: [{text:'A'},{text:'B'},{text:'C'},{text:'Cannot say'}], correctIndex: 0, explanation: 'A > B and A > C => A is tallest.', tags: ['ordering'], difficulty: 'easy' },
-  { category: 'logical', question: 'If 2+3=10, 3+4=21, 4+5=32, then 5+6=?', options: [{text:'42'},{text:'43'},{text:'45'},{text:'39'}], correctIndex: 2, explanation: 'Pattern: a*(a+b) => 5*9=45.', tags: ['puzzle'], difficulty: 'medium' },
-  { category: 'logical', question: 'Clock shows 3:15. Angle between hands?', options: [{text:'7.5°'},{text:'0°'},{text:'90°'},{text:'180°'}], correctIndex: 0, explanation: 'Hour hand at 3.25*0.5 = 1.25 hour marks; minute at 3 => 7.5°.', tags: ['clocks'], difficulty: 'medium' },
-  { category: 'logical', question: 'Find missing: 1, 4, 9, 16, ?, 36.', options: [{text:'25'},{text:'30'},{text:'20'},{text:'35'}], correctIndex: 0, explanation: 'Squares: 1,4,9,16,25,36.', tags: ['series'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: All poets are writers. Some writers are poets. Conclusion?', options: [{text:'All writers are poets'},{text:'Some writers are poets follows'},{text:'No writer is poet'},{text:'All poets are not writers'}], correctIndex: 1, explanation: 'Second statement directly states it.', tags: ['syllogism'], difficulty: 'easy' },
-  { category: 'logical', question: 'A is mother of B. B is father of C. C is brother of D. Relation A to D?', options: [{text:'Grandmother'},{text:'Mother'},{text:'Aunt'},{text:'Sister'}], correctIndex: 0, explanation: 'A is grandmother of D.', tags: ['blood-relations'], difficulty: 'easy' },
-  { category: 'logical', question: 'If P means >, Q means <, R means =, then 5 P 3 Q 7?', options: [{text:'5>3<7'},{text:'5<3>7'},{text:'5=3<7'},{text:'5>3>7'}], correctIndex: 0, explanation: 'Substitute: 5 > 3 < 7.', tags: ['coding-decoding'], difficulty: 'easy' },
-  { category: 'logical', question: 'Find next: 2, 5, 10, 17, 26, ?', options: [{text:'37'},{text:'36'},{text:'39'},{text:'40'}], correctIndex: 0, explanation: 'Differences: 3,5,7,9 => next 11 => 26+11=37.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'A man facing south turns left 90°, right 180°, left 45°. Facing?', options: [{text:'South-West'},{text:'North-East'},{text:'East'},{text:'West'}], correctIndex: 0, explanation: 'South + left(90)=East + right(180)=West + left(45)=South-West.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'logical', question: 'If A>B, C<D, B<C, D<E. Largest?', options: [{text:'E'},{text:'A'},{text:'C'},{text:'D'}], correctIndex: 0, explanation: 'A>B<C<D<E => E largest.', tags: ['ordering'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 16, 25, 36, 49, 52.', options: [{text:'16'},{text:'25'},{text:'36'},{text:'52'}], correctIndex: 3, explanation: '52 not a perfect square.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'A is son of B. B is daughter of C. C is father of D. A related to D?', options: [{text:'Nephew'},{text:'Brother'},{text:'Uncle'},{text:'Cousin'}], correctIndex: 0, explanation: 'A is grandson of C; D is child of C => A is nephew of D if D is male sibling of B? Actually B is daughter of C, so A is grandson. D is sibling of B? If D is male, then A is nephew. Assume standard => A nephew of D.', tags: ['blood-relations'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 5*3=35, 6*4=52, 7*5=81, then 8*6=?', options: [{text:'118'},{text:'102'},{text:'108'},{text:'114'}], correctIndex: 1, explanation: 'a*b => a^2 - b? 25-3=22? No. Pattern: a*(b+?)? Actually 5*3=35 => 5*7=35; 6*4=52 => 6*8.67? Hmm. Common puzzle: a*b => a^2+b => 25+3=28? Not 35. Let us check 64+6=70? No 102. Try a^2 + ab - b => 25+15-3=37 no. Hmm.', tags: ['puzzle'], difficulty: 'hard' },
-  { category: 'logical', question: 'Find next: 1, 2, 6, 24, 120, ?', options: [{text:'720'},{text:'600'},{text:'840'},{text:'480'}], correctIndex: 0, explanation: 'Factorials: 1,2,6,24,120,720.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: Some cats are dogs. No dog is black. Conclusion?', options: [{text:'Some cats are black'},{text:'No cat is black'},{text:'Some cats may not be black'},{text:'All cats are black'}], correctIndex: 2, explanation: 'Some cats are dogs and no dog is black => those cats are not black; but some cats might be black.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'Time now 6:45. After 2h 30m?', options: [{text:'9:15'},{text:'8:75'},{text:'9:15'},{text:'10:15'}], correctIndex: 0, explanation: '6:45 + 2:30 = 9:15.', tags: ['clocks'], difficulty: 'easy' },
-  { category: 'logical', question: 'A is B sister. B is C mother. C is D father. D related to A?', options: [{text:'Nephew'},{text:'Niece'},{text:'Uncle'},{text:'Aunt'}], correctIndex: 0, explanation: 'D is nephew of A.', tags: ['blood-relations'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 8, 27, 64, 125, 200.', options: [{text:'8'},{text:'27'},{text:'64'},{text:'200'}], correctIndex: 3, explanation: '200 not a perfect cube.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'If STUDENT is coded as 1234567, how is STRESS?', options: [{text:'123345'},{text:'123455'},{text:'123444'},{text:'123335'}], correctIndex: 0, explanation: 'Map repeated letters: S=1,T=2,R=3,E=4,S=1,S=1 => 123345? Wait usually repeats coded same. Let us use option 123345.', tags: ['coding-decoding'], difficulty: 'medium' },
-  { category: 'logical', question: 'Conclusion from: All A are B, some B are C. A related to C?', options: [{text:'All A are C'},{text:'Some A may be C'},{text:'No A is C'},{text:'Cannot say'}], correctIndex: 1, explanation: 'Some A could be C, but not certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A man faces East, turns 180°, then 90° right. Facing?', options: [{text:'South'},{text:'West'},{text:'North'},{text:'East'}], correctIndex: 0, explanation: 'East + 180=West + right 90=North? Wait right from West is North. So North. But South is also possible if turning opposite? Let us say North.', tags: ['direction'], difficulty: 'easy' },
-  { category: 'logical', question: 'Series: 0, 6, 24, 60, 120, ?', options: [{text:'210'},{text:'240'},{text:'180'},{text:'300'}], correctIndex: 0, explanation: 'Pattern: n*(n^3-1) or n*(n-1)*(n+1)? => 5*6*7=210.', tags: ['series'], difficulty: 'hard' },
-  { category: 'logical', question: 'Statement: All players are athletes. No athlete is lazy. Conclusion?', options: [{text:'No player is lazy'},{text:'Some players are lazy'},{text:'All players are lazy'},{text:'Cannot say'}], correctIndex: 0, explanation: 'All players are athletes and no athlete is lazy => no player is lazy.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A clock strikes once at 1, twice at 2. In 24 hours?', options: [{text:'156'},{text:'78'},{text:'312'},{text:'100'}], correctIndex: 0, explanation: 'In 12 hours = 78; in 24 = 156.', tags: ['clocks'], difficulty: 'medium' },
-  { category: 'logical', question: 'P starts from A to B at 30km/h, returns at 20km/h. Average?', options: [{text:'24'},{text:'25'},{text:'26'},{text:'28'}], correctIndex: 0, explanation: 'Avg = 2*30*20/(30+20) = 24.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'logical', question: 'If P+Q means P is father, P-Q mother, P*Q brother, P/Q sister. A-B*C/D means?', options: [{text:'Complex relation'},{text:'A is grandparent'},{text:'A is parent'},{text:'A is sibling'}], correctIndex: 0, explanation: 'Parse relations: A mother of B, B brother of C, C sister of D => A grandmother of D? Hmm => A is grandparent.', tags: ['blood-relations'], difficulty: 'hard' },
-  { category: 'logical', question: 'Odd one: Rectangle, Rhombus, Square, Triangle.', options: [{text:'Rectangle'},{text:'Rhombus'},{text:'Square'},{text:'Triangle'}], correctIndex: 3, explanation: 'Triangle has 3 sides; others 4.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: Some books are pens. Some pens are pencils. Conclusion?', options: [{text:'Some books are pencils'},{text:'No book is pencil'},{text:'Some books may be pencils'},{text:'All books are pencils'}], correctIndex: 2, explanation: 'Possibility exists but not certainty.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 1st Jan 2020 was Wednesday, 1st Jan 2021?', options: [{text:'Friday'},{text:'Thursday'},{text:'Saturday'},{text:'Sunday'}], correctIndex: 0, explanation: '2020 was leap year => 2 odd days => Friday.', tags: ['calendars'], difficulty: 'medium' },
-  { category: 'logical', question: 'A train 150m long passes pole in 10 sec. Speed km/h?', options: [{text:'54'},{text:'60'},{text:'48'},{text:'36'}], correctIndex: 0, explanation: 'Speed = 150/10 = 15 m/s = 54 km/h.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 7% of a number is 42, the number is?', options: [{text:'600'},{text:'700'},{text:'500'},{text:'800'}], correctIndex: 0, explanation: 'Number = 42/0.07 = 600.', tags: ['percentages'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: All roses are flowers. Some flowers fade quickly. Conclusion?', options: [{text:'All roses fade quickly'},{text:'Some roses may fade quickly'},{text:'No rose fades'},{text:'All flowers fade'}], correctIndex: 1, explanation: 'Possible but not certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'Handshakes in party of 10?', options: [{text:'45'},{text:'50'},{text:'55'},{text:'40'}], correctIndex: 0, explanation: 'nC2 = 10*9/2 = 45.', tags: ['combinations'], difficulty: 'medium' },
-  { category: 'logical', question: 'A is east of B. B is north of C. C is west of D. Direction D from A?', options: [{text:'South-East'},{text:'South-West'},{text:'North-East'},{text:'North-West'}], correctIndex: 0, explanation: 'If A east of B, B north of C => A north-east of C. D east of C => D south-east of A.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'logical', question: 'Find missing: 3, 6, 11, 18, 27, ?', options: [{text:'38'},{text:'36'},{text:'40'},{text:'42'}], correctIndex: 0, explanation: 'Differences: 3,5,7,9 => next 11 => 38.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: No car is bus. All buses are trucks. Conclusion?', options: [{text:'No car is truck'},{text:'Some cars are trucks'},{text:'No truck is car'},{text:'Some trucks may be cars'}], correctIndex: 3, explanation: 'Possible but not certain.', tags: ['syllogism'], difficulty: 'hard' },
-  { category: 'logical', question: 'A man walks 5 km east, turns left 3 km, left 5 km. Distance from start?', options: [{text:'3'},{text:'5'},{text:'4'},{text:'6'}], correctIndex: 0, explanation: 'Ends 3 km north of start => 3 km.', tags: ['direction'], difficulty: 'easy' },
-  { category: 'logical', question: 'If 4:8 = 12:?, then ?', options: [{text:'20'},{text:'24'},{text:'28'},{text:'32'}], correctIndex: 0, explanation: '4*2=8, 12*2=24? But 24 not. Try 4+4=8, 12+8=20 => 20.', tags: ['analogy'], difficulty: 'easy' },
-  { category: 'logical', question: 'Odd one: 64, 125, 216, 343, 500.', options: [{text:'64'},{text:'125'},{text:'216'},{text:'500'}], correctIndex: 3, explanation: '500 not a perfect cube.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'If P and Q are siblings, R is father of P. Relation Q to R?', options: [{text:'Son/Daughter'},{text:'Father'},{text:'Mother'},{text:'Grandparent'}], correctIndex: 0, explanation: 'Q is child of R.', tags: ['blood-relations'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: Some A are B, All B are C. Conclusion?', options: [{text:'All A are C'},{text:'Some A are C'},{text:'No A is C'},{text:'Cannot say'}], correctIndex: 1, explanation: 'Some A that are B are also C.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A clock shows 4:30. Reflex angle?', options: [{text:'165°'},{text:'180°'},{text:'150°'},{text:'195°'}], correctIndex: 0, explanation: 'Hour at 4.5, minute at 6 => smaller angle 105°, reflex = 360-105 = 255? Hmm with options, 165 not.', tags: ['clocks'], difficulty: 'hard' },
-  { category: 'logical', question: 'Series: AC, EG, IK, MO, ?', options: [{text:'QS'},{text:'RP'},{text:'ST'},{text:'QU'}], correctIndex: 0, explanation: 'Each advances by 4 letters: A->E->I->M->Q; C->G->K->O->S.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'If R S T means R is sister of S, S T R means?', options: [{text:'S is father of T and R'},{text:'S is mother'},{text:'Complex'},{text:'S is sibling'}], correctIndex: 0, explanation: 'R sister of S => S sibling of R. T? Actually S T R means S father of T and R? Depends on mapping. Standard: P Q R => P mother Q father R child. Need more context.', tags: ['coding-decoding'], difficulty: 'hard' },
-  { category: 'logical', question: 'Statement: All teachers are teachers. Some teachers are poets. Conclusion?', options: [{text:'Some teachers are poets'},{text:'All teachers are poets'},{text:'No teacher poet'},{text:'Cannot say'}], correctIndex: 0, explanation: 'Directly stated.', tags: ['syllogism'], difficulty: 'easy' },
-  { category: 'logical', question: 'A runs 100m while B runs 80m. In 400m race, B given head start?', options: [{text:'80m'},{text:'100m'},{text:'20m'},{text:'40m'}], correctIndex: 0, explanation: 'When A runs 100, B runs 80 => ratio 5:4. For 400, B start 80m.', tags: ['time-speed-distance'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 1, 3, 5, 7, 9, 11, 12.', options: [{text:'1'},{text:'3'},{text:'9'},{text:'12'}], correctIndex: 3, explanation: '12 is even; others odd.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: All mangoes are yellow. Some yellow are sour. Conclusion?', options: [{text:'All mangoes are sour'},{text:'Some mangoes may be sour'},{text:'No mango is sour'},{text:'All sour are mangoes'}], correctIndex: 1, explanation: 'Some mangoes might be sour, but not certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A man born 1996. Age on Feb 29 2024?', options: [{text:'28'},{text:'27'},{text:'26'},{text:'29'}], correctIndex: 0, explanation: 'Leap years since 1996: 2000,2004,2008,2012,2016,2020,2024 => age 28 on Feb 29 2024.', tags: ['calendars'], difficulty: 'hard' },
-  { category: 'logical', question: 'If 5@3 = 16 and 3@5 = 24, then 4@4 = ?', options: [{text:'32'},{text:'20'},{text:'16'},{text:'24'}], correctIndex: 0, explanation: 'Pattern: a@b => a^2 - b^2? 25-9=16; 9-25? No 24. Try a*b + a? 5*3+1=16, 3*5+9=24. Then 4*4+16=32.', tags: ['puzzle'], difficulty: 'hard' },
-  { category: 'logical', question: 'Direction: A is 5 km NW of B. C is 4 km NE of B. C direction from A?', options: [{text:'East'},{text:'North'},{text:'South'},{text:'West'}], correctIndex: 0, explanation: 'A left of B, C right of B => C east of A.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'logical', question: 'Series: 1, 3, 7, 15, 31, ?', options: [{text:'63'},{text:'47'},{text:'55'},{text:'62'}], correctIndex: 0, explanation: 'Each = 2*n - 1 => 63.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: No fan is lamp. Some fans are machines. Conclusion?', options: [{text:'Some machines are lamps'},{text:'Some machines are not lamps'},{text:'All machines are lamps'},{text:'No machine is lamp'}], correctIndex: 1, explanation: 'Some machines are fans, and no fan is lamp => some machines are not lamps.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'If father of my sister is your father, relation?', options: [{text:'Brother'},{text:'Sister'},{text:'Cousin'},{text:'You are me'}], correctIndex: 1, explanation: 'You are sibling (sister).', tags: ['blood-relations'], difficulty: 'easy' },
-  { category: 'logical', question: 'A earns 50% more than B. B earns 20% less than C. A:C?', options: [{text:'3:2'},{text:'4:3'},{text:'5:4'},{text:'6:5'}], correctIndex: 0, explanation: 'B=100, A=150; C=125; A:C = 150:125 = 6:5.', tags: ['percentages'], difficulty: 'medium' },
-  { category: 'logical', question: 'Clock hands coincide between 2 and 3?', options: [{text:'10 10/11 min'},{text:'10 min'},{text:'11 min'},{text:'12 min'}], correctIndex: 0, explanation: 'Coincidence = 10 10/11 minutes past 2.', tags: ['clocks'], difficulty: 'hard' },
-  { category: 'logical', question: 'Odd one: Paper, Pencil, Pen, Eraser, Sharpener.', options: [{text:'Paper'},{text:'Pencil'},{text:'Pen'},{text:'Eraser'}], correctIndex: 0, explanation: 'Paper is not writing instrument; others used for writing/erasing.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: Some pen are ink. All ink are blue. Conclusion?', options: [{text:'Some pen are blue'},{text:'All pen are blue'},{text:'No pen is blue'},{text:'Cannot say'}], correctIndex: 0, explanation: 'Some pen that are ink are blue.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 3 men or 4 women complete work in 43 days. 7 men + 5 women?', options: [{text:'12'},{text:'15'},{text:'10'},{text:'18'}], correctIndex: 0, explanation: 'Use work equivalence: 3M=4W => M=4W/3. Total work = 3M*43 = 129M. 7M+5W = 7M+15M/4 = 43M/4. Days = 129 / (43/4) = 12.', tags: ['work'], difficulty: 'hard' },
-  { category: 'logical', question: 'Find next: 2, 3, 5, 7, 11, 13, ?', options: [{text:'17'},{text:'15'},{text:'19'},{text:'14'}], correctIndex: 0, explanation: 'Prime numbers.', tags: ['series'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: All heroes are brave. No coward is brave. Conclusion?', options: [{text:'No hero is coward'},{text:'Some heroes are cowards'},{text:'All cowards are heroes'},{text:'Cannot say'}], correctIndex: 0, explanation: 'All heroes are brave; no coward is brave => no hero is coward.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A man wants to go from A to B. A is 20m N of B. He goes 30m E. Distance from B?', options: [{text:'10'},{text:'20'},{text:'25'},{text:'30'}], correctIndex: 0, explanation: 'Right triangle: 20-30-? => 10 to B? Actually he ends 10m NE of B? Distance = sqrt(20^2+30^2) ~36, not in options. Maybe simpler: ends 10m east of line AB? If forced, 10.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 2, 4, 8, 16, 32, ? then ?', options: [{text:'64'},{text:'48'},{text:'56'},{text:'128'}], correctIndex: 0, explanation: 'Powers of 2.', tags: ['series'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: Some doctors are teachers. All doctors are smart. Conclusion?', options: [{text:'Some teachers are smart'},{text:'All teachers are smart'},{text:'No teacher is smart'},{text:'Cannot say'}], correctIndex: 3, explanation: 'Cannot be certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'A is B wife. B is C son. C is D father. D related to A?', options: [{text:'Parent-in-law'},{text:'Sibling'},{text:'Child'},{text:'Parent'}], correctIndex: 0, explanation: 'D is father of B => A parent-in-law of D? Wait D is parent of B, so A daughter-in-law/son-in-law of D.', tags: ['blood-relations'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 121, 144, 169, 196, 225, 256, 289, 324.', options: [{text:'121'},{text:'144'},{text:'169'},{text:'All'}], correctIndex: 3, explanation: 'All are perfect squares.', tags: ['odd-one-out'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: No monkey is elephant. All elephants are mammals. Conclusion?', options: [{text:'No monkey is mammal'},{text:'Some monkeys may be mammals'},{text:'All monkeys are mammals'},{text:'No monkey can be elephant'}], correctIndex: 3, explanation: 'Direct: no monkey is elephant.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 5 lamps use 5 units in 5 hours. 10 lamps 10 hours?', options: [{text:'10'},{text:'5'},{text:'15'},{text:'20'}], correctIndex: 0, explanation: 'Proportional: 10 lamps * 10 hrs / 5 lamps = 20 hrs? Actually units proportional to lamp-hrs: 5L-5h = 25 lamp-hrs = 5 units => 10L-10h = 100 lamp-hrs => 20 units. But 10 in options if simplified incorrectly. Hmm choose 10 with given.', tags: ['work'], difficulty: 'medium' },
-  { category: 'logical', question: 'Handshakes in meeting of 15 people?', options: [{text:'105'},{text:'120'},{text:'90'},{text:'210'}], correctIndex: 0, explanation: '15C2 = 105.', tags: ['combinations'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: All birds can fly. Penguins are birds. Conclusion?', options: [{text:'Penguins can fly'},{text:'Penguins cannot fly'},{text:'Some birds cannot fly'},{text:'Cannot say'}], correctIndex: 3, explanation: 'Premise is false logically; with given, penguins can fly per statement.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'Direction: A is 10 km S of B. C is 10 km E of B. Distance A to C?', options: [{text:'10√2'},{text:'20'},{text:'10'},{text:'15'}], correctIndex: 0, explanation: 'Diagonal of square.', tags: ['direction'], difficulty: 'easy' },
-  { category: 'logical', question: 'Series: 1, 8, 27, 64, ?, 216.', options: [{text:'125'},{text:'100'},{text:'150'},{text:'175'}], correctIndex: 0, explanation: 'Cubes: 1,8,27,64,125,216.', tags: ['series'], difficulty: 'medium' },
-  { category: 'logical', question: 'Statement: No gate is wall. All walls are fence. Conclusion?', options: [{text:'No gate is fence'},{text:'Some gates are fence'},{text:'All gates are fence'},{text:'Some gates may be fence'}], correctIndex: 3, explanation: 'Cannot be certain.', tags: ['syllogism'], difficulty: 'hard' },
-  { category: 'logical', question: 'If a=1, b=2, c=3... what is sum of letters in "ace"?', options: [{text:'7'},{text:'6'},{text:'5'},{text:'8'}], correctIndex: 0, explanation: '1+3+5=7.', tags: ['coding-decoding'], difficulty: 'easy' },
-  { category: 'logical', question: 'A can do in 10 days, B in 15 days. Work together?', options: [{text:'6'},{text:'5'},{text:'4'},{text:'7'}], correctIndex: 0, explanation: '1/10+1/15=1/6 => 6 days.', tags: ['work'], difficulty: 'easy' },
-  { category: 'logical', question: 'Odd one: Apple, Banana, Carrot, Mango.', options: [{text:'Apple'},{text:'Banana'},{text:'Carrot'},{text:'Mango'}], correctIndex: 2, explanation: 'Carrot is vegetable.', tags: ['odd-one-out'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: All students are scholars. Some scholars are athletes. Conclusion?', options: [{text:'Some students are athletes'},{text:'No student is athlete'},{text:'Some students may be athletes'},{text:'All students are athletes'}], correctIndex: 2, explanation: 'Possible but not certain.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'logical', question: 'In how many ways can 4 people sit in 4 chairs?', options: [{text:'24'},{text:'12'},{text:'16'},{text:'8'}], correctIndex: 0, explanation: '4! = 24.', tags: ['permutations'], difficulty: 'easy' },
-  { category: 'logical', question: 'Direction: Facing north, turn left 45°, right 90°, left 135°. Facing?', options: [{text:'South'},{text:'West'},{text:'East'},{text:'North'}], correctIndex: 0, explanation: 'North + left45=NW + right90=NE + left135=South.', tags: ['direction'], difficulty: 'medium' },
-  { category: 'logical', question: 'Series: 2, 4, 8, 16, 32, ?', options: [{text:'64'},{text:'48'},{text:'56'},{text:'128'}], correctIndex: 0, explanation: 'Powers of 2.', tags: ['series'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: Every cat is an animal. Some animals are black. Conclusion?', options: [{text:'All cats are black'},{text:'Some cats may be black'},{text:'No cats are black'},{text:'Cats are not animals'}], correctIndex: 1, explanation: 'Some cats could be black, but not certain.', tags: ['syllogism'], difficulty: 'easy' },
-  { category: 'logical', question: 'If P is mother of Q and R is father of Q, P related to R?', options: [{text:'Wife'},{text:'Husband'},{text:'Sister'},{text:'Mother'}], correctIndex: 0, explanation: 'P is wife of R.', tags: ['blood-relations'], difficulty: 'easy' },
-  { category: 'logical', question: 'If given mirror shows 12:15, actual time?', options: [{text:'11:45'},{text:'12:45'},{text:'11:15'},{text:'12:15'}], correctIndex: 0, explanation: 'Mirror time = 12:15 => actual = 11:45.', tags: ['clocks'], difficulty: 'medium' },
-  { category: 'logical', question: 'Odd one: 125, 343, 512, 729, 1000.', options: [{text:'125'},{text:'343'},{text:'512'},{text:'1000'}], correctIndex: 3, explanation: '1000 is 10^3, all are cubes. Hmm. With options, pick 1000? All cubes actually. Change odd one to none? Let us use 1000 if miscounted.', tags: ['odd-one-out'], difficulty: 'medium' },
-  { category: 'logical', question: 'If 3x - 5 = 16, x?', options: [{text:'7'},{text:'6'},{text:'8'},{text:'9'}], correctIndex: 0, explanation: '3x = 21 => x=7.', tags: ['algebra'], difficulty: 'easy' },
-  { category: 'logical', question: 'Statement: No fruit is vegetable. Some vegetables are green. Conclusion?', options: [{text:'All green are fruits'},{text:'Some green are not fruits'},{text:'No green is fruit'},{text:'All fruits are green'}], correctIndex: 1, explanation: 'Some vegetables are green and no fruit is vegetable => some green may not be fruits? Actually some green are vegetables, and no vegetable is fruit => some green are not fruits.', tags: ['syllogism'], difficulty: 'hard' },
-
-  // ===== NUMBER SYSTEM =====
-  { category: 'number-system', question: 'Find HCF of 24, 36, 60.', options: [{text:'12'},{text:'6'},{text:'18'},{text:'24'}], correctIndex: 0, explanation: 'HCF(24,36,60) = 12.', tags: ['hcf-lcm'], difficulty: 'easy' },
-  { category: 'number-system', question: 'Find LCM of 12, 15, 20.', options: [{text:'60'},{text:'120'},{text:'180'},{text:'30'}], correctIndex: 0, explanation: 'LCM(12,15,20) = 60.', tags: ['hcf-lcm'], difficulty: 'easy' },
-  { category: 'number-system', question: 'Find remainder when 2^10 is divided by 5.', options: [{text:'4'},{text:'3'},{text:'2'},{text:'1'}], correctIndex: 0, explanation: '2^4=16 mod5=1; 2^8=1; 2^10=2^8*2^2=4 mod5.', tags: ['remainders'], difficulty: 'medium' },
-  { category: 'number-system', question: 'Find greatest number dividing 135, 225, 315.', options: [{text:'45'},{text:'15'},{text:'9'},{text:'5'}], correctIndex: 0, explanation: 'HCF(135,225,315) = 45.', tags: ['hcf-lcm'], difficulty: 'easy' },
-  { category: 'number-system', question: 'Find greatest 4-digit number divisible by 12, 15, 18.', options: [{text:'9900'},{text:'9990'},{text:'9960'},{text:'9800'}], correctIndex: 0, explanation: 'LCM=180; largest 4-digit multiple = 9900.', tags: ['hcf-lcm'], difficulty: 'medium' },
-
-  // ===== PERCENTAGES =====
-  { category: 'percentages', question: 'What is 20% of 500?', options: [{text:'50'},{text:'100'},{text:'150'},{text:'200'}], correctIndex: 1, explanation: '20% of 500 = 0.2 * 500 = 100.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'percentages', question: 'A shopkeeper gives 20% discount on Rs.500. Selling price?', options: [{text:'300'},{text:'400'},{text:'450'},{text:'350'}], correctIndex: 1, explanation: '20% of 500 = 100; 500-100 = 400.', tags: ['discount'], difficulty: 'easy' },
-  { category: 'percentages', question: 'A is 30% more than B. How much % less is B than A?', options: [{text:'23.07%'},{text:'30%'},{text:'25%'},{text:'20%'}], correctIndex: 0, explanation: 'If B=100, A=130. B less than A = 30/130*100 = 23.07%.', tags: ['comparison'], difficulty: 'medium' },
-  { category: 'percentages', question: 'If 30% of 40% of a number is 24, the number is?', options: [{text:'200'},{text:'300'},{text:'250'},{text:'150'}], correctIndex: 0, explanation: '0.3*0.4*x=24 => 0.12x=24 => x=200.', tags: ['successive'], difficulty: 'easy' },
-  { category: 'percentages', question: 'Find single discount equivalent to 20% and 15%.', options: [{text:'32%'},{text:'35%'},{text:'30%'},{text:'25%'}], correctIndex: 0, explanation: 'Equivalent = 1 - (0.8*0.85) = 1 - 0.68 = 0.32 = 32%.', tags: ['discount'], difficulty: 'medium' },
-  { category: 'percentages', question: 'If 40% fail in Maths, 30% in English, 10% both. Pass %?', options: [{text:'40%'},{text:'60%'},{text:'50%'},{text:'30%'}], correctIndex: 0, explanation: 'Fail atleast one = 40+30-10=60%; pass = 40%.', tags: ['sets'], difficulty: 'medium' },
-  { category: 'percentages', question: 'A man spends 60% of income. Saves Rs.12000. Income?', options: [{text:'30000'},{text:'40000'},{text:'36000'},{text:'48000'}], correctIndex: 0, explanation: 'If 60% spent, 40% saved = 12000; income = 12000/0.4 = 30000.', tags: ['income'], difficulty: 'easy' },
-  { category: 'percentages', question: 'If 7% of a number is 42, the number is?', options: [{text:'600'},{text:'700'},{text:'500'},{text:'800'}], correctIndex: 0, explanation: 'Number = 42/0.07 = 600.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'percentages', question: 'A earns 50% more than B. B earns 20% less than C. A:C?', options: [{text:'3:2'},{text:'4:3'},{text:'5:4'},{text:'6:5'}], correctIndex: 0, explanation: 'B=100, A=150; C=125; A:C = 150:125 = 6:5.', tags: ['comparison'], difficulty: 'medium' },
-
-  // ===== PROFIT AND LOSS =====
-  { category: 'profit-loss', question: 'Find profit %: CP=200, SP=250.', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'15%'}], correctIndex: 1, explanation: 'Profit = 50; % = 50/200*100 = 25%.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'profit-loss', question: 'A bat costs Rs.800. Sold at 10% loss. SP?', options: [{text:'720'},{text:'750'},{text:'700'},{text:'680'}], correctIndex: 0, explanation: 'Loss = 10% of 800 = 80; SP = 800-80 = 720.', tags: ['loss'], difficulty: 'easy' },
-  { category: 'profit-loss', question: 'By selling at Rs.600, loss 20%. CP?', options: [{text:'750'},{text:'700'},{text:'800'},{text:'720'}], correctIndex: 0, explanation: 'CP = 600 / 0.8 = 750.', tags: ['loss'], difficulty: 'medium' },
-  { category: 'profit-loss', question: 'A trader marks goods 50% above CP and gives 20% discount. Profit %?', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'15%'}], correctIndex: 0, explanation: 'MP=1.5CP; SP=1.5*0.8=1.2CP => 20% profit.', tags: ['discount'], difficulty: 'medium' },
-  { category: 'profit-loss', question: 'A watch sold at 20% profit. If CP and SP both reduced by Rs.100, profit 25%. CP?', options: [{text:'500'},{text:'400'},{text:'300'},{text:'600'}], correctIndex: 0, explanation: '1.2CP - 100 = 1.25(CP-100) => CP=500.', tags: ['profit'], difficulty: 'hard' },
-  { category: 'profit-loss', question: 'A man gains 10% on SP. Gain % on CP?', options: [{text:'11.11%'},{text:'10%'},{text:'12%'},{text:'9%'}], correctIndex: 0, explanation: 'If SP=110, CP=100; profit=10 => on CP = 10/100 = 10%? Wait typical answer is 11.11%.', tags: ['profit'], difficulty: 'medium' },
-  { category: 'profit-loss', question: 'A dishonest dealer sells 900g for 1kg. Profit %?', options: [{text:'11.11%'},{text:'10%'},{text:'12%'},{text:'9%'}], correctIndex: 0, explanation: 'Sells 900g as 1000g; profit = 100g on 900g = 100/900*100 = 11.11%.', tags: ['false-weight'], difficulty: 'medium' },
-  { category: 'profit-loss', question: 'Find profit % if CP:SP = 5:6.', options: [{text:'20%'},{text:'25%'},{text:'30%'},{text:'16.67%'}], correctIndex: 0, explanation: 'Profit = 1 on 5 => 20%.', tags: ['ratio'], difficulty: 'easy' },
-  { category: 'profit-loss', question: 'A man buys 10 articles for Rs.8. Sells 8 for Rs.10. Profit %?', options: [{text:'56.25%'},{text:'50%'},{text:'25%'},{text:'20%'}], correctIndex: 0, explanation: 'CP per article = 0.8; SP per article = 1.25; profit = 0.45; % = 0.45/0.8*100 = 56.25%', tags: ['profit'], difficulty: 'medium' },
-
-  // ===== RATIO AND PROPORTION =====
-  { category: 'ratio-proportion', question: 'Ratio of two numbers is 3:4, sum is 35. Smaller?', options: [{text:'12'},{text:'15'},{text:'18'},{text:'20'}], correctIndex: 1, explanation: '3x+4x=35 => 7x=35 => x=5 => smaller=15.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'ratio-proportion', question: 'A is 2 times B, B is 3 times C. Ratio A:B:C?', options: [{text:'6:3:1'},{text:'2:3:1'},{text:'3:2:1'},{text:'1:2:3'}], correctIndex: 0, explanation: 'A=2B, B=3C => A=6C => ratio 6:3:1.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'ratio-proportion', question: 'If a:b = 2:3, b:c = 4:5, then a:c?', options: [{text:'8:15'},{text:'2:5'},{text:'3:5'},{text:'4:5'}], correctIndex: 0, explanation: 'a:b = 2:3 => a=2k, b=3k; b:c = 4:5 => 3k=4m => k=4m/3. a=8m/3, c=5m => a:c=8:15.', tags: ['compound'], difficulty: 'medium' },
-  { category: 'ratio-proportion', question: 'A mixture of milk and water in ratio 3:2. Total 10L. Milk?', options: [{text:'4L'},{text:'6L'},{text:'5L'},{text:'3L'}], correctIndex: 1, explanation: 'Milk = 3/5 * 10 = 6L.', tags: ['mixture'], difficulty: 'easy' },
-  { category: 'ratio-proportion', question: 'If A:B = 5:7. After 4 years, ratio 3:4. Present age A?', options: [{text:'10'},{text:'15'},{text:'20'},{text:'25'}], correctIndex: 0, explanation: '5x+4 / 7x+4 = 3/4 => 20x+16 = 21x+12 => x=4 => A=20.', tags: ['ages'], difficulty: 'medium' },
-
-  // ===== AVERAGE =====
-  { category: 'averages', question: 'Find average of first 20 natural numbers.', options: [{text:'10.5'},{text:'11'},{text:'10'},{text:'12'}], correctIndex: 0, explanation: 'Average = (1+20)/2 = 10.5.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'averages', question: 'A batsman avg 40 in 10 matches. Scores 0 and 100 in next two. New avg?', options: [{text:'40'},{text:'38'},{text:'42'},{text:'36'}], correctIndex: 0, explanation: 'Total = 400+100 = 500; matches = 12; avg = 500/12 = 41.67. Closest is 40.', tags: ['cricket'], difficulty: 'medium' },
-  { category: 'averages', question: 'Average of 5 consecutive even numbers is 30. Largest?', options: [{text:'34'},{text:'36'},{text:'32'},{text:'38'}], correctIndex: 0, explanation: 'Numbers: 26,28,30,32,34 => largest 34.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'averages', question: 'Average of first 10 multiples of 5.', options: [{text:'27.5'},{text:'25'},{text:'30'},{text:'20'}], correctIndex: 0, explanation: 'Multiples: 5,10...50; avg = (5+50)/2 = 27.5.', tags: ['multiples'], difficulty: 'medium' },
-
-  // ===== PARTNERSHIP =====
-  { category: 'partnership', question: 'A invests Rs.5000, B Rs.3000 for 1 year. Profit Rs.4000. A share?', options: [{text:'2500'},{text:'3000'},{text:'1500'},{text:'2000'}], correctIndex: 0, explanation: 'Ratio 5:3 => A gets 5/8 * 4000 = 2500.', tags: ['simple'], difficulty: 'easy' },
-  { category: 'partnership', question: 'A invests for 6 months, B for 12 months. Ratio of capitals 2:3. Profit share?', options: [{text:'1:3'},{text:'1:2'},{text:'2:3'},{text:'1:6'}], correctIndex: 0, explanation: 'Effective = 2*6 : 3*12 = 12:36 = 1:3.', tags: ['time'], difficulty: 'medium' },
-  { category: 'partnership', question: 'A, B, C invest in ratio 1:2:3. Profit Rs.3600. C gets?', options: [{text:'1800'},{text:'1200'},{text:'600'},{text:'2400'}], correctIndex: 0, explanation: 'Total parts 6; C gets 3/6 * 3600 = 1800.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== MIXTURE AND ALLEGATION =====
-  { category: 'mixture-allegation', question: 'Milk costs Rs.40/L, water Rs.20/L. Mixture worth Rs.30/L. Ratio?', options: [{text:'1:1'},{text:'2:1'},{text:'1:2'},{text:'3:1'}], correctIndex: 0, explanation: 'By allegation: (40-30):(30-20) = 10:10 = 1:1.', tags: ['alligation'], difficulty: 'medium' },
-  { category: 'mixture-allegation', question: 'Container has 40L milk. 4L replaced by water 3 times. Milk left?', options: [{text:'29.16L'},{text:'30L'},{text:'28L'},{text:'27L'}], correctIndex: 0, explanation: 'Remaining = 40*(1-4/40)^3 = 40*(0.9)^3 = 29.16.', tags: ['replacement'], difficulty: 'hard' },
-  { category: 'mixture-allegation', question: 'Two alloys contain gold:silver 3:1 and 5:2. Mixed equal weights. Ratio?', options: [{text:'11:4'},{text:'8:3'},{text:'5:2'},{text:'7:3'}], correctIndex: 0, explanation: 'Equal parts: (3+5):(1+2) = 8:3? Actually careful: 3/4 gold + 5/7 gold => average.', tags: ['alloy'], difficulty: 'medium' },
-
-  // ===== TIME AND WORK =====
-  { category: 'time-work', question: 'A can do work in 10 days, B in 15 days. Together?', options: [{text:'6'},{text:'5'},{text:'4'},{text:'7'}], correctIndex: 0, explanation: '1/10 + 1/15 = 5/30 = 1/6 => 6 days.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'time-work', question: 'If 12 men complete work in 18 days, how many men for 24 days?', options: [{text:'6'},{text:'9'},{text:'12'},{text:'18'}], correctIndex: 1, explanation: 'M1D1 = M2D2 => 12*18 = M2*24 => M2=9.', tags: ['men-days'], difficulty: 'medium' },
-  { category: 'time-work', question: 'A can do work in 20 days, B in 30 days. A leaves after 5 days. B completes? Days?', options: [{text:'20'},{text:'15'},{text:'18'},{text:'22'}], correctIndex: 0, explanation: 'Work done by A in 5 days = 5/20=1/4; remaining 3/4 by B at 1/30 per day => 22.5 days approx 20.', tags: ['partial-work'], difficulty: 'hard' },
-  { category: 'time-work', question: 'A is thrice as good as B. A completes work in 10 days. B?', options: [{text:'30'},{text:'15'},{text:'20'},{text:'25'}], correctIndex: 0, explanation: 'If A=3B, time ratio 1:3 => B takes 30 days.', tags: ['efficiency'], difficulty: 'medium' },
-  { category: 'time-work', question: 'A can finish work in 6 days, B in 12 days. Together?', options: [{text:'4'},{text:'3'},{text:'5'},{text:'6'}], correctIndex: 0, explanation: '1/6 + 1/12 = 3/12 = 1/4 => 4 days.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'time-work', question: 'If 3 men or 4 women complete work in 43 days. 7 men + 5 women?', options: [{text:'12'},{text:'15'},{text:'10'},{text:'18'}], correctIndex: 0, explanation: 'Use work equivalence: 3M=4W => M=4W/3. Total work = 3M*43 = 129M. 7M+5W = 7M+15M/4 = 43M/4. Days = 129 / (43/4) = 12.', tags: ['men-women'], difficulty: 'hard' },
-  { category: 'time-work', question: 'If 5 men + 7 boys earn Rs.3150 in 6 days, 6 men + 9 boys earn in 9 days?', options: [{text:'5775'},{text:'6000'},{text:'5500'},{text:'5000'}], correctIndex: 0, explanation: 'Using work equivalence, total earnings proportional to (5M+7B)*6; for (6M+9B)*9 = 5775.', tags: ['wages'], difficulty: 'hard' },
-
-  // ===== PIPES AND CISTERNS =====
-  { category: 'pipes-cisterns', question: 'Two pipes fill tank in 4 and 6 hours. Third empties in 8 hours. Together?', options: [{text:'3.43'},{text:'4'},{text:'5'},{text:'6'}], correctIndex: 0, explanation: '1/4+1/6-1/8 = 7/24 => 24/7 = 3.43 hours.', tags: ['fill-empty'], difficulty: 'hard' },
-  { category: 'pipes-cisterns', question: 'A cistern fills in 10 min, empties in 12 min. Both open?', options: [{text:'60'},{text:'55'},{text:'50'},{text:'65'}], correctIndex: 0, explanation: 'Net = 1/10 - 1/12 = 1/60 => 60 min.', tags: ['fill-empty'], difficulty: 'medium' },
-  { category: 'pipes-cisterns', question: 'Pipe A fills in 20 min, B in 30 min. Both open alternately 1 min each?', options: [{text:'24'},{text:'26'},{text:'28'},{text:'30'}], correctIndex: 0, explanation: 'A fills 1/20 per min, B 1/30. Alternating => effective combined rate.', tags: ['alternate'], difficulty: 'hard' },
-
-  // ===== TIME SPEED DISTANCE =====
-  { category: 'time-speed-distance', question: 'If train travels 120 km in 2 hours, speed?', options: [{text:'40 km/h'},{text:'60 km/h'},{text:'120 km/h'},{text:'240 km/h'}], correctIndex: 1, explanation: 'Speed = Distance/Time = 120/2 = 60 km/h.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'time-speed-distance', question: 'A car covers 180 km in 3 hours. Speed in m/s?', options: [{text:'15'},{text:'16.67'},{text:'20'},{text:'18'}], correctIndex: 1, explanation: '180km/3h = 60km/h = 60*1000/3600 = 16.67 m/s.', tags: ['conversion'], difficulty: 'medium' },
-  { category: 'time-speed-distance', question: 'A train 100m long crosses pole in 10 sec. Speed?', options: [{text:'36 km/h'},{text:'30 km/h'},{text:'40 km/h'},{text:'32 km/h'}], correctIndex: 0, explanation: 'Speed = 100/10 = 10 m/s = 36 km/h.', tags: ['trains'], difficulty: 'medium' },
-  { category: 'time-speed-distance', question: 'A train 150m long passes pole in 10 sec. Speed km/h?', options: [{text:'54'},{text:'60'},{text:'48'},{text:'36'}], correctIndex: 0, explanation: 'Speed = 150/10 = 15 m/s = 54 km/h.', tags: ['trains'], difficulty: 'medium' },
-  { category: 'time-speed-distance', question: 'P travels A to B at 30km/h, returns at 20km/h. Average?', options: [{text:'24'},{text:'25'},{text:'26'},{text:'28'}], correctIndex: 0, explanation: 'Avg = 2*30*20/(30+20) = 24.', tags: ['average-speed'], difficulty: 'medium' },
-  { category: 'time-speed-distance', question: 'A runs 100m while B runs 80m. In 400m race, B given head start?', options: [{text:'80m'},{text:'100m'},{text:'20m'},{text:'40m'}], correctIndex: 0, explanation: 'When A runs 100, B runs 80 => ratio 5:4. For 400, B start 80m.', tags: ['race'], difficulty: 'medium' },
-
-  // ===== BOATS AND STREAMS =====
-  { category: 'boats-streams', question: 'A man rows 10 km/hr in still water. River 2 km/hr. Upstream speed?', options: [{text:'8'},{text:'12'},{text:'10'},{text:'6'}], correctIndex: 0, explanation: 'Upstream = 10 - 2 = 8 km/hr.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'boats-streams', question: 'A boat goes 40 km upstream in 8 hours. Speed in still water 6 km/hr. Current speed?', options: [{text:'1'},{text:'2'},{text:'3'},{text:'4'}], correctIndex: 0, explanation: 'Upstream speed = 5; current = 6-5 = 1 km/hr.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'boats-streams', question: 'Speed downstream 18 km/h, upstream 12 km/h. Speed in still water?', options: [{text:'15'},{text:'6'},{text:'3'},{text:'30'}], correctIndex: 0, explanation: 'Still water = (down+up)/2 = (18+12)/2 = 15.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== TRAINS =====
-  { category: 'trains', question: 'Train 100m long crosses pole in 10 sec. Speed?', options: [{text:'36 km/h'},{text:'30 km/h'},{text:'40 km/h'},{text:'32 km/h'}], correctIndex: 0, explanation: 'Speed = 100/10 = 10 m/s = 36 km/h.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'trains', question: 'Train 150m long passes pole in 10 sec. Speed km/h?', options: [{text:'54'},{text:'60'},{text:'48'},{text:'36'}], correctIndex: 0, explanation: 'Speed = 150/10 = 15 m/s = 54 km/h.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== SIMPLE INTEREST =====
-  { category: 'simple-interest', question: 'Find simple interest: P=1000, R=5%, T=2 years.', options: [{text:'50'},{text:'100'},{text:'150'},{text:'200'}], correctIndex: 1, explanation: 'SI = PRT/100 = 1000*5*2/100 = 100.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'simple-interest', question: 'A sum doubles in 5 years at SI. Rate?', options: [{text:'10%'},{text:'20%'},{text:'15%'},{text:'25%'}], correctIndex: 1, explanation: 'SI = P, so P = P*R*5/100 => R=20%.', tags: ['doubling'], difficulty: 'medium' },
-  { category: 'simple-interest', question: 'Simple interest on Rs.800 for 3 years is Rs.120. Rate?', options: [{text:'5%'},{text:'6%'},{text:'4%'},{text:'8%'}], correctIndex: 0, explanation: '120 = 800*R*3/100 => R=5%.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'simple-interest', question: 'Find SI on Rs.600 at 5% for 4 years.', options: [{text:'120'},{text:'100'},{text:'150'},{text:'80'}], correctIndex: 0, explanation: 'SI = 600*5*4/100 = 120.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'simple-interest', question: 'A man invests Rs.5000 at 8% p.a. for 2 years. Amount?', options: [{text:'5800'},{text:'6000'},{text:'5600'},{text:'6200'}], correctIndex: 0, explanation: 'SI = 5000*8*2/100 = 800; Amount = 5000+800 = 5800.', tags: ['amount'], difficulty: 'easy' },
-  { category: 'simple-interest', question: 'A man deposits Rs.1000 at 5% for 2 years. Amount?', options: [{text:'1100'},{text:'1050'},{text:'1150'},{text:'1200'}], correctIndex: 0, explanation: 'SI=100, Amount=1100.', tags: ['amount'], difficulty: 'easy' },
-
-  // ===== COMPOUND INTEREST =====
-  { category: 'compound-interest', question: 'Find compound interest on Rs.1000 at 10% for 2 years.', options: [{text:'100'},{text:'210'},{text:'200'},{text:'121'}], correctIndex: 1, explanation: 'CI = 1000*(1.1^2 - 1) = 1000*(1.21-1) = 210.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'compound-interest', question: 'A sum becomes Rs.2420 in 2 years and Rs.2662 in 3 years at CI. Rate?', options: [{text:'10%'},{text:'12%'},{text:'15%'},{text:'8%'}], correctIndex: 0, explanation: 'Difference = 242; rate = 242/2200*100 = 11% approx. With options, 10% works best.', tags: ['installments'], difficulty: 'medium' },
-  { category: 'compound-interest', question: 'The difference between SI and CI on Rs.1000 for 2 years at 10%?', options: [{text:'10'},{text:'20'},{text:'5'},{text:'1'}], correctIndex: 0, explanation: 'SI=200, CI=210; diff=10.', tags: ['difference'], difficulty: 'medium' },
-
-  // ===== AGES =====
-  { category: 'ages', question: 'The present age of father is 3 times son. After 5 years, sum 70. Present age of father?', options: [{text:'45'},{text:'50'},{text:'40'},{text:'48'}], correctIndex: 0, explanation: '3x+5 + x+5 = 70 => 4x+10=70 => x=15; father=45.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'ages', question: 'The ratio of ages A:B = 5:7. After 4 years, ratio 3:4. Present age A?', options: [{text:'10'},{text:'15'},{text:'20'},{text:'25'}], correctIndex: 0, explanation: '5x+4 / 7x+4 = 3/4 => 20x+16 = 21x+12 => x=4 => A=20.', tags: ['ratio'], difficulty: 'medium' },
-  { category: 'ages', question: 'A man born 1996. Age on Feb 29 2024?', options: [{text:'28'},{text:'27'},{text:'26'},{text:'29'}], correctIndex: 0, explanation: 'Leap years since 1996: 2000,2004,2008,2012,2016,2020,2024 => age 28 on Feb 29 2024.', tags: ['leap-year'], difficulty: 'hard' },
-
-  // ===== CLOCKS =====
-  { category: 'clocks', question: 'Clock shows 3:15. Angle between hands?', options: [{text:'7.5°'},{text:'0°'},{text:'90°'},{text:'180°'}], correctIndex: 0, explanation: 'Hour hand at 3.25*0.5 = 1.25 hour marks; minute at 3 => 7.5°.', tags: ['angles'], difficulty: 'medium' },
-  { category: 'clocks', question: 'Time now 6:45. After 2h 30m?', options: [{text:'9:15'},{text:'8:75'},{text:'9:15'},{text:'10:15'}], correctIndex: 0, explanation: '6:45 + 2:30 = 9:15.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'clocks', question: 'A clock strikes once at 1, twice at 2. In 24 hours?', options: [{text:'156'},{text:'78'},{text:'312'},{text:'100'}], correctIndex: 0, explanation: 'In 12 hours = 78; in 24 = 156.', tags: ['strikes'], difficulty: 'medium' },
-  { category: 'clocks', question: 'Clock hands coincide between 2 and 3?', options: [{text:'10 10/11 min'},{text:'10 min'},{text:'11 min'},{text:'12 min'}], correctIndex: 0, explanation: 'Coincidence = 10 10/11 minutes past 2.', tags: ['coincidence'], difficulty: 'hard' },
-  { category: 'clocks', question: 'If given mirror shows 12:15, actual time?', options: [{text:'11:45'},{text:'12:45'},{text:'11:15'},{text:'12:15'}], correctIndex: 0, explanation: 'Mirror time = 12:15 => actual = 11:45.', tags: ['mirror'], difficulty: 'medium' },
-
-  // ===== CALENDARS =====
-  { category: 'calendars', question: 'If 1st Jan 2020 was Wednesday, 1st Jan 2021?', options: [{text:'Friday'},{text:'Thursday'},{text:'Saturday'},{text:'Sunday'}], correctIndex: 0, explanation: '2020 was leap year => 2 odd days => Friday.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'calendars', question: 'A man born 1996. Age on Feb 29 2024?', options: [{text:'28'},{text:'27'},{text:'26'},{text:'29'}], correctIndex: 0, explanation: 'Leap years since 1996: 2000,2004,2008,2012,2016,2020,2024 => age 28 on Feb 29 2024.', tags: ['leap-year'], difficulty: 'hard' },
-
-  // ===== PERMUTATION AND COMBINATION =====
-  { category: 'permutation-combination', question: 'Handshakes in party of 10?', options: [{text:'45'},{text:'50'},{text:'55'},{text:'40'}], correctIndex: 0, explanation: 'nC2 = 10*9/2 = 45.', tags: ['combinations'], difficulty: 'medium' },
-  { category: 'permutation-combination', question: 'In how many ways can 4 people sit in 4 chairs?', options: [{text:'24'},{text:'12'},{text:'16'},{text:'8'}], correctIndex: 0, explanation: '4! = 24.', tags: ['permutations'], difficulty: 'easy' },
-  { category: 'permutation-combination', question: 'Handshakes in meeting of 15 people?', options: [{text:'105'},{text:'120'},{text:'90'},{text:'210'}], correctIndex: 0, explanation: '15C2 = 105.', tags: ['combinations'], difficulty: 'medium' },
-  { category: 'permutation-combination', question: 'How many 3-digit numbers using 1,2,3,4,5 without repeat?', options: [{text:'60'},{text:'120'},{text:'24'},{text:'48'}], correctIndex: 0, explanation: '5P3 = 5*4*3 = 60.', tags: ['permutations'], difficulty: 'medium' },
-
-  // ===== PROBABILITY =====
-  { category: 'probability', question: 'Probability of getting head in coin toss?', options: [{text:'1/2'},{text:'1/4'},{text:'1/3'},{text:'1'}], correctIndex: 0, explanation: 'Two outcomes; head is 1/2.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'probability', question: 'Probability of sum 7 when two dice thrown?', options: [{text:'1/6'},{text:'1/4'},{text:'1/3'},{text:'1/2'}], correctIndex: 0, explanation: '6 favorable out of 36 => 1/6.', tags: ['dice'], difficulty: 'medium' },
-  { category: 'probability', question: 'Probability of drawing ace from deck?', options: [{text:'1/13'},{text:'1/4'},{text:'1/52'},{text:'4/52'}], correctIndex: 0, explanation: '4 aces out of 52 => 4/52 = 1/13.', tags: ['cards'], difficulty: 'easy' },
-
-  // ===== PROGRESSIONS =====
-  { category: 'progressions', question: 'Find next: 2, 6, 12, 20, 30, ?', options: [{text:'36'},{text:'40'},{text:'42'},{text:'44'}], correctIndex: 2, explanation: 'Differences: 4,6,8,10 => next add 12 -> 42.', tags: ['ap'], difficulty: 'medium' },
-  { category: 'progressions', question: 'Find next: 1, 1, 2, 6, 24, ?', options: [{text:'120'},{text:'48'},{text:'36'},{text:'72'}], correctIndex: 0, explanation: 'Pattern: n! => 1,1,2,6,24,120.', tags: ['gp'], difficulty: 'medium' },
-  { category: 'progressions', question: 'Find missing: 1, 4, 9, 16, ?, 36.', options: [{text:'25'},{text:'30'},{text:'20'},{text:'35'}], correctIndex: 0, explanation: 'Squares: 1,4,9,16,25,36.', tags: ['ap'], difficulty: 'easy' },
-  { category: 'progressions', question: 'Find next: 1, 2, 6, 24, 120, ?', options: [{text:'720'},{text:'600'},{text:'840'},{text:'480'}], correctIndex: 0, explanation: 'Factorials: 1,2,6,24,120,720.', tags: ['gp'], difficulty: 'medium' },
-  { category: 'progressions', question: 'Find next: 1, 3, 7, 15, 31, ?', options: [{text:'63'},{text:'47'},{text:'55'},{text:'62'}], correctIndex: 0, explanation: 'Each = 2*n - 1 => 63.', tags: ['gp'], difficulty: 'medium' },
-  { category: 'progressions', question: 'Find next: 2, 3, 5, 7, 11, 13, ?', options: [{text:'17'},{text:'15'},{text:'19'},{text:'14'}], correctIndex: 0, explanation: 'Prime numbers.', tags: ['ap'], difficulty: 'easy' },
-
-  // ===== GEOMETRY =====
-  { category: 'geometry', question: 'Find area of circle radius 7cm.', options: [{text:'154'},{text:'144'},{text:'164'},{text:'140'}], correctIndex: 0, explanation: 'Area = pi*r^2 = 22/7*49 = 154.', tags: ['circles'], difficulty: 'easy' },
-  { category: 'geometry', question: 'A square of side 8cm. Diagonal?', options: [{text:'8√2'},{text:'16'},{text:'8√3'},{text:'12'}], correctIndex: 0, explanation: 'Diagonal = side*√2 = 8√2.', tags: ['mensuration'], difficulty: 'easy' },
-  { category: 'geometry', question: 'Perimeter of rectangle 10x5?', options: [{text:'30'},{text:'50'},{text:'20'},{text:'15'}], correctIndex: 0, explanation: '2*(10+5) = 30.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'geometry', question: 'Sum angles of triangle?', options: [{text:'180°'},{text:'360°'},{text:'90°'},{text:'270°'}], correctIndex: 0, explanation: 'Sum of interior angles = 180.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'geometry', question: 'Area of triangle base 10, height 5?', options: [{text:'25'},{text:'50'},{text:'15'},{text:'10'}], correctIndex: 0, explanation: '0.5 * base * height = 0.5*10*5 = 25.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== MENSURATION =====
-  { category: 'mensuration', question: 'Find volume of cube side 6cm.', options: [{text:'216'},{text:'36'},{text:'1296'},{text:'64'}], correctIndex: 0, explanation: 'Volume = side^3 = 216.', tags: ['cube'], difficulty: 'easy' },
-  { category: 'mensuration', question: 'Surface area of sphere radius 7?', options: [{text:'616'},{text:'554'},{text:'678'},{text:'500'}], correctIndex: 0, explanation: '4*pi*r^2 = 4*22/7*49 = 616.', tags: ['sphere'], difficulty: 'medium' },
-  { category: 'mensuration', question: 'Curved surface area of cylinder radius 7, height 10?', options: [{text:'440'},{text:'550'},{text:'660'},{text:'330'}], correctIndex: 0, explanation: '2*pi*r*h = 2*22/7*7*10 = 440.', tags: ['cylinder'], difficulty: 'medium' },
-
-  // ===== DATA INTERPRETATION =====
-  { category: 'data-interpretation', question: 'Table shows sales: Jan 100, Feb 200, Mar 300. Total Q1?', options: [{text:'600'},{text:'500'},{text:'300'},{text:'700'}], correctIndex: 0, explanation: '100+200+300 = 600.', tags: ['tables'], difficulty: 'easy' },
-  { category: 'data-interpretation', question: 'Pie chart shows A 30%, B 40%, C 30%. If total 1000, B?', options: [{text:'400'},{text:'300'},{text:'500'},{text:'600'}], correctIndex: 0, explanation: '40% of 1000 = 400.', tags: ['pie-chart'], difficulty: 'easy' },
-  { category: 'data-interpretation', question: 'Bar graph shows 4 bars: 10,20,30,40. Average?', options: [{text:'25'},{text:'30'},{text:'20'},{text:'35'}], correctIndex: 0, explanation: '(10+20+30+40)/4 = 25.', tags: ['bar-graph'], difficulty: 'easy' },
-
-  // ===== DATA SUFFICIENCY =====
-  { category: 'data-sufficiency', question: 'Is x > 0? (1) x^2 > 0 (2) x > -1. Options: A,B,C,D,E.', options: [{text:'A'},{text:'B'},{text:'C'},{text:'D'}], correctIndex: 1, explanation: 'Statement 1: x^2>0 means x!=0; not sufficient alone. Statement 2: x>-1; not sufficient alone. Combined: x>-1 and x!=0 => still ambiguous. Answer B is insufficient alone typical DS pattern.', tags: ['quant'], difficulty: 'medium' },
-  { category: 'data-sufficiency', question: 'What is value of x? (1) 2x = 10 (2) x + 5 = 10. Sufficient?', options: [{text:'1 alone'},{text:'2 alone'},{text:'Either alone'},{text:'Both needed'}], correctIndex: 2, explanation: 'Either gives x=5 or x=5; each alone sufficient.', tags: ['quant'], difficulty: 'medium' },
-
-  // ===== BLOOD RELATIONS =====
-  { category: 'blood-relations', question: 'A is mother of B. B is father of C. C is brother of D. Relation A to D?', options: [{text:'Grandmother'},{text:'Mother'},{text:'Aunt'},{text:'Sister'}], correctIndex: 0, explanation: 'A is grandmother of D.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'blood-relations', question: 'A is B sister. B is C mother. C is D father. D related to A?', options: [{text:'Nephew'},{text:'Niece'},{text:'Uncle'},{text:'Aunt'}], correctIndex: 0, explanation: 'D is nephew of A.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'blood-relations', question: 'A is son of B. B is daughter of C. C is father of D. A related to D?', options: [{text:'Nephew'},{text:'Brother'},{text:'Uncle'},{text:'Cousin'}], correctIndex: 0, explanation: 'A is grandson of C; D is child of C => A is nephew of D if D is male sibling of B? Actually B is daughter of C, so A is grandson. D is sibling of B? If D is male, then A is nephew. Assume standard => A nephew of D.', tags: ['complex'], difficulty: 'medium' },
-  { category: 'blood-relations', question: 'If P is mother of Q and R is father of Q, P related to R?', options: [{text:'Wife'},{text:'Husband'},{text:'Sister'},{text:'Mother'}], correctIndex: 0, explanation: 'P is wife of R.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'blood-relations', question: 'If father of my sister is your father, relation?', options: [{text:'Brother'},{text:'Sister'},{text:'Cousin'},{text:'You are me'}], correctIndex: 1, explanation: 'You are sibling (sister).', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== DIRECTION SENSE =====
-  { category: 'direction-sense', question: 'A man walks 10 km north, turns right 5 km, right 10 km, left 5 km. Distance from start?', options: [{text:'10'},{text:'15'},{text:'5'},{text:'20'}], correctIndex: 0, explanation: 'Ends 5 km east of start? Actually north 10, east 5, south 10, east 5 => 10 km east. With options 10.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'direction-sense', question: 'A man facing south turns left 90°, right 180°, left 45°. Facing?', options: [{text:'South-West'},{text:'North-East'},{text:'East'},{text:'West'}], correctIndex: 0, explanation: 'South + left(90)=East + right(180)=West + left(45)=South-West.', tags: ['complex'], difficulty: 'medium' },
-  { category: 'direction-sense', question: 'A man faces East, turns 180°, then 90° right. Facing?', options: [{text:'South'},{text:'West'},{text:'North'},{text:'East'}], correctIndex: 0, explanation: 'East + 180=West + right 90=North? Wait right from West is North. So North. But South is also possible if turning opposite? Let us say North.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'direction-sense', question: 'A is east of B. B is north of C. C is west of D. Direction D from A?', options: [{text:'South-East'},{text:'South-West'},{text:'North-East'},{text:'North-West'}], correctIndex: 0, explanation: 'If A east of B, B north of C => A north-east of C. D east of C => D south-east of A.', tags: ['complex'], difficulty: 'medium' },
-  { category: 'direction-sense', question: 'A is 5 km NW of B. C is 4 km NE of B. C direction from A?', options: [{text:'East'},{text:'North'},{text:'South'},{text:'West'}], correctIndex: 0, explanation: 'A left of B, C right of B => C east of A.', tags: ['complex'], difficulty: 'medium' },
-  { category: 'direction-sense', question: 'A is 10 km S of B. C is 10 km E of B. Distance A to C?', options: [{text:'10√2'},{text:'20'},{text:'10'},{text:'15'}], correctIndex: 0, explanation: 'Diagonal of square.', tags: ['distance'], difficulty: 'easy' },
-
-  // ===== CODING DECODING =====
-  { category: 'coding-decoding', question: 'If P means >, Q means <, R means =, then 5 P 3 Q 7?', options: [{text:'5>3<7'},{text:'5<3>7'},{text:'5=3<7'},{text:'5>3>7'}], correctIndex: 0, explanation: 'Substitute: 5 > 3 < 7.', tags: ['symbols'], difficulty: 'easy' },
-  { category: 'coding-decoding', question: 'If STUDENT is coded as 1234567, how is STRESS?', options: [{text:'123345'},{text:'123455'},{text:'123444'},{text:'123335'}], correctIndex: 0, explanation: 'Map repeated letters: S=1,T=2,R=3,E=4,S=1,S=1 => 123345? Wait usually repeats coded same. Let us use option 123345.', tags: ['letter-number'], difficulty: 'medium' },
-  { category: 'coding-decoding', question: 'If a=1, b=2, c=3... what is sum of letters in "ace"?', options: [{text:'7'},{text:'6'},{text:'5'},{text:'8'}], correctIndex: 0, explanation: '1+3+5=7.', tags: ['letter-number'], difficulty: 'easy' },
-
-  // ===== SEATING ARRANGEMENT =====
-  { category: 'seating-arrangement', question: 'A, B, C, D sit in row. A left of B, C right of B. Who in middle?', options: [{text:'B'},{text:'A'},{text:'C'},{text:'D'}], correctIndex: 0, explanation: 'Order A-B-C so B middle.', tags: ['linear'], difficulty: 'easy' },
-  { category: 'seating-arrangement', question: '4 people around table. A opposite B. C left of A. Where is D?', options: [{text:'Right of A'},{text:'Left of A'},{text:'Opposite A'},{text:'Right of B'}], correctIndex: 0, explanation: 'Place A, B opposite. C left of A => D right of A.', tags: ['circular'], difficulty: 'medium' },
-
-  // ===== PUZZLES =====
-  { category: 'puzzles', question: 'If 2+3=10, 3+4=21, 4+5=32, then 5+6=?', options: [{text:'42'},{text:'43'},{text:'45'},{text:'39'}], correctIndex: 2, explanation: 'Pattern: a*(a+b) => 5*9=45.', tags: ['arithmetic'], difficulty: 'medium' },
-  { category: 'puzzles', question: 'If 5*3=35, 6*4=52, 7*5=81, then 8*6=?', options: [{text:'118'},{text:'102'},{text:'108'},{text:'114'}], correctIndex: 1, explanation: 'Pattern: a*b => a^2+b^2? 25+9=34 no. Try a^2+ab-b => 25+15-3=37 no. Common puzzle: a*b => a^2 + b? 25+3=28 no. With options 102 seems plausible.', tags: ['symbolic'], difficulty: 'hard' },
-  { category: 'puzzles', question: 'If 5@3 = 16 and 3@5 = 24, then 4@4 = ?', options: [{text:'32'},{text:'20'},{text:'16'},{text:'24'}], correctIndex: 0, explanation: 'Pattern: a@b => a^2 - b^2? 25-9=16; 9-25? No 24. Try a*b + a? 5*3+1=16, 3*5+9=24. Then 4*4+16=32.', tags: ['symbolic'], difficulty: 'hard' },
-
-  // ===== SYLLOGISM =====
-  { category: 'syllogism', question: 'All cats are mammals. Some mammals are black. Conclusion?', options: [{text:'All cats are black'},{text:'Some cats may be black'},{text:'No cats are black'},{text:'Cats are not mammals'}], correctIndex: 1, explanation: 'Some cats could be black, but not certain.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: All players are athletes. No athlete is lazy. Conclusion?', options: [{text:'No player is lazy'},{text:'Some players are lazy'},{text:'All players are lazy'},{text:'Cannot say'}], correctIndex: 0, explanation: 'All players are athletes and no athlete is lazy => no player is lazy.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: Some books are pens. Some pens are pencils. Conclusion?', options: [{text:'Some books are pencils'},{text:'No book is pencil'},{text:'Some books may be pencils'},{text:'All books are pencils'}], correctIndex: 2, explanation: 'Possibility exists but not certainty.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: All teachers are teachers. Some teachers are poets. Conclusion?', options: [{text:'Some teachers are poets'},{text:'All teachers are poets'},{text:'No teacher poet'},{text:'Cannot say'}], correctIndex: 0, explanation: 'Directly stated.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'syllogism', question: 'Statement: All heroes are brave. No coward is brave. Conclusion?', options: [{text:'No hero is coward'},{text:'Some heroes are cowards'},{text:'All cowards are heroes'},{text:'Cannot say'}], correctIndex: 0, explanation: 'All heroes are brave; no coward is brave => no hero is coward.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: Some A are B, All B are C. Conclusion?', options: [{text:'All A are C'},{text:'Some A are C'},{text:'No A is C'},{text:'Cannot say'}], correctIndex: 1, explanation: 'Some A that are B are also C.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: No car is bus. All buses are trucks. Conclusion?', options: [{text:'No car is truck'},{text:'Some cars are trucks'},{text:'No truck is car'},{text:'Some trucks may be cars'}], correctIndex: 3, explanation: 'Possible but not certain.', tags: ['basic'], difficulty: 'hard' },
-  { category: 'syllogism', question: 'Statement: All roses are flowers. Some flowers fade quickly. Conclusion?', options: [{text:'All roses fade quickly'},{text:'Some roses may fade quickly'},{text:'No rose fades'},{text:'All flowers fade'}], correctIndex: 1, explanation: 'Possible but not certain.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: All mangoes are yellow. Some yellow are sour. Conclusion?', options: [{text:'All mangoes are sour'},{text:'Some mangoes may be sour'},{text:'No mango is sour'},{text:'All sour are mangoes'}], correctIndex: 1, explanation: 'Some mangoes might be sour, but not certain.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: All birds can fly. Penguins are birds. Conclusion?', options: [{text:'Penguins can fly'},{text:'Penguins cannot fly'},{text:'Some birds cannot fly'},{text:'Cannot say'}], correctIndex: 3, explanation: 'Premise is false logically; with given, penguins can fly per statement.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: Some doctors are teachers. All doctors are smart. Conclusion?', options: [{text:'Some teachers are smart'},{text:'All teachers are smart'},{text:'No teacher is smart'},{text:'Cannot say'}], correctIndex: 3, explanation: 'Cannot be certain.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: Some pen are ink. All ink are blue. Conclusion?', options: [{text:'Some pen are blue'},{text:'All pen are blue'},{text:'No pen is blue'},{text:'Cannot say'}], correctIndex: 0, explanation: 'Some pen that are ink are blue.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: All students are scholars. Some scholars are athletes. Conclusion?', options: [{text:'Some students are athletes'},{text:'No student is athlete'},{text:'Some students may be athletes'},{text:'All students are athletes'}], correctIndex: 2, explanation: 'Possible but not certain.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'syllogism', question: 'Statement: Every cat is an animal. Some animals are black. Conclusion?', options: [{text:'All cats are black'},{text:'Some cats may be black'},{text:'No cats are black'},{text:'Cats are not animals'}], correctIndex: 1, explanation: 'Some cats could be black, but not certain.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== STATEMENT AND CONCLUSION =====
-  { category: 'statement-conclusion', question: 'Statement: Study hard. Conclusion: You will pass.', options: [{text:'Follows'},{text:'Does not follow'},{text:'Uncertain'},{text:'None'}], correctIndex: 1, explanation: 'Studying hard increases chance but does not guarantee.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'statement-conclusion', question: 'Statement: All birds fly. Penguins are birds. Conclusion: Penguins fly.', options: [{text:'Follows'},{text:'Does not follow'},{text:'Uncertain'},{text:'None'}], correctIndex: 0, explanation: 'Given statement is false in reality but logically follows.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== STATEMENT AND ASSUMPTION =====
-  { category: 'statement-assumption', question: 'Statement: Use X brand soap. Assumption: X is good.', options: [{text:'Assumed'},{text:'Not assumed'},{text:'Uncertain'},{text:'None'}], correctIndex: 0, explanation: 'Recommendation implies belief in quality.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'statement-assumption', question: 'Statement: Visit Darjeeling for vacation. Assumption: Darjeeling is nice.', options: [{text:'Assumed'},{text:'Not assumed'},{text:'Uncertain'},{text:'None'}], correctIndex: 0, explanation: 'Recommendation implies positive assumption.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== CAUSE AND EFFECT =====
-  { category: 'cause-effect', question: 'Event A: Rains. Event B: Floods. Relation?', options: [{text:'A is cause'},{text:'B is cause'},{text:'Common cause'},{text:'No relation'}], correctIndex: 0, explanation: 'Rains can cause floods.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'cause-effect', question: 'Event A: Prices rise. Event B: Inflation up. Relation?', options: [{text:'A is cause'},{text:'B is cause'},{text:'Common cause'},{text:'No relation'}], correctIndex: 2, explanation: 'Both effects of monetary factors.', tags: ['economics'], difficulty: 'medium' },
-
-  // ===== INPUT OUTPUT =====
-  { category: 'input-output', question: 'Input: 12 34 56. Shift left: 34 56 12. Next shift?', options: [{text:'56 12 34'},{text:'12 34 56'},{text:'34 56 12'},{text:'56 34 12'}], correctIndex: 0, explanation: 'Rotation left again: 56 12 34.', tags: ['shifting'], difficulty: 'easy' },
-  { category: 'input-output', question: 'Input: ABCDE. Swap A<->E, B<->D. Output?', options: [{text:'EDCBA'},{text:'EDCBE'},{text:'EDC'},{text:'E D C B A'}], correctIndex: 1, explanation: 'A<->E => EBCDA; B<->D => EDCBA.', tags: ['swapping'], difficulty: 'medium' },
-
-  // ===== RANKING =====
-  { category: 'ranking', question: 'A is 5th from left, 7th from right in row. Total?', options: [{text:'11'},{text:'12'},{text:'10'},{text:'13'}], correctIndex: 0, explanation: 'Total = 5+7-1 = 11.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'ranking', question: 'In exam, A ranks 10th from top, 15th from bottom. Students?', options: [{text:'24'},{text:'25'},{text:'23'},{text:'26'}], correctIndex: 0, explanation: 'Total = 10+15-1 = 24.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== NUMBER SERIES =====
-  { category: 'number-series', question: 'Find next: 2, 5, 10, 17, 26, ?', options: [{text:'37'},{text:'36'},{text:'39'},{text:'40'}], correctIndex: 0, explanation: 'Differences: 3,5,7,9 => next 11 => 26+11=37.', tags: ['difference'], difficulty: 'medium' },
-  { category: 'number-series', question: 'Find missing: 1, 4, 9, 16, ?, 36.', options: [{text:'25'},{text:'30'},{text:'20'},{text:'35'}], correctIndex: 0, explanation: 'Squares: 1,4,9,16,25,36.', tags: ['squares'], difficulty: 'easy' },
-  { category: 'number-series', question: 'Series: 0, 6, 24, 60, 120, ?', options: [{text:'210'},{text:'240'},{text:'180'},{text:'300'}], correctIndex: 0, explanation: 'Pattern: n*(n^3-1) or n*(n-1)*(n+1)? => 5*6*7=210.', tags: ['complex'], difficulty: 'hard' },
-  { category: 'number-series', question: 'Find next: 3, 6, 11, 18, 27, ?', options: [{text:'38'},{text:'36'},{text:'40'},{text:'42'}], correctIndex: 0, explanation: 'Differences: 3,5,7,9 => next 11 => 38.', tags: ['difference'], difficulty: 'medium' },
-  { category: 'number-series', question: 'Series: 1, 8, 27, 64, ?, 216.', options: [{text:'125'},{text:'100'},{text:'150'},{text:'175'}], correctIndex: 0, explanation: 'Cubes: 1,8,27,64,125,216.', tags: ['cubes'], difficulty: 'medium' },
-  { category: 'number-series', question: 'Find next: 2, 4, 8, 16, 32, ?', options: [{text:'64'},{text:'48'},{text:'56'},{text:'128'}], correctIndex: 0, explanation: 'Powers of 2.', tags: ['gp'], difficulty: 'easy' },
-
-  // ===== ALPHABET SERIES =====
-  { category: 'alphabet-series', question: 'Series: AC, EG, IK, MO, ?', options: [{text:'QS'},{text:'RP'},{text:'ST'},{text:'QU'}], correctIndex: 0, explanation: 'Each advances by 4 letters: A->E->I->M->Q; C->G->K->O->S.', tags: ['skipping'], difficulty: 'medium' },
-  { category: 'alphabet-series', question: 'Find next: A, C, F, J, O, ?', options: [{text:'T'},{text:'U'},{text:'S'},{text:'V'}], correctIndex: 0, explanation: 'Differences: +2,+3,+4,+5 => next +6 => T.', tags: ['increasing'], difficulty: 'medium' },
-  { category: 'alphabet-series', question: 'Series: Z, X, V, T, ?', options: [{text:'R'},{text:'S'},{text:'Q'},{text:'P'}], correctIndex: 0, explanation: 'Reverse alphabet stepping -2.', tags: ['reverse'], difficulty: 'easy' },
-
-  // ===== ANALOGY =====
-  { category: 'analogy', question: 'If 4:8 = 12:?, then ?', options: [{text:'20'},{text:'24'},{text:'28'},{text:'32'}], correctIndex: 0, explanation: '4+4=8, 12+8=20 => 20.', tags: ['number'], difficulty: 'easy' },
-  { category: 'analogy', question: 'Hand is to glove as foot is to?', options: [{text:'Sock'},{text:'Shoe'},{text:'Boot'},{text:'Sandal'}], correctIndex: 1, explanation: 'Glove worn on hand; shoe on foot.', tags: ['word'], difficulty: 'easy' },
-  { category: 'analogy', question: 'Doctor is to hospital as teacher is to?', options: [{text:'School'},{text:'Student'},{text:'Class'},{text:'Book'}], correctIndex: 0, explanation: 'Workplace analogy.', tags: ['word'], difficulty: 'easy' },
-
-  // ===== ODD ONE OUT =====
-  { category: 'odd-one-out', question: 'Odd one: 3, 5, 7, 9, 11.', options: [{text:'3'},{text:'5'},{text:'9'},{text:'11'}], correctIndex: 2, explanation: '9 is composite; others prime.', tags: ['number'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: 16, 25, 36, 49, 52.', options: [{text:'16'},{text:'25'},{text:'36'},{text:'52'}], correctIndex: 3, explanation: '52 not a perfect square.', tags: ['number'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: 8, 27, 64, 125, 200.', options: [{text:'8'},{text:'27'},{text:'64'},{text:'200'}], correctIndex: 3, explanation: '200 not a perfect cube.', tags: ['number'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: 64, 125, 216, 343, 500.', options: [{text:'64'},{text:'125'},{text:'216'},{text:'500'}], correctIndex: 3, explanation: '500 not a perfect cube.', tags: ['number'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Rectangle, Rhombus, Square, Triangle.', options: [{text:'Rectangle'},{text:'Rhombus'},{text:'Square'},{text:'Triangle'}], correctIndex: 3, explanation: 'Triangle has 3 sides; others 4.', tags: ['geometry'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Dog, Cat, Lion, Table.', options: [{text:'Dog'},{text:'Cat'},{text:'Lion'},{text:'Table'}], correctIndex: 3, explanation: 'Table is furniture; others animals.', tags: ['word'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Circle, Triangle, Square, Rectangle.', options: [{text:'Circle'},{text:'Triangle'},{text:'Square'},{text:'Rectangle'}], correctIndex: 0, explanation: 'Circle has no sides; others polygons.', tags: ['geometry'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Pen, Pencil, Eraser, Paper.', options: [{text:'Pen'},{text:'Pencil'},{text:'Eraser'},{text:'Paper'}], correctIndex: 3, explanation: 'Paper is not a writing instrument; others are stationery used for writing.', tags: ['word'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: River, Lake, Ocean, Mountain.', options: [{text:'River'},{text:'Lake'},{text:'Ocean'},{text:'Mountain'}], correctIndex: 3, explanation: 'Mountain is landform; others water bodies.', tags: ['word'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Paper, Pencil, Pen, Eraser, Sharpener.', options: [{text:'Paper'},{text:'Pencil'},{text:'Pen'},{text:'Eraser'}], correctIndex: 0, explanation: 'Paper is not writing instrument; others used for writing/erasing.', tags: ['word'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: Apple, Banana, Carrot, Mango.', options: [{text:'Apple'},{text:'Banana'},{text:'Carrot'},{text:'Mango'}], correctIndex: 2, explanation: 'Carrot is vegetable.', tags: ['word'], difficulty: 'easy' },
-  { category: 'odd-one-out', question: 'Odd one: 125, 343, 512, 729, 1000.', options: [{text:'125'},{text:'343'},{text:'512'},{text:'1000'}], correctIndex: 3, explanation: '1000 is 10^3, all are cubes. Hmm. With options, pick 1000 if miscounted.', tags: ['number'], difficulty: 'medium' },
-  { category: 'odd-one-out', question: 'Odd one: 1, 3, 5, 7, 9, 11, 12.', options: [{text:'1'},{text:'3'},{text:'9'},{text:'12'}], correctIndex: 3, explanation: '12 is even; others odd.', tags: ['number'], difficulty: 'easy' },
-
-  // ===== CUBES AND DICE =====
-  { category: 'cubes-dice', question: 'A cube has 6 faces, 12 edges, ? vertices.', options: [{text:'8'},{text:'10'},{text:'12'},{text:'6'}], correctIndex: 0, explanation: 'Euler: V-E+F=2 => V=8.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'cubes-dice', question: 'Opposite faces of dice sum to?', options: [{text:'7'},{text:'6'},{text:'8'},{text:'9'}], correctIndex: 0, explanation: 'Standard dice: 1-6,2-5,3-4 sum to 7.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'cubes-dice', question: 'Cube cut into 8 pieces. Cuts needed?', options: [{text:'3'},{text:'2'},{text:'4'},{text:'1'}], correctIndex: 0, explanation: '2x2x2 cube needs 3 cuts.', tags: ['cutting'], difficulty: 'medium' },
-
-  // ===== MIRROR IMAGE =====
-  { category: 'mirror-image', question: 'Mirror image of ABC is?', options: [{text:'CBA'},{text:'ABC'},{text:'CBA reversed'},{text:'ABC reversed'}], correctIndex: 0, explanation: 'Letters reverse left-right.', tags: ['letters'], difficulty: 'easy' },
-  { category: 'mirror-image', question: 'If clock shows 3:00, mirror image?', options: [{text:'9:00'},{text:'8:00'},{text:'10:00'},{text:'7:00'}], correctIndex: 0, explanation: 'Mirror reverses clock => 9:00.', tags: ['clocks'], difficulty: 'easy' },
-
-  // ===== PAPER FOLDING =====
-  { category: 'paper-folding', question: 'Paper folded once vertically, hole punched. Unfolded holes?', options: [{text:'2'},{text:'1'},{text:'4'},{text:'3'}], correctIndex: 0, explanation: 'Symmetric about fold => 2 holes.', tags: ['basic'], difficulty: 'easy' },
-  { category: 'paper-folding', question: 'Paper folded twice diagonally, punched once. Unfolded holes?', options: [{text:'4'},{text:'2'},{text:'8'},{text:'1'}], correctIndex: 0, explanation: 'Two folds => 4 symmetric holes.', tags: ['complex'], difficulty: 'medium' },
-
-  // ===== PATTERN RECOGNITION =====
-  { category: 'pattern-recognition', question: 'Complete series: 1, 4, 9, 16, ?', options: [{text:'25'},{text:'20'},{text:'30'},{text:'36'}], correctIndex: 0, explanation: 'Squares.', tags: ['number'], difficulty: 'easy' },
-  { category: 'pattern-recognition', question: 'Which comes next: AB, CD, EF, GH, ?', options: [{text:'IJ'},{text:'HI'},{text:'JK'},{text:'IK'}], correctIndex: 0, explanation: 'Pairs advance by 2 letters.', tags: ['alphabet'], difficulty: 'easy' },
-  { category: 'pattern-recognition', question: 'Pattern: 2, 6, 12, 20, 30, ?', options: [{text:'42'},{text:'40'},{text:'36'},{text:'44'}], correctIndex: 0, explanation: 'Differences: 4,6,8,10 => next 12 => 42.', tags: ['number'], difficulty: 'medium' },
-
-  // ===== CRITICAL REASONING =====
-  { category: 'critical-reasoning', question: 'Argument: All A are B. Some B are C. Therefore some A are C. Valid?', options: [{text:'Invalid'},{text:'Valid'},{text:'Uncertain'},{text:'None'}], correctIndex: 0, explanation: 'Not necessarily true; A could be subset of B not intersecting C.', tags: ['syllogism'], difficulty: 'medium' },
-  { category: 'critical-reasoning', question: 'Statement: If it rains, ground wet. Ground not wet. Conclusion?', options: [{text:'It rained'},{text:'It did not rain'},{text:'Cannot say'},{text:'Ground is dry'}], correctIndex: 1, explanation: 'Modus tollens: if rain implies wet and not wet, then no rain.', tags: ['deduction'], difficulty: 'medium' },
-
-  // ===== DECISION MAKING =====
-  { category: 'decision-making', question: 'Choose best action: Fire in building.', options: [{text:'Call fire dept'},{text:'Ignore'},{text:'Run'},{text:'Take photo'}], correctIndex: 0, explanation: 'Call professionals.', tags: ['situational'], difficulty: 'easy' },
-  { category: 'decision-making', question: 'Best decision: Lost wallet.', options: [{text:'Report police'},{text:'Cry'},{text:'Ignore'},{text:'Blame others'}], correctIndex: 0, explanation: 'Report authorities.', tags: ['situational'], difficulty: 'easy' },
-
-  // ===== VERBAL ABILITY GRAMMAR AND VOCABULARY =====
-  { category: 'grammar', question: '"She has been waiting ___ 2 hours."', options: [{text:'since'},{text:'for'},{text:'from'},{text:'by'}], correctIndex: 1, explanation: '"For" is used with durations.', tags: ['prepositions'], difficulty: 'easy' },
-  { category: 'grammar', question: '"He succeeded ___ all difficulties."', options: [{text:'in'},{text:'with'},{text:'despite of'},{text:'despite'}], correctIndex: 3, explanation: '"Despite" is correct; "despite of" is incorrect.', tags: ['prepositions'], difficulty: 'medium' },
-  { category: 'grammar', question: '"I haven\'t seen him ___ last Monday."', options: [{text:'since'},{text:'for'},{text:'from'},{text:'by'}], correctIndex: 0, explanation: '"Since" is used with point in time.', tags: ['prepositions'], difficulty: 'easy' },
-  { category: 'grammar', question: '"He is taller ___ his brother."', options: [{text:'than'},{text:'then'},{text:'from'},{text:'to'}], correctIndex: 0, explanation: '"Taller than" is correct comparative form.', tags: ['comparison'], difficulty: 'easy' },
-  { category: 'grammar', question: '"He is senior to me" vs "He is senior than me". Correct?', options: [{text:'senior to'},{text:'senior than'},{text:'senior from'},{text:'senior for'}], correctIndex: 0, explanation: '"Senior to" is correct comparative.', tags: ['comparison'], difficulty: 'easy' },
-
-  // ===== ERROR DETECTION =====
-  { category: 'error-detection', question: '"I am agree" is grammatically correct.', options: [{text:'True'},{text:'False'}], correctIndex: 1, explanation: 'Correct form is "I agree" without "am".', tags: ['subject-verb'], difficulty: 'easy' },
-  { category: 'error-detection', question: '"Despite of" is correct usage.', options: [{text:'True'},{text:'False'}], correctIndex: 1, explanation: 'Correct is "despite" or "in spite of".', tags: ['prepositions'], difficulty: 'easy' },
-
-  // ===== SENTENCE IMPROVEMENT =====
-  { category: 'sentence-improvement', question: '"She did nothing but to cry" improved?', options: [{text:'She did nothing but cry'},{text:'She did nothing but crying'},{text:'She did nothing but cried'},{text:'No improvement'}], correctIndex: 0, explanation: '"Nothing but" + base verb.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== FILL IN THE BLANKS =====
-  { category: 'fill-blanks', question: 'He was _____ his friend in need.', options: [{text:'beside'},{text:'besides'},{text:'by side'},{text:'near'}], correctIndex: 0, explanation: '"Beside" means next to; "besides" means moreover.', tags: ['prepositions'], difficulty: 'medium' },
-  { category: 'fill-blanks', question: 'The book consists _____ three parts.', options: [{text:'of'},{text:'in'},{text:'with'},{text:'by'}], correctIndex: 0, explanation: '"Consists of" is correct preposition.', tags: ['prepositions'], difficulty: 'easy' },
-  { category: 'fill-blanks', question: 'She is interested _____ learning French.', options: [{text:'in'},{text:'on'},{text:'at'},{text:'for'}], correctIndex: 0, explanation: '"Interested in" is correct preposition.', tags: ['prepositions'], difficulty: 'easy' },
-
-  // ===== PARA JUMBLES =====
-  { category: 'para-jumbles', question: 'Arrange: (1) The cat sat. (2) On the mat. (3) After eating.', options: [{text:'1-3-2'},{text:'3-1-2'},{text:'2-1-3'},{text:'1-2-3'}], correctIndex: 0, explanation: '"After eating" describes when, so 1-3-2.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'para-jumbles', question: 'Order: (A) He went home. (B) Tired he was. (C) Because work hard.', options: [{text:'C-B-A'},{text:'A-B-C'},{text:'B-A-C'},{text:'C-A-B'}], correctIndex: 0, explanation: 'Because he worked hard, he was tired, he went home.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== SENTENCE ARRANGEMENT =====
-  { category: 'sentence-arrangement', question: 'Rearrange: "school / goes / to / He / daily"', options: [{text:'He goes to school daily'},{text:'Daily he goes to school'},{text:'To school he goes daily'},{text:'He daily goes to school'}], correctIndex: 0, explanation: 'S-V-O standard order.', tags: ['basic'], difficulty: 'easy' },
-
-  // ===== VOCABULARY =====
-  { category: 'vocabulary', question: 'Choose word meaning "very talkative".', options: [{text:'Loquacious'},{text:'Taciturn'},{text:'Reserved'},{text:'Silent'}], correctIndex: 0, explanation: 'Loquacious means very talkative.', tags: ['advanced'], difficulty: 'hard' },
-  { category: 'vocabulary', question: 'Choose word meaning "short-lived".', options: [{text:'Ephemeral'},{text:'Lasting'},{text:'Permanent'},{text:'Eternal'}], correctIndex: 0, explanation: 'Ephemeral means short-lived.', tags: ['advanced'], difficulty: 'hard' },
-  { category: 'vocabulary', question: 'Choose word meaning "great happiness".', options: [{text:'Elation'},{text:'Misery'},{text:'Sorrow'},{text:'Grief'}], correctIndex: 0, explanation: 'Elation means great happiness.', tags: ['advanced'], difficulty: 'medium' },
-
-  // ===== IDIOMS AND PHRASES =====
-  { category: 'idioms-phrases', question: '"A piece of cake" means?', options: [{text:'Very easy'},{text:'Very hard'},{text:'Expensive'},{text:'Delicious'}], correctIndex: 0, explanation: 'Idiom meaning something easy.', tags: ['common'], difficulty: 'easy' },
-  { category: 'idioms-phrases', question: '"Break the ice" means?', options: [{text:'Start conversation'},{text:'Break something'},{text:'Make ice'},{text:'Melt ice'}], correctIndex: 0, explanation: 'To initiate social interaction.', tags: ['common'], difficulty: 'easy' },
-  { category: 'idioms-phrases', question: '"Hit the sack" means?', options: [{text:'Go to sleep'},{text:'Hit someone'},{text:'Work hard'},{text:'Eat'}], correctIndex: 0, explanation: 'Go to sleep.', tags: ['common'], difficulty: 'medium' },
-
-  // ===== ONE WORD SUBSTITUTION =====
-  { category: 'one-word-substitution', question: 'One who loves books?', options: [{text:'Bibliophile'},{text:'Astronaut'},{text:'Misanthrope'},{text:'Ascetic'}], correctIndex: 0, explanation: 'Bibliophile loves books.', tags: ['common'], difficulty: 'medium' },
-  { category: 'one-word-substitution', question: 'One who talks too much?', options: [{text:'Garrulous'},{text:'Taciturn'},{text:'Reserved'},{text:'Silent'}], correctIndex: 0, explanation: 'Garrulous means talkative.', tags: ['common'], difficulty: 'medium' },
-
-  // ===== ACTIVE AND PASSIVE VOICE =====
-  { category: 'active-passive-voice', question: 'Active: "She has completed the work." Passive?', options: [{text:'The work has been completed by her.'},{text:'The work have been completed by her.'},{text:'The work was completed by her.'},{text:'The work is completed by her.'}], correctIndex: 0, explanation: 'Present perfect passive.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'active-passive-voice', question: 'Active: "They are building a house." Passive?', options: [{text:'A house is being built by them.'},{text:'A house was built by them.'},{text:'A house has been built.'},{text:'A house is built.'}], correctIndex: 0, explanation: 'Present continuous passive.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== DIRECT AND INDIRECT SPEECH =====
-  { category: 'direct-indirect-speech', question: 'Direct: "She said, \'I am busy.\'" Indirect?', options: [{text:'She said that she was busy.'},{text:'She said that I am busy.'},{text:'She said that she is busy.'},{text:'She said that she has been busy.'}], correctIndex: 0, explanation: 'Present to past: was.', tags: ['basic'], difficulty: 'medium' },
-  { category: 'direct-indirect-speech', question: 'Direct: "I will come," he said. Indirect?', options: [{text:'He said that he would come.'},{text:'He said that he will come.'},{text:'He said that he shall come.'},{text:'He said that he comes.'}], correctIndex: 0, explanation: 'Future "will" changes to "would" in indirect speech.', tags: ['basic'], difficulty: 'medium' },
-
-  // ===== CLOZE TEST =====
-  { category: 'cloze-test', question: 'Choose correct: "The number of people ___ increasing."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"The number of" takes singular verb.', tags: ['subject-verb'], difficulty: 'medium' },
-  { category: 'cloze-test', question: 'Choose correct: "One of the boys ___ absent."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"One of the + plural" takes singular verb.', tags: ['subject-verb'], difficulty: 'easy' },
-  { category: 'cloze-test', question: 'Choose correct: "The news _____ not good."', options: [{text:'is'},{text:'are'},{text:'were'},{text:'have'}], correctIndex: 0, explanation: '"News" is singular uncountable noun.', tags: ['subject-verb'], difficulty: 'easy' },
-];
-
-const run = async () => {
-  await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
-  await AptitudeQuestion.deleteMany({});
-  const res = await AptitudeQuestion.insertMany(questions);
-  console.log(`Seeded ${res.length} aptitude questions`);
-  await mongoose.disconnect();
-  process.exit(0);
-};
-run().catch((err) => { console.error(err); process.exit(1); });
+async function seedAptitude() {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent', { dbName: process.env.MONGO_DB || 'prepagent', serverSelectionTimeoutMS: 15000 });
+    console.log('Connected to MongoDB: ' + conn.connection.name);
+    await AptitudeTopic.deleteMany({ name: { $in: ALL } });
+    await AptitudeQuestion.deleteMany({ topic: { $in: ALL } });
+    await AptitudeMockTest.deleteMany({ name: /Mock Test/i });
+    console.log('[cleaned existing aptitude data]');
+    let tc = 0, qc = 0;
+    for (const category of Object.keys(CAT)) {
+      for (const name of CAT[category]) {
+        const t = new AptitudeTopic({ name, category, description: 'Practice ' + name + ' questions.', priority: 'high', subtopics: SUBTOPICS[name] || ['General'], totalQuestions: 50, estimatedTime: 60 });
+        const st = await t.save(); tc++;
+        const gen = GENS[name];
+        if (!gen) { console.log('NO GENERATOR: ' + name); continue; }
+        const qs = [];
+        for (let i = 0; i < 50; i++) { const rl = rngFor(name, i); const q = gen(rl, i, { ri, pk, buildMCQ }); q.topicId = st._id; q.topic = name; q.category = category; qs.push(q); }
+        const ins = await AptitudeQuestion.insertMany(qs);
+        qc += ins.length;
+        console.log('  ' + category + '/' + name + ': ' + ins.length + ' questions');
+      }
+    }
+    const mocks = [];
+    for (const c of ['quantitative', 'logical', 'verbal']) {
+      const ids = await AptitudeQuestion.find({ category: c }).limit(30).select('_id');
+      mocks.push({ name: c.charAt(0).toUpperCase() + c.slice(1) + ' Mock Test', description: '30-question mixed ' + c + ' test', category: c + '-only', questionIds: ids.map(q => q._id), totalQuestions: Math.min(30, ids.length), duration: 60, passingScore: 60, difficultyMix: { easy: 10, medium: 12, hard: 8 } });
+    }
+    const idA = await AptitudeQuestion.find({}).limit(30).select('_id');
+    const idB = await AptitudeQuestion.find({}).skip(30).limit(30).select('_id');
+    mocks.push({ name: 'Full Aptitude Test 1', description: '30-question mixed aptitude test', category: 'full', questionIds: idA.map(q => q._id), totalQuestions: 30, duration: 60, passingScore: 60, difficultyMix: { easy: 10, medium: 12, hard: 8 } });
+    mocks.push({ name: 'Full Aptitude Test 2', description: '30-question mixed aptitude test', category: 'full', questionIds: idB.map(q => q._id), totalQuestions: 30, duration: 60, passingScore: 60, difficultyMix: { easy: 8, medium: 12, hard: 10 } });
+    await AptitudeMockTest.insertMany(mocks);
+    console.log('\nSeeding complete:');
+    console.log('  Topics:     ' + tc);
+    console.log('  Questions:  ' + qc);
+    console.log('  Mock tests: ' + mocks.length);
+    await mongoose.connection.close();
+    process.exit(0);
+  } catch (err) { console.error('Seeding error:', err.message); process.exit(1); }
+}
+seedAptitude();

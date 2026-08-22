@@ -16,7 +16,26 @@ const LeaderboardSchema = new mongoose.Schema(
     easyCount: { type: Number, required: true },
     mediumCount: { type: Number, required: true },
     hardCount: { type: Number, required: true },
-    currentStreak: { type: Number, required: true },
+        currentStreak: { type: Number, required: true },
+
+    // --- Aptitude section (NEW) ---
+    aptitude: {
+      questionsAttempted: { type: Number, default: 0 },
+      questionsCorrect: { type: Number, default: 0 },
+      averageScore: { type: Number, default: 0 },
+      mockTestsCompleted: { type: Number, default: 0 },
+      bestScore: { type: Number, default: 0 },
+      rank: { type: Number, default: 0 },
+    },
+
+    // --- SQL section (NEW) ---
+    sql: {
+      problemsSolved: { type: Number, default: 0 },
+      acceptedSubmissions: { type: Number, default: 0 },
+      acceptanceRate: { type: Number, default: 0 },
+      rank: { type: Number, default: 0 },
+    },
+
     leaderboardType: {
       type: String,
       enum: ['Global', 'College', 'Friend'],
@@ -42,5 +61,9 @@ const LeaderboardSchema = new mongoose.Schema(
 // Composite index for leaderboard queries
 LeaderboardSchema.index({ leaderboardType: 1, snapshotDate: -1, rank: 1 });
 LeaderboardSchema.index({ collegeId: 1, leaderboardType: 1, rank: 1 });
+// Aptitude section indexes (NEW)
+LeaderboardSchema.index({ 'aptitude.rank': 1, 'aptitude.bestScore': -1 });
+// SQL section indexes (NEW)
+LeaderboardSchema.index({ 'sql.rank': 1, 'sql.acceptanceRate': -1 });
 
 module.exports = mongoose.model('Leaderboard', LeaderboardSchema);
