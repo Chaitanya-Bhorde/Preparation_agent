@@ -18,6 +18,9 @@ export default function AptitudeTopicPractice() {
   const [answers, setAnswers] = useState({});
   const [finished, setFinished] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Cache per-question solution (explanation + steps) returned by submit-answer,
+  // since the questions endpoint intentionally hides it until answered.
+  const [solutions, setSolutions] = useState({});
 
   useEffect(() => {
     let live = true;
@@ -44,7 +47,17 @@ export default function AptitudeTopicPractice() {
     setAnswers(prev => ({ ...prev, [q._id]: label }));
     setSaving(true);
     try {
-      await submitAptitudeAnswer({ questionId: q._id, selectedAnswer: label, timeTaken: 30 });
+      const res = await submitAptitudeAnswer({ questionId: q._id, selectedAnswer: label, timeTaken: 30 });
+      if (res?.data?.explanation) {
+        setSolutions(prev => ({
+          ...prev,
+          [q._id]: {
+            explanation: res.data.explanation,
+            solutionSteps: res.data.solutionSteps || [],
+            correctAnswer: res.data.correctAnswer || q.correctAnswer,
+          },
+        }));
+      }
     } catch (e) {
       console.error('submit-answer failed (feedback still shown locally):', e?.message);
     } finally {
@@ -54,7 +67,10 @@ export default function AptitudeTopicPractice() {
 
   const correctCount = questions.filter(q => answers[q._id] === q.correctAnswer).length;
   const answeredCount = Object.keys(answers).length;
-  const q = questions[idx];
+  const sol = solutions[questions[idx]?._id];
+  // Merge cached solution (if answered) back into the question so QuestionCard
+  // can render explanation + steps under "View solution".
+  const q = sol ? { ...questions[idx], ...sol } : questions[idx];
 
   if (loading) return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
 
