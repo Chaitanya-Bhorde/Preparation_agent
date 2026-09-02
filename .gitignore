@@ -14,3 +14,10 @@ server/.env
 live-users.json
 null
 
+# PrepAgent runtime diagnostic logs
+client/build_out.txt
+client_err.txt
+client_log.txt
+server_err.txt
+server_log.txt
+
