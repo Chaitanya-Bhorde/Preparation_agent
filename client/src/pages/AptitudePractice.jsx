@@ -51,7 +51,7 @@ export default function AptitudePractice() {
           <BrainCircuit className="w-7 h-7 text-purple-400" />
           <h1 className="text-3xl font-bold text-white">Aptitude Practice</h1>
         </div>
-        <p className="text-gray-400">3 sections · 43 topics · 2,150+ questions · 5 mock tests</p>
+        <p className="text-gray-400">3 sections · 43 topics · 6,450+ questions · 50 easy + 50 medium + 50 hard each · 5 mock tests</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8">

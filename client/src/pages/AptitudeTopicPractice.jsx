@@ -75,6 +75,20 @@ export default function AptitudeTopicPractice() {
     }
   }, [questions, idx, answers]);
 
+  // Clear an answer so the green/red feedback disappears (after ~18s) and the user can retry.
+  const clearAnswer = useCallback((qid) => {
+    setAnswers(prev => {
+      const next = { ...prev };
+      delete next[qid];
+      return next;
+    });
+    setSolutions(prev => {
+      const next = { ...prev };
+      delete next[qid];
+      return next;
+    });
+  }, []);
+
   const sol = solutions[questions[idx]?._id];
   // Merge cached solution (if answered) back into the question so QuestionCard
   // can render explanation + steps under "View solution".
@@ -144,6 +158,8 @@ export default function AptitudeTopicPractice() {
             total={questions.length}
             selected={answers[q._id]}
             onSelect={handleSelect}
+            autoClearMs={18000}
+            onAutoClear={clearAnswer}
           />
           <div className="flex items-center justify-between mt-4">
             <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx === 0} className={BUTTON_CLASSES.secondary + ' disabled:opacity-40'}>

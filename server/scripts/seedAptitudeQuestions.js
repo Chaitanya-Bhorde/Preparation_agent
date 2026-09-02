@@ -22,13 +22,22 @@ const rngFor = (n, i) => function () { return srand(n.charCodeAt(0) * 1000 + i *
 const ri = (r, a, b) => Math.floor(r() * (b - a + 1)) + a;
 const pk = (r, arr) => arr[Math.floor(r() * arr.length)];
 const DIFF = ['easy', 'medium', 'hard'];
+// Expand a question's compact steps into a detailed, step-by-step solution.
+function expandSteps(steps, explanation, answer) {
+  const base = (Array.isArray(steps) ? steps : []).map(s => String(s)).filter(s => s && s.trim());
+  const out = ['Understand the question: note the given values and what is being asked.'];
+  if (base.length) out.push(...base);
+  if (explanation) out.push('Key concept: ' + explanation);
+  if (answer) out.push('Final answer: ' + answer + ' is correct.');
+  return out.slice(0, 6);
+}
 function buildMCQ(o) {
   const rng = typeof o.r === 'function' ? o.r : () => 0;
   const it = [{ l: '', t: String(o.right), c: true }];
   o.wrong.forEach(t => it.push({ l: '', t: String(t), c: false }));
   for (let i = it.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [it[i], it[j]] = [it[j], it[i]]; }
   it.forEach((x, idx) => { x.l = 'ABCD'[idx]; });
-  return { topicId: o.topicId, category: o.category, topic: o.topic, questionText: o.stem, options: it.map(x => ({ label: x.l, text: x.t, isCorrect: x.c })), correctAnswer: it.find(x => x.c).l, explanation: o.explanation, solutionSteps: o.steps || [o.explanation], difficulty: o.difficulty || pk(rng, DIFF), timeLimit: o.timeLimit || 90, source: o.source || 'TCS NQT' };
+  return { topicId: o.topicId, category: o.category, topic: o.topic, questionText: o.stem, options: it.map(x => ({ label: x.l, text: x.t, isCorrect: x.c })), correctAnswer: it.find(x => x.c).l, explanation: o.explanation, solutionSteps: expandSteps(o.steps, o.explanation, o.right), difficulty: o.difficulty || pk(rng, DIFF), timeLimit: o.timeLimit || 90, source: o.source || 'TCS NQT' };
 }
 async function seedAptitude() {
   try {
