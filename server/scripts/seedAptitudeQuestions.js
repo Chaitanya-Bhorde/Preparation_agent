@@ -41,12 +41,23 @@ async function seedAptitude() {
     let tc = 0, qc = 0;
     for (const category of Object.keys(CAT)) {
       for (const name of CAT[category]) {
-        const t = new AptitudeTopic({ name, category, description: 'Practice ' + name + ' questions.', priority: 'high', subtopics: SUBTOPICS[name] || ['General'], totalQuestions: 50, estimatedTime: 60 });
+        const t = new AptitudeTopic({ name, category, description: 'Practice ' + name + ' questions.', priority: 'high', subtopics: SUBTOPICS[name] || ['General'], totalQuestions: 150, estimatedTime: 180 });
         const st = await t.save(); tc++;
         const gen = GENS[name];
         if (!gen) { console.log('NO GENERATOR: ' + name); continue; }
         const qs = [];
-        for (let i = 0; i < 50; i++) { const rl = rngFor(name, i); const q = gen(rl, i, { ri, pk, buildMCQ }); q.topicId = st._id; q.topic = name; q.category = category; qs.push(q); }
+        let qi = 0;
+        // 50 easy + 50 medium + 50 hard per topic (the 50-50-50 requirement)
+        for (const difficulty of ['easy', 'medium', 'hard']) {
+          for (let k = 0; k < 50; k++, qi++) {
+            const rl = rngFor(name, qi);
+            const q = gen(rl, qi, { ri, pk, buildMCQ });
+            q.topicId = st._id; q.topic = name; q.category = category;
+            q.difficulty = difficulty;
+            q.timeLimit = difficulty === 'easy' ? 60 : difficulty === 'medium' ? 90 : 120;
+            qs.push(q);
+          }
+        }
         const ins = await AptitudeQuestion.insertMany(qs);
         qc += ins.length;
         console.log('  ' + category + '/' + name + ': ' + ins.length + ' questions');

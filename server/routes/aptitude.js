@@ -29,50 +29,116 @@ router.get('/topics', async (req, res) => {
   }
 });
 
-// GET /api/aptitude/questions/:topicId  - 50 questions (solutions hidden initially)
+// GET /api/aptitude/questions/:topicId?difficulty=easy|medium|hard
+// Returns 50 questions for the requested difficulty (solutions hidden) + counts per difficulty.
 router.get('/questions/:topicId', async (req, res) => {
   try {
     const { topicId } = req.params;
-    const questions = await AptitudeQuestion.find({ topicId }).select('-explanation -solutionSteps').limit(50);
+    const { difficulty } = req.query;
+    const validDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : null;
+    const query = validDiff ? { topicId, difficulty: validDiff } : { topicId };
+    const questions = await AptitudeQuestion.find(query).select('-explanation -solutionSteps').limit(50);
     if (!questions.length) return res.status(404).json({ error: 'No questions found' });
-    res.json({ total: questions.length, questions });
+    const counts = {};
+    for (const d of ['easy', 'medium', 'hard']) {
+      counts[d] = await AptitudeQuestion.countDocuments({ topicId, difficulty: d });
+    }
+    res.json({ total: questions.length, difficulty: validDiff, counts, questions });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/aptitude/submit-answer  - submit a single answer, get immediate feedback
+// POST /api/aptitude/submit-answer  - instant feedback ONLY, no scoring/stat update in practice mode
 router.post('/submit-answer', protect, async (req, res) => {
   try {
     const { questionId, selectedAnswer, timeTaken } = req.body;
-    const userId = req.user.id;
     const question = await AptitudeQuestion.findById(questionId);
     if (!question) return res.status(404).json({ error: 'Question not found' });
     const isCorrect = question.correctAnswer === selectedAnswer;
-    const submission = new AptitudeSubmission({
-      userId,
-      type: 'single-question',
-      topicId: question.topicId,
-      category: question.category,
-      totalQuestions: 1,
-      answers: [{ questionId, selectedAnswer, isCorrect, timeTaken }],
-      correctCount: isCorrect ? 1 : 0,
-      totalCount: 1,
-      score: isCorrect ? 100 : 0,
-      passed: isCorrect,
-      verdict: isCorrect ? 'Excellent' : 'Poor',
-      startTime: new Date(),
-      endTime: new Date(),
-      duration: timeTaken,
-    });
-    await submission.save();
-    await updateUserAchievements(userId, question.category, isCorrect);
-    res.status(201).json({
+    res.status(200).json({
       isCorrect,
       correctAnswer: question.correctAnswer,
       explanation: question.explanation,
       solutionSteps: question.solutionSteps,
-      submissionId: submission._id,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/aptitude/mock/generate  - build a fresh random 30-question paper (new options each time)
+router.post('/mock/generate', protect, async (req, res) => {
+  try {
+    const { category } = req.body; // 'full' | 'quantitative-only' | 'logical-only' | 'verbal-only'
+    const catMap = {
+      'quantitative-only': 'quantitative',
+      'logical-only': 'logical',
+      'verbal-only': 'verbal',
+    };
+    const cat = catMap[category] || null;
+    const questionFilter = cat ? { category: cat } : {};
+    const mix = { easy: 10, medium: 12, hard: 8 };
+    const pickedIds = [];
+    for (const d of ['easy', 'medium', 'hard']) {
+      const pool = await AptitudeQuestion.find({ ...questionFilter, difficulty: d }).select('_id').lean();
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      pool.slice(0, mix[d]).forEach(q => pickedIds.push(q._id));
+    }
+    const questions = await AptitudeQuestion.find({ _id: { $in: pickedIds } }).lean();
+    if (!questions.length) return res.status(404).json({ error: 'No questions available for this paper.' });
+    // Build a shuffled-option snapshot per question so answers relabel correctly.
+    const snapshot = questions.map(q => {
+      const labels = ['A', 'B', 'C', 'D'];
+      const shuffled = [];
+      const opts = q.options.slice();
+      while (opts.length) {
+        const idx = Math.floor(Math.random() * opts.length);
+        shuffled.push(opts.splice(idx, 1)[0]);
+      }
+      shuffled.forEach((o, i) => { o.label = labels[i]; });
+      const correctText = (q.options.find(o => o.label === q.correctAnswer) || q.options.find(o => o.isCorrect) || q.options[0]).text;
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        difficulty: q.difficulty,
+        options: shuffled.map(o => ({ label: o.label, text: o.text })),
+        correctAnswer: shuffled.find(o => o.text === correctText).label,
+      };
+    });
+    const mock = new AptitudeMockTest({
+      name: cat ? `${cat.charAt(0).toUpperCase() + cat.slice(1)} Mock Test` : 'Full Aptitude Test',
+      description: '30-question mixed aptitude test (fresh paper)',
+      category: category || 'full',
+      questionIds: snapshot.map(s => s.questionId),
+      questions: snapshot,
+      totalQuestions: snapshot.length,
+      duration: 30,
+      passingScore: 60,
+      difficultyMix: mix,
+    });
+    await mock.save();
+    const publicQuestions = snapshot.map(s => ({
+      _id: s.questionId,
+      questionText: s.questionText,
+      difficulty: s.difficulty,
+      options: s.options,
+    }));
+    res.status(201).json({
+      success: true,
+      mock: {
+        _id: mock._id,
+        name: mock.name,
+        description: mock.description,
+        duration: mock.duration,
+        totalQuestions: mock.totalQuestions,
+        passingScore: mock.passingScore,
+        category: mock.category,
+      },
+      questions: publicQuestions,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -91,15 +157,21 @@ router.get('/mock-tests', async (req, res) => {
   }
 });
 
-// POST /api/aptitude/submit-mock  - submit an entire mock test, calculate score
+// POST /api/aptitude/submit-mock  - submit an entire mock test, calculate score (snapshot-aware)
 router.post('/submit-mock', protect, async (req, res) => {
   try {
     const { mockTestId, answers } = req.body; // answers = [{questionId, selectedAnswer, timeTaken}]
     const userId = req.user.id;
     const mockTest = await AptitudeMockTest.findById(mockTestId);
     if (!mockTest) return res.status(404).json({ error: 'Mock test not found' });
-    const questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } });
-    const questionMap = new Map(questions.map(q => [q._id.toString(), q]));
+    // Generate-made papers carry a shuffled-option snapshot; static seeded ones fall back to DB.
+    let questionMap;
+    if (mockTest.questions && mockTest.questions.length) {
+      questionMap = new Map(mockTest.questions.map(q => [q.questionId.toString(), q]));
+    } else {
+      const questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } });
+      questionMap = new Map(questions.map(q => [q._id.toString(), q]));
+    }
     let correctCount = 0;
     const gradedAnswers = answers.map(ans => {
       const question = questionMap.get(ans.questionId);
@@ -257,16 +329,26 @@ async function updateLeaderboardAptitude(userId, correctCount, score) {
 
 
 // GET /api/aptitude/mock/:mockTestId/questions
-// Returns the mock's meta + its 30 questions (solutions hidden).
+// Returns the mock's meta + its 30 questions (solutions hidden). Generated papers
+// return their saved shuffled-option snapshot so reloading shows the same paper.
 router.get('/mock/:mockTestId/questions', async (req, res) => {
   try {
     const { mockTestId } = req.params;
     const mockTest = await AptitudeMockTest.findById(mockTestId).lean();
     if (!mockTest) return res.status(404).json({ error: 'Mock test not found' });
-    const questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } })
-      .select('-explanation -solutionSteps -correctAnswer')
-      .lean();
-    // Shuffle deterministically so options order varies but stays stable per load.
+    let questions;
+    if (mockTest.questions && mockTest.questions.length) {
+      questions = mockTest.questions.map(s => ({
+        _id: s.questionId,
+        questionText: s.questionText,
+        difficulty: s.difficulty,
+        options: s.options,
+      }));
+    } else {
+      questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } })
+        .select('-explanation -solutionSteps -correctAnswer')
+        .lean();
+    }
     const mock = { name: mockTest.name, description: mockTest.description, duration: mockTest.duration, totalQuestions: mockTest.totalQuestions, passingScore: mockTest.passingScore, category: mockTest.category };
     res.json({ success: true, mock, questions });
   } catch (err) {

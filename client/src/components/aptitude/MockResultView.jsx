@@ -1,8 +1,8 @@
-import { Trophy, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Trophy, CheckCircle2, XCircle, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { BUTTON_CLASSES } from '../../utils/ui';
 
-// Mock test result view: score header + per-question solutions.
-export default function MockResultView({ mockName, result, details, onBack }) {
+// Mock test result view: score header + per-question solutions + reset (new paper) option.
+export default function MockResultView({ mockName, result, details, onBack, onResetPaper }) {
   const verdictColor = result.verdict === 'Excellent' ? 'text-green-400'
     : result.verdict === 'Good' ? 'text-blue-400'
     : result.verdict === 'Average' ? 'text-yellow-400' : 'text-red-400';
@@ -20,9 +20,16 @@ export default function MockResultView({ mockName, result, details, onBack }) {
         <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden mb-6">
           <div className={`h-full rounded-full ${result.score >= 70 ? 'bg-green-500' : result.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${result.score}%` }} />
         </div>
-        <button onClick={onBack} className={BUTTON_CLASSES.primary}>
-          <Trophy className="w-4 h-4" /> Back to aptitude
-        </button>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <button onClick={onBack} className={BUTTON_CLASSES.primary}>
+            <Trophy className="w-4 h-4" /> Back to aptitude
+          </button>
+          {onResetPaper && (
+            <button onClick={onResetPaper} className={BUTTON_CLASSES.secondary}>
+              <RotateCcw className="w-4 h-4" /> Reset Paper — new test with new options
+            </button>
+          )}
+        </div>
       </div>
 
       {details && (

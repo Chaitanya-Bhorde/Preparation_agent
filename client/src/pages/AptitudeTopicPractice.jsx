@@ -1,23 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, Trophy, RotateCcw, ListOrdered } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, ListOrdered, RotateCcw } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER, BUTTON_CLASSES } from '../utils/ui';
 import { getAptitudeQuestions, submitAptitudeAnswer } from '../api';
 import QuestionCard from '../components/aptitude/QuestionCard';
 
+const DIFFS = [
+  { key: 'easy', label: 'Easy', active: 'border-green-500/60 bg-green-900/20 text-green-300' },
+  { key: 'medium', label: 'Medium', active: 'border-yellow-500/60 bg-yellow-900/20 text-yellow-300' },
+  { key: 'hard', label: 'Hard', active: 'border-red-500/60 bg-red-900/20 text-red-300' },
+];
+const IDLE_TAB = 'border-gray-700 bg-gray-800/40 hover:border-gray-500 text-gray-400';
+
 export default function AptitudeTopicPractice() {
   usePageTitle('Topic Practice');
   const { topicId } = useParams();
   const navigate = useNavigate();
+  const [difficulty, setDifficulty] = useState('easy');
   const [questions, setQuestions] = useState([]);
+  const [counts, setCounts] = useState({ easy: 0, medium: 0, hard: 0 });
   const [topicName, setTopicName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [finished, setFinished] = useState(false);
-  const [saving, setSaving] = useState(false);
   // Cache per-question solution (explanation + steps) returned by submit-answer,
   // since the questions endpoint intentionally hides it until answered.
   const [solutions, setSolutions] = useState({});
@@ -27,10 +35,15 @@ export default function AptitudeTopicPractice() {
     (async () => {
       setLoading(true);
       setError(null);
+      setIdx(0);
+      setAnswers({});
+      setSolutions({});
+      setFinished(false);
       try {
-        const res = await getAptitudeQuestions(topicId);
+        const res = await getAptitudeQuestions(topicId, difficulty);
         if (!live) return;
         setQuestions(res.data.questions || []);
+        setCounts(res.data.counts || { easy: 0, medium: 0, hard: 0 });
         setTopicName(res.data.questions?.[0]?.topic || 'Topic');
       } catch (e) {
         if (live) setError(e.response?.data?.error || 'Failed to load questions.');
@@ -39,13 +52,12 @@ export default function AptitudeTopicPractice() {
       }
     })();
     return () => { live = false; };
-  }, [topicId]);
+  }, [topicId, difficulty]);
 
   const handleSelect = useCallback(async (label) => {
     const q = questions[idx];
     if (!q || answers[q._id] !== undefined) return;
     setAnswers(prev => ({ ...prev, [q._id]: label }));
-    setSaving(true);
     try {
       const res = await submitAptitudeAnswer({ questionId: q._id, selectedAnswer: label, timeTaken: 30 });
       if (res?.data?.explanation) {
@@ -60,13 +72,9 @@ export default function AptitudeTopicPractice() {
       }
     } catch (e) {
       console.error('submit-answer failed (feedback still shown locally):', e?.message);
-    } finally {
-      setSaving(false);
     }
   }, [questions, idx, answers]);
 
-  const correctCount = questions.filter(q => answers[q._id] === q.correctAnswer).length;
-  const answeredCount = Object.keys(answers).length;
   const sol = solutions[questions[idx]?._id];
   // Merge cached solution (if answered) back into the question so QuestionCard
   // can render explanation + steps under "View solution".
@@ -84,18 +92,15 @@ export default function AptitudeTopicPractice() {
   }
 
   if (finished) {
-    const pct = questions.length ? Math.round((correctCount / questions.length) * 100) : 0;
+    // Practice mode: NO scoring, NO result calculation. Just restart or leave.
     return (
       <div className={PAGE_CONTAINER}>
         <div className="max-w-xl mx-auto text-center bg-gray-900 border border-gray-800 rounded-2xl p-8">
-          <Trophy className={`w-12 h-12 mx-auto mb-3 ${pct >= 70 ? 'text-yellow-400' : pct >= 40 ? 'text-orange-400' : 'text-gray-500'}`} />
-          <h1 className="text-2xl font-bold text-white mb-1">{topicName} — Session complete!</h1>
-          <p className="text-gray-400 mb-4">You answered {correctCount}/{questions.length} correctly ({pct}%).</p>
-          <div className="w-full bg-gray-800 rounded-full h-3 mb-6 overflow-hidden">
-            <div className={`h-full rounded-full ${pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
-          </div>
+          <ListOrdered className="w-12 h-12 mx-auto mb-3 text-purple-400" />
+          <h1 className="text-2xl font-bold text-white mb-1">Practice set done!</h1>
+          <p className="text-gray-400 mb-6">You've gone through this set. Jump to Mock Tests when you're ready to track a score.</p>
           <div className="flex items-center justify-center gap-3">
-            <button onClick={() => { setAnswers({}); setIdx(0); setFinished(false); }} className={BUTTON_CLASSES.secondary}>
+            <button onClick={() => { setIdx(0); setAnswers({}); setSolutions({}); setFinished(false); }} className={BUTTON_CLASSES.secondary}>
               <RotateCcw className="w-4 h-4" /> Practice again
             </button>
             <button onClick={() => navigate('/practice/aptitude')} className={BUTTON_CLASSES.primary}>
@@ -111,10 +116,23 @@ export default function AptitudeTopicPractice() {
     <div className={PAGE_CONTAINER}>
       <div className="flex items-center justify-between mb-4">
         <Link to="/practice/aptitude" className="text-blue-400 text-sm flex items-center gap-1 hover:text-blue-300"><ArrowLeft className="w-4 h-4" /> All topics</Link>
-        <span className="text-sm text-gray-400">{topicName} · answered {answeredCount}/{questions.length} · correct {correctCount}</span>
+        <span className="text-sm text-gray-400">{topicName}</span>
       </div>
 
-      <div className="w-full bg-gray-800 rounded-full h-2 mb-6 overflow-hidden">
+      {/* Difficulty tabs: 50 easy / 50 medium / 50 hard per topic */}
+      <div className="flex gap-2 mb-6">
+        {DIFFS.map((d) => (
+          <button
+            key={d.key}
+            onClick={() => setDifficulty(d.key)}
+            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${difficulty === d.key ? d.active : IDLE_TAB}`}
+          >
+            {d.label} · {counts[d.key] ?? 0}
+          </button>
+        ))}
+      </div>
+
+      <div className="w-full bg-gray-800 rounded-full h-1.5 mb-6 overflow-hidden">
         <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${((idx + 1) / questions.length) * 100}%` }} />
       </div>
 
@@ -131,14 +149,13 @@ export default function AptitudeTopicPractice() {
             <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx === 0} className={BUTTON_CLASSES.secondary + ' disabled:opacity-40'}>
               <ArrowLeft className="w-4 h-4" /> Previous
             </button>
-            {saving && <Loader2 className="w-4 h-4 animate-spin text-blue-400" />}
             {idx < questions.length - 1 ? (
               <button onClick={() => setIdx(i => i + 1)} className={BUTTON_CLASSES.primary}>
                 Next <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
               <button onClick={() => setFinished(true)} className={BUTTON_CLASSES.primary}>
-                <Trophy className="w-4 h-4" /> Finish
+                <ListOrdered className="w-4 h-4" /> Finish set
               </button>
             )}
           </div>

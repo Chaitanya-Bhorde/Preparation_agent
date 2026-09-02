@@ -134,7 +134,8 @@ export const createPracticeRecord = (submissionId) => API.post('/submissions', {
 
 // Aptitude Practice
 export const getAptitudeTopics = (params) => API.get('/aptitude/topics', { params });
-export const getAptitudeQuestions = (topicId) => API.get(`/aptitude/questions/${topicId}`);
+export const getAptitudeQuestions = (topicId, difficulty) => API.get(`/aptitude/questions/${topicId}`, { params: difficulty ? { difficulty } : {} });
+export const generateAptitudeMock = (category = 'full') => API.post('/aptitude/mock/generate', { category });
 export const submitAptitudeAnswer = (data) => API.post('/aptitude/submit-answer', data);
 export const getAptitudeMockTests = () => API.get('/aptitude/mock-tests');
 export const submitAptitudeMock = (data) => API.post('/aptitude/submit-mock', data);

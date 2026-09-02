@@ -12,7 +12,7 @@ export default function MockTestGrid({ mocks }) {
         {mocks.map((mt) => (
           <button
             key={mt._id}
-            onClick={() => navigate(`/practice/aptitude/mock/${mt._id}`)}
+            onClick={() => navigate(`/practice/aptitude/mock/generate?category=${mt.category}`)}
             className="text-left bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-yellow-500/40 hover:bg-gray-800/60 transition-all"
           >
             <div className="flex items-center justify-between mb-2">
