@@ -81,14 +81,22 @@ router.post('/mock/generate', protect, async (req, res) => {
     const mix = { easy: 10, medium: 12, hard: 8 };
     const pickedIds = [];
     for (const d of ['easy', 'medium', 'hard']) {
-      const pool = await AptitudeQuestion.find({ ...questionFilter, difficulty: d }).select('_id').lean();
+      const pool = await AptitudeQuestion.find({
+        ...questionFilter,
+        difficulty: d,
+        questionText: { $nin: [null, '', 'undefined'] },
+        topic: { $exists: true, $nin: [null, '', 'undefined'] },
+      }).select('_id').lean();
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       pool.slice(0, mix[d]).forEach(q => pickedIds.push(q._id));
     }
-    const questions = await AptitudeQuestion.find({ _id: { $in: pickedIds } }).lean();
+    const questions = await AptitudeQuestion.find({
+      _id: { $in: pickedIds },
+      questionText: { $nin: [null, '', 'undefined'] },
+    }).lean();
     if (!questions.length) return res.status(404).json({ error: 'No questions available for this paper.' });
     // Build a shuffled-option snapshot per question so answers relabel correctly.
     const snapshot = questions.map(q => {

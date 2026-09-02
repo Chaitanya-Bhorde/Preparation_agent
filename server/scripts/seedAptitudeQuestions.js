@@ -45,6 +45,18 @@ async function seedAptitude() {
     console.log('Connected to MongoDB: ' + conn.connection.name);
     await AptitudeTopic.deleteMany({ name: { $in: ALL } });
     await AptitudeQuestion.deleteMany({ topic: { $in: ALL } });
+    // Purge orphan/broken questions (missing or garbage topic/text) from older seeds.
+    await AptitudeQuestion.deleteMany({
+      $or: [
+        { topic: { $exists: false } },
+        { topic: null },
+        { topic: '' },
+        { questionText: { $exists: false } },
+        { questionText: null },
+        { questionText: '' },
+        { questionText: 'undefined' },
+      ],
+    });
     await AptitudeMockTest.deleteMany({ name: /Mock Test/i });
     console.log('[cleaned existing aptitude data]');
     let tc = 0, qc = 0;

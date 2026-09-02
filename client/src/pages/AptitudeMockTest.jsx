@@ -1,10 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Trophy, Clock, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader2, Trophy, Clock, RotateCcw, TimerReset, Eye, EyeOff } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER, BUTTON_CLASSES } from '../utils/ui';
 import { generateAptitudeMock, submitAptitudeMock, getAptitudeResults } from '../api';
 import MockResultView from '../components/aptitude/MockResultView';
+
+// Live countdown chip for the mock test header. Turns amber/red as time runs low.
+function TimerChip({ seconds, visible, onToggle }) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  const danger = seconds <= 60;
+  const warn = seconds <= 300;
+  const color = danger ? 'bg-red-900/40 border-red-500/60 text-red-300'
+    : warn ? 'bg-amber-900/30 border-amber-500/50 text-amber-300'
+    : 'bg-gray-800/70 border-gray-600 text-green-300';
+  return (
+    <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-mono ${color}`}>
+      <Clock className="w-3.5 h-3.5" />
+      {visible ? `${m}:${String(s).padStart(2, '0')}` : '--:--'}
+      <button onClick={onToggle} title={visible ? 'Hide timer' : 'Show timer'} className="ml-1 opacity-60 hover:opacity-100">
+        {visible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+      </button>
+    </div>
+  );
+}
 
 export default function AptitudeMockTest() {
   usePageTitle('Mock Test');
@@ -18,9 +38,15 @@ export default function AptitudeMockTest() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [details, setDetails] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [timerVisible, setTimerVisible] = useState(true);
+  const submittedRef = useRef(false);
 
   const isGenerate = mockTestId === 'generate' || !mockTestId;
   const category = searchParams.get('category') || 'full';
+
+  // Reset submitted-flag on every new paper / fresh mount.
+  useEffect(() => { submittedRef.current = false; }, [isGenerate, mockTestId]);
 
   const startFreshPaper = useCallback(async () => {
     setPhase('loading');
@@ -28,10 +54,12 @@ export default function AptitudeMockTest() {
     setResult(null);
     setDetails(null);
     setAnswers({});
+    submittedRef.current = false;
     try {
       const res = await generateAptitudeMock(category);
       setMockTest(res.data.mock);
       setQuestions(res.data.questions || []);
+      setTimeLeft((res.data.mock && res.data.mock.duration ? res.data.mock.duration : 30) * 60);
       setPhase('running');
     } catch (e) {
       setError(e.response?.data?.error || e.message || 'Failed to create mock test.');
@@ -48,6 +76,7 @@ export default function AptitudeMockTest() {
           if (!live) return;
           setMockTest(res.data.mock);
           setQuestions(res.data.questions || []);
+          setTimeLeft((res.data.mock && res.data.mock.duration ? res.data.mock.duration : 30) * 60);
           setPhase('running');
         } else {
           const { getAptitudeMockQuestions } = await import('../api');
@@ -55,6 +84,7 @@ export default function AptitudeMockTest() {
           if (!live) return;
           setMockTest(res.data.mock || null);
           setQuestions(res.data.questions || []);
+          setTimeLeft((res.data.mock && res.data.mock.duration ? res.data.mock.duration : 30) * 60);
           setPhase('running');
         }
       } catch (e) {
@@ -85,6 +115,27 @@ export default function AptitudeMockTest() {
       setPhase('running');
     }
   }, [isGenerate, mockTest, mockTestId, questions, answers]);
+
+  // Live countdown while the test is running. Auto-submits when it hits 0.
+  const handleSubmitRef = useRef(null);
+  handleSubmitRef.current = handleSubmit;
+  useEffect(() => {
+    if (phase !== 'running') return undefined;
+    const t = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          if (!submittedRef.current) {
+            submittedRef.current = true;
+            // fire-and-forget auto submit on timeout
+            handleSubmitRef.current();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [phase]);
 
   if (phase === 'loading') return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>;
   if (phase === 'submitting') return <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /><p className="text-gray-400 mt-3">Grading your test...</p></div>;
@@ -117,17 +168,24 @@ export default function AptitudeMockTest() {
 
   return (
     <div className={PAGE_CONTAINER}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <Link to="/practice/aptitude" className="text-blue-400 text-sm flex items-center gap-1 hover:text-blue-300"><ArrowLeft className="w-4 h-4" /> Exit test</Link>
-        <span className="flex items-center gap-1.5 text-sm text-gray-400">
-          <Clock className="w-4 h-4" /> {mockTest ? `${mockTest.duration} min` : ''} · answered {answeredCount}/{questions.length}
-        </span>
+        <div className="flex items-center gap-3">
+          {mockTest && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <TimerReset className="w-3.5 h-3.5" /> {mockTest.duration} min
+            </span>
+          )}
+          <TimerChip seconds={timeLeft} visible={timerVisible} onToggle={() => setTimerVisible(v => !v)} />
+          <span className="text-xs text-gray-400">answered {answeredCount}/{questions.length}</span>
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto space-y-4">
         {questions.map((q, i) => {
           const labels = ['A', 'B', 'C', 'D'];
           const sel = answers[q._id];
+          const qText = q.questionText && String(q.questionText).trim() && q.questionText !== 'undefined' ? q.questionText : 'Question text is being updated — please try the next question.';
           return (
             <div key={q._id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-2">
@@ -136,7 +194,7 @@ export default function AptitudeMockTest() {
                   {q.difficulty}
                 </span>
               </div>
-              <p className="text-white whitespace-pre-line mb-3">{q.questionText}</p>
+              <p className="text-white whitespace-pre-line mb-3">{qText}</p>
               <div className="space-y-2">
                 {(q.options || []).map((opt, oi) => {
                   const label = opt.label || labels[oi];
