@@ -31,6 +31,10 @@ const allowedOrigins = [
   'http://localhost:3000',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
+// Private-network origins (e.g. phone/LAN testing: http://192.168.x.x:5173).
+// Allowed only outside production; production must use FRONTEND_URL explicitly.
+const isProd = process.env.NODE_ENV === 'production';
+const privateOriginRegex = /^https?:\/\/(10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|(\[[0-9a-f:]+\]))(:\d+)?$/i;
 app.use(cors({
   origin: (origin, callback) => {
     // Allow no-origin requests and the explicitly listed origins.
@@ -40,8 +44,12 @@ app.use(cors({
       // In development, allow any localhost origin/port so Vite running on a
       // non-default port (e.g. 5176 when 5173 is busy) is not CORS-blocked.
       callback(null, true);
+    } else if (!isProd && privateOriginRegex.test(origin)) {
+      // Allow LAN/private-IP origins in development (testing from phone/other PC).
+      callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn('CORS blocked origin:', origin);
+      callback(null, false); // 403-style rejection without crashing the preflight with a 500
     }
   },
   credentials: true,
