@@ -12,10 +12,12 @@ const LABELS = ['A', 'B', 'C', 'D'];
 
 // Single MCQ card: click an option -> instant green/red feedback (auto-clears after
 // autoClearMs in practice mode so the user can retry) + step-by-step solution toggle.
-export default function QuestionCard({ q, index, total, selected, onSelect, onAutoClear, autoClearMs = 0 }) {
+export default function QuestionCard({ q, index, total, selected, onSelect, onAutoClear, autoClearMs = 0, correctAnswer }) {
   const [revealed, setRevealed] = useState(false);
   const answered = selected !== null && selected !== undefined;
-  const isRight = answered && selected === q.correctAnswer;
+  // Use the correctAnswer from submit-answer response (prop), not from q (which is undefined)
+  const effectiveCorrect = correctAnswer || q.correctAnswer;
+  const isRight = answered && selected === effectiveCorrect;
 
   // Hide "View solution" whenever the answer resets (auto-clear / retry).
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function QuestionCard({ q, index, total, selected, onSelect, onAu
     return () => clearTimeout(t);
   }, [answered, autoClearMs, q._id, onAutoClear]);
 
-  const corrOpt = (q.options || []).find(o => o.label === q.correctAnswer);
+  const corrOpt = (q.options || []).find(o => o.label === effectiveCorrect);
   // Guarantee a step-by-step breakdown on every question (fallback from explanation).
   const steps = (q.solutionSteps && q.solutionSteps.filter(s => String(s).trim()).length >= 2)
     ? q.solutionSteps
@@ -53,7 +55,7 @@ export default function QuestionCard({ q, index, total, selected, onSelect, onAu
           const chosen = selected === label;
           let cls = 'border-gray-700 hover:border-gray-500 bg-gray-800/40';
           if (answered) {
-            if (label === q.correctAnswer) cls = 'border-green-500/60 bg-green-900/20';
+            if (label === effectiveCorrect) cls = 'border-green-500/60 bg-green-900/20';
             else if (chosen) cls = 'border-red-500/60 bg-red-900/20';
             else cls = 'border-gray-800 bg-gray-900 opacity-60';
           }
@@ -66,8 +68,8 @@ export default function QuestionCard({ q, index, total, selected, onSelect, onAu
             >
               <span className="text-sm font-semibold text-gray-400 shrink-0 w-5">{label}.</span>
               <span className="text-sm text-gray-200 flex-1">{opt.text}</span>
-              {answered && label === q.correctAnswer && <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />}
-              {answered && chosen && label !== q.correctAnswer && <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
+              {answered && label === effectiveCorrect && <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />}
+              {answered && chosen && label !== effectiveCorrect && <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
             </button>
           );
         })}
@@ -77,7 +79,7 @@ export default function QuestionCard({ q, index, total, selected, onSelect, onAu
         <div className="mt-3">
           <div className={`flex items-center gap-2 text-sm font-medium ${isRight ? 'text-green-400' : 'text-red-400'}`}>
             {isRight ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-            {isRight ? 'Correct!' : `Wrong — correct answer is (${q.correctAnswer})`}
+            {isRight ? 'Correct!' : `Wrong — correct answer is (${effectiveCorrect})`}
           </div>
           <div className="mt-2 flex items-center">
             <button
@@ -97,7 +99,7 @@ export default function QuestionCard({ q, index, total, selected, onSelect, onAu
               {corrOpt && (
                 <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-800/70 border border-gray-700 rounded-lg px-3 py-2">
                   <Target className="w-3.5 h-3.5 text-blue-400" />
-                  Correct Answer: <span className="text-green-300 font-semibold">({q.correctAnswer}) {corrOpt.text}</span>
+                  Correct Answer: <span className="text-green-300 font-semibold">({effectiveCorrect}) {corrOpt.text}</span>
                 </div>
               )}
               {q.explanation && (

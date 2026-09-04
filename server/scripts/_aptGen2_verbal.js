@@ -1,7 +1,7 @@
 // Verbal Ability generators v2 - item-bank variety, notebook-style steps
 // seeder passes r = seeded RNG, i = question index, c = {ri, pk, buildMCQ}
 const G = {};
-const qb = (r, c, b) => c.buildMCQ({ r, stem: b[0], right: b[1], wrong: [b[2], b[3], b[4]], explanation: b[1] + '.', steps: [b[5]] });
+const qb = (r, c, b) => c.buildMCQ({ r, stem: b[0], right: b[1], wrong: [b[2], b[3], b[4]], explanation: b[5], steps: [b[5]] });
 
 const RC = [
   ['Read: "The honeybee is one of the most important pollinators in the world. It helps fertilize crops such as apples, almonds and blueberries. In recent years, bee populations have declined due to pesticides and habitat loss." Why have bee populations declined?', 'Pesticides and habitat loss', 'Lack of flowers', 'Cold weather', 'Over-pollination', 'Passage says: declined "due to pesticides and habitat loss"'],

@@ -160,6 +160,7 @@ export default function AptitudeTopicPractice() {
             onSelect={handleSelect}
             autoClearMs={18000}
             onAutoClear={clearAnswer}
+            correctAnswer={solutions[q._id]?.correctAnswer}
           />
           <div className="flex items-center justify-between mt-4">
             <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx === 0} className={BUTTON_CLASSES.secondary + ' disabled:opacity-40'}>
