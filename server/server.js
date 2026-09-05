@@ -74,6 +74,15 @@ const apiRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// AI-heavy interview endpoints (question generation + evaluation cost money)
+const interviewAiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: { success: false, message: 'Interview rate limit reached. Please wait a moment and retry.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/auth/login', authRateLimiter);
 app.use('/api/auth/register', authRateLimiter);
 app.use('/api/ats/analyze', apiRateLimiter);
@@ -102,7 +111,7 @@ app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));
-app.use('/api/mock-interview', require('./routes/mockInterview'));
+app.use('/api/interview', interviewAiLimiter, require('./routes/interview'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });
 });

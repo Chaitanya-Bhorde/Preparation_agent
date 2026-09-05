@@ -2,7 +2,7 @@ const User = require('../models/User');
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const AptitudeResult = require('../models/AptitudeResult');
-const MockInterview = require('../models/MockInterview');
+const InterviewSession = require('../models/InterviewSession');
 
 exports.getInterviewReadiness = async (req, res) => {
   try {
@@ -27,9 +27,9 @@ exports.getInterviewReadiness = async (req, res) => {
     const atsScore = user.profile?.atsScore || 0;
     const hasResume = !!(user.profile?.resumeUrl);
 
-    const mockInterviews = await MockInterview.find({ user: userId }).select('rating');
+    const mockInterviews = await InterviewSession.find({ user: userId, status: 'COMPLETED' }).select('score');
     const mockInterviewScore = mockInterviews.length > 0
-      ? Math.round(mockInterviews.reduce((sum, m) => sum + m.rating, 0) / mockInterviews.length)
+      ? Math.round(mockInterviews.reduce((sum, m) => sum + (m.score || 0), 0) / mockInterviews.length)
       : 0;
 
     const weights = { coding: 0.5, aptitude: 0.2, ats: 0.15, mock: 0.15 };

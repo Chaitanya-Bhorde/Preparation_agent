@@ -117,10 +117,16 @@ export const getGlobalLeaderboard = (params) => API.get('/leaderboard/global', {
 // Progress Export
 export const exportProgress = () => API.get('/progress/export');
 
-// Mock Interview
-export const startMockInterview = (data) => API.post('/mock-interview/start', data);
-export const submitMockAnswer = (data) => API.post('/mock-interview/answer', data);
-export const getMockInterviewResult = (id) => API.get(`/mock-interview/result/${id}`);
+// Mock Interview (new AI-powered system)
+export const getInterviewFields = () => API.get('/interview/fields');
+export const createInterviewSession = (data) => API.post('/interview/sessions', data);
+export const getActiveInterviewSession = () => API.get('/interview/sessions/active');
+export const getInterviewSession = (id) => API.get(`/interview/sessions/${id}`);
+export const startInterviewSession = (id) => API.post(`/interview/sessions/${id}/start`);
+export const submitInterviewAnswer = (id, data) => API.post(`/interview/sessions/${id}/answer`, data);
+export const completeInterviewSession = (id) => API.post(`/interview/sessions/${id}/complete`);
+export const abandonInterviewSession = (id) => API.post(`/interview/sessions/${id}/abandon`);
+export const getInterviewReport = (id) => API.get(`/interview/sessions/${id}/report`);
 
 // Practice History
 export const getPracticeHistory = (params) => API.get('/submissions/history', { params });
