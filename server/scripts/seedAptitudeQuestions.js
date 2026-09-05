@@ -18,12 +18,15 @@ const lv2 = require('./_aptGen2_logical');
 const vv2 = require('./_aptGen2_verbal');
 const vv3 = require('./_aptGen3_verbal');
 const lv3 = require('./_aptGen3_logical');
+const vv4 = require('./_aptGen4_verbal');
+const l5 = require('./_aptGen5_logical');
+const v5 = require('./_aptGen5_verbal');
 const meta = require('./_aptSub');
 const CAT = meta.CATEGORIES;
 const SUBTOPICS = meta.SUBTOPICS;
 const ALL = [].concat(CAT.quantitative, CAT.logical, CAT.verbal);
-// v3 generators take priority, then v2, then v1 fallback.
-const GENS = Object.assign({}, q1.G, q2.G, l1.G, l2.G, v1.G, v2.G, qv2.G, lv2.G, vv2.G, vv3.G, lv3.G);
+// v5 generators take top priority; then v4, then v3, then v2, then v1 fallback.
+const GENS = Object.assign({}, q1.G, q2.G, l1.G, l2.G, v1.G, v2.G, qv2.G, lv2.G, vv2.G, vv3.G, lv3.G, vv4.G, l5.G, v5.G);
 const srand = s => { let x = Math.sin(s) * 10000; return x - Math.floor(x); };
 // Stateful seeded RNG (mulberry32) — each r() call advances state so
 // ri()/pk() inside a template get DIFFERENT random values (variety fix).
