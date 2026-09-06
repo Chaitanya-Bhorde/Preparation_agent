@@ -124,6 +124,7 @@ export const getActiveInterviewSession = () => API.get('/interview/sessions/acti
 export const getInterviewSession = (id) => API.get(`/interview/sessions/${id}`);
 export const startInterviewSession = (id) => API.post(`/interview/sessions/${id}/start`);
 export const submitInterviewAnswer = (id, data) => API.post(`/interview/sessions/${id}/answer`, data);
+export const requestNextInterviewQuestion = (id) => API.post(`/interview/sessions/${id}/next`);
 export const completeInterviewSession = (id) => API.post(`/interview/sessions/${id}/complete`);
 export const abandonInterviewSession = (id) => API.post(`/interview/sessions/${id}/abandon`);
 export const getInterviewReport = (id) => API.get(`/interview/sessions/${id}/report`);

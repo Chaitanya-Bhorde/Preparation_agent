@@ -1,5 +1,5 @@
-/**
- * interviewController — HTTP layer for the AI Mock Interview feature.
+﻿/**
+ * interviewController â€” HTTP layer for the AI Mock Interview feature.
  * Thin: validate input, delegate to sessionService, map errors to responses.
  * Raw AI/provider errors are never surfaced to clients.
  */
@@ -16,7 +16,7 @@ const sanitizeAnswer = (raw) => String(raw ?? '')
   .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
   .slice(0, 8000);
 
-// GET /api/interview/fields — selectable interview fields grouped by category
+// GET /api/interview/fields â€” selectable interview fields grouped by category
 exports.getFields = (req, res) => {
   res.json({
     success: true,
@@ -31,7 +31,7 @@ exports.getFields = (req, res) => {
   });
 };
 
-// POST /api/interview/sessions — create + start (returns first question)
+// POST /api/interview/sessions â€” create + start (returns first question)
 exports.createSession = async (req, res) => {
   try {
     const { topics, difficulty, experienceLevel, mode, totalQuestions } = req.body;
@@ -61,53 +61,71 @@ exports.createSession = async (req, res) => {
       totalQuestions: count,
     });
 
-    res.status(201).json({
+    // Shape the question to ensure it has 'id' (not '_id') for the frontend
+    const shapedQuestion = question ? {
+      id: question._id ? question._id.toString() : question.id,
+      text: question.text,
+      topic: question.topic,
+      difficulty: question.difficulty,
+      type: question.type,
+      isFollowUp: question.isFollowUp,
+      order: question.order,
+      expectedConcepts: question.expectedConcepts || [],
+      expectedAnswer: question.expectedAnswer || '',
+      source: question.source,
+    } : null;
+
+        res.status(201).json({
       success: true,
       data: {
-        sessionId: session._id,
+        sessionId: session._id ? session._id.toString() : session.id,
         status: session.status,
         mode: session.mode,
         totalQuestions: session.totalQuestions,
-        question: question && {
-          id: question._id,
-          text: question.text,
-          topic: question.topic,
-          difficulty: question.difficulty,
-          isFollowUp: question.isFollowUp,
-        },
+        question: shapedQuestion,
       },
     });
   } catch (err) {
     if (err instanceof svc.SessionError) {
-      const data = err.code === 'ACTIVE_SESSION_EXISTS'
-        ? { code: err.code, existingSessionId: err.existingSessionId }
-        : { code: err.code };
-      return res.status(err.statusCode).json({ success: false, message: err.message, data });
+      if (err.code === 'ACTIVE_SESSION_EXISTS') {
+        // Return full session state so the client can offer resume immediately
+        const state = await svc.getSessionState(err.session);
+        return res.status(err.statusCode).json({
+          success: false,
+          message: err.message,
+          data: {
+            code: err.code,
+            existingSessionId: state.session.id,
+            session: state.session,
+            nextQuestion: state.nextQuestion,
+            answeredCount: state.answeredCount,
+          },
+        });
+      }
+      return res.status(err.statusCode).json({ success: false, message: err.message, data: { code: err.code } });
     }
     console.error('[interview] create session error:', err.message);
     res.status(500).json({ success: false, message: 'Could not start the interview. Please try again.' });
   }
 };
 
-// GET /api/interview/sessions/active — resume support
+// GET /api/interview/sessions/active â€” resume support
 exports.getActiveSession = async (req, res) => {
   try {
     const session = await svc.findActiveSession(req.user.id);
-    if (!session) return res.json({ success: true, data: { session: null } });
+    if (!session) {
+      return res.json({ success: true, data: { hasActiveSession: false, session: null } });
+    }
+
+    // Also fetch the current unanswered question so the client can resume immediately
+    const state = await svc.getSessionState(session);
     res.json({
       success: true,
       data: {
-        session: {
-          id: session._id,
-          topics: session.topics,
-          difficulty: session.difficulty,
-          experienceLevel: session.experienceLevel,
-          mode: session.mode,
-          totalQuestions: session.totalQuestions,
-          status: session.status,
-          startedAt: session.startedAt,
-          lastActivityAt: session.lastActivityAt,
-        },
+        hasActiveSession: true,
+        session: state.session,
+        nextQuestion: state.nextQuestion,
+        answeredCount: state.answeredCount,
       },
     });
   } catch (err) {
@@ -116,7 +134,7 @@ exports.getActiveSession = async (req, res) => {
   }
 };
 
-// GET /api/interview/sessions/:id — session state (restore/refresh safe)
+// GET /api/interview/sessions/:id â€” session state (restore/refresh safe)
 exports.getSession = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -137,7 +155,7 @@ exports.getSession = async (req, res) => {
   }
 };
 
-// POST /api/interview/sessions/:id/start — (re)start a CREATED session
+// POST /api/interview/sessions/:id/start â€” (re)start a CREATED session
 exports.startSession = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -150,14 +168,19 @@ exports.startSession = async (req, res) => {
     res.json({
       success: true,
       data: {
-        sessionId: updated._id,
+        sessionId: updated._id ? updated._id.toString() : updated.id,
         status: updated.status,
         question: question && {
-          id: question._id,
+          id: question._id ? question._id.toString() : question.id,
           text: question.text,
           topic: question.topic,
           difficulty: question.difficulty,
+          type: question.type,
           isFollowUp: question.isFollowUp,
+          order: question.order,
+          expectedConcepts: question.expectedConcepts || [],
+          expectedAnswer: question.expectedAnswer || '',
+          source: question.source,
         },
       },
     });
@@ -170,7 +193,7 @@ exports.startSession = async (req, res) => {
   }
 };
 
-// POST /api/interview/sessions/:id/answer — evaluate + advance
+// POST /api/interview/sessions/:id/answer â€” evaluate + advance
 exports.submitAnswer = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -198,6 +221,7 @@ exports.submitAnswer = async (req, res) => {
         },
         nextQuestion: result.nextQuestion || null,
         completed: Boolean(result.completed),
+        generationFailed: Boolean(result.generationFailed),
         report: result.report || null,
       },
     });
@@ -214,7 +238,34 @@ exports.submitAnswer = async (req, res) => {
   }
 };
 
-// POST /api/interview/sessions/:id/complete — finalize + report
+// POST /api/interview/sessions/:id/next — pending or next question (retry-safe)
+exports.requestNext = async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid session id.' });
+    }
+    const session = await InterviewSession.findById(req.params.id);
+    if (!session) return res.status(404).json({ success: false, message: 'Interview session not found.' });
+
+    const result = await svc.requestNextQuestion(session, req.user);
+    res.json({
+      success: true,
+      data: {
+        nextQuestion: result.nextQuestion || null,
+        completed: Boolean(result.completed),
+        report: result.report || null,
+      },
+    });
+  } catch (err) {
+    if (err instanceof svc.SessionError) {
+      return res.status(err.statusCode).json({ success: false, message: err.message, data: { code: err.code } });
+    }
+    console.error('[interview] next question error:', err.message);
+    res.status(500).json({ success: false, message: 'Could not load the next question. Please retry.' });
+  }
+};
+
+// POST /api/interview/sessions/:id/complete â€” finalize + report
 exports.completeSession = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {
@@ -256,7 +307,7 @@ exports.abandonSession = async (req, res) => {
   }
 };
 
-// GET /api/interview/sessions/:id/report — final report
+// GET /api/interview/sessions/:id/report â€” final report
 exports.getReport = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) {

@@ -13,10 +13,10 @@ const axios = require('axios');
 
 const PROVIDER_URL =
   process.env.INTERVIEW_LLM_URL || 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = process.env.INTERVIEW_LLM_MODEL || 'llama-3.3-70b-versatile';
+const MODEL = process.env.INTERVIEW_LLM_MODEL || 'openai/gpt-oss-120b'; // llama-3.3-70b-versatile was retired by Groq
 const TIMEOUT_MS = Number(process.env.INTERVIEW_LLM_TIMEOUT_MS || 30000);
-const MAX_RETRIES = Number(process.env.INTERVIEW_LLM_MAX_RETRIES || 1);
-const MAX_COMPLETION_TOKENS = Number(process.env.INTERVIEW_LLM_MAX_TOKENS || 1100);
+const MAX_RETRIES = Number(process.env.INTERVIEW_LLM_MAX_RETRIES || 2);
+const MAX_COMPLETION_TOKENS = Number(process.env.INTERVIEW_LLM_MAX_TOKENS || 2000); // gpt-oss spends reasoning tokens inside this budget
 
 class AiServiceError extends Error {
   constructor(message, { statusCode, providerError } = {}) {
@@ -106,19 +106,31 @@ async function callJson(messages, { temperature = 0.4, maxTokens = MAX_COMPLETIO
       if (err instanceof AiServiceError && err.message.startsWith('Malformed')) {
         lastError = err;
       } else if (err.response) {
+        const status = err.response.status;
         lastError = new AiServiceError('AI provider returned an error.', {
-          statusCode: 502,
-          providerError: `${err.response.status}`,
+          statusCode: status === 429 ? 503 : 502,
+          providerError: `${status}`,
         });
-        // 4xx (bad key / bad request) will not improve on retry — stop early.
-        if (err.response.status >= 400 && err.response.status < 500) break;
+        // 429 (rate limit) IS retryable — honor Retry-After when present.
+        // Other 4xx (bad key / bad request) will not improve on retry — stop early.
+        if (status === 429) {
+          if (attempt < MAX_RETRIES) {
+            const retryAfter = Number(err.response.headers?.['retry-after']);
+            const wait = Number.isFinite(retryAfter) && retryAfter > 0
+              ? Math.min(retryAfter * 1000, 15000)
+              : 1500 * (attempt + 1);
+            await new Promise((r) => setTimeout(r, wait));
+          }
+          continue;
+        }
+        if (status >= 400 && status < 500) break;
       } else if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
         lastError = new AiServiceError('AI provider timed out.', { statusCode: 504 });
       } else {
         lastError = new AiServiceError('AI provider is unreachable.', { statusCode: 502 });
       }
       if (attempt < MAX_RETRIES) {
-        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
       }
     }
   }

@@ -122,4 +122,55 @@ async function evaluateAnswer({ question, topic, answer, experienceLevel = 'fres
   return evaluation;
 }
 
-module.exports = { evaluateAnswer, clampScore, MIN_ANSWER_LENGTH };
+/**
+ * Deterministic offline evaluation used ONLY when the AI provider fails, so a
+ * provider outage can never block a candidate mid-interview. Scores come from
+ * answer length + keyword coverage of the question's expected concepts.
+ * Marked with evaluator:'heuristic' so reports can show it was degraded.
+ */
+function heuristicEvaluation({ question, answer, expectedConcepts = [], expectedAnswer = '' }) {
+  const text = String(answer || '').trim();
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  const haystack = `${text.toLowerCase()} ${expectedAnswer.toLowerCase()}`;
+
+  const concepts = expectedConcepts
+    .map((c) => String(c).toLowerCase().trim())
+    .filter(Boolean);
+  const hit = concepts.filter((c) => {
+    const tokens = c.split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+    return tokens.some((t) => haystack.includes(t));
+  });
+  const coverage = concepts.length ? hit.length / concepts.length : 0;
+
+  // Length signal: <15 words weak, 15-60 reasonable, 60+ thorough (capped).
+  const lengthScore =
+    words.length < 5 ? 1 : words.length < 15 ? 4 : words.length < 60 ? 6.5 : 8;
+  const conceptScore = concepts.length ? 3 + coverage * 6 : Math.min(7, lengthScore);
+
+  const overall = clampScore(lengthScore * 0.4 + conceptScore * 0.6);
+  const verdict = overall >= 7 ? 'correct' : overall >= 4 ? 'partially_correct' : 'incorrect';
+
+  return {
+    overall,
+    correctness: clampScore(conceptScore),
+    technicalAccuracy: clampScore(conceptScore * 0.9),
+    completeness: clampScore(3 + coverage * 6),
+    clarity: clampScore(lengthScore),
+    depth: clampScore(Math.min(overall, lengthScore)),
+    communication: clampScore(lengthScore),
+    verdict,
+    strengths: hit.slice(0, 3).map((c) => `Mentioned: ${c}`),
+    missingConcepts: concepts.filter((c) => !hit.includes(c)).slice(0, 4),
+    feedback:
+      'Evaluated in offline mode (AI interviewer temporarily unavailable). Score reflects answer substance against the expected key concepts.',
+    detailedFeedback:
+      'This answer was scored by a fallback heuristic evaluator because the AI service was unavailable. ' +
+      (concepts.length
+        ? `Expected concepts: ${concepts.join(', ')}. Covered: ${hit.length ? hit.join(', ') : 'none detected'}.`
+        : 'No concept list was available for detailed matching.'),
+    followUpNeeded: false,
+    evaluator: 'heuristic',
+  };
+}
+
+module.exports = { evaluateAnswer, heuristicEvaluation, clampScore, MIN_ANSWER_LENGTH };

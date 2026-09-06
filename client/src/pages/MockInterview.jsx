@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Bot, Mic, MicOff, Volume2, VolumeX, Loader2, Send, CheckCircle, AlertCircle,
   ArrowRight, Award, Brain, RefreshCw, Clock, ChevronRight, X, Search,
@@ -7,8 +7,8 @@ import {
 import { PAGE_CONTAINER } from '../utils/ui';
 import {
   getInterviewFields, createInterviewSession, getActiveInterviewSession,
-  submitInterviewAnswer, completeInterviewSession, abandonInterviewSession,
-  getInterviewReport,
+  getInterviewSession, submitInterviewAnswer, completeInterviewSession,
+  abandonInterviewSession, getInterviewReport,
 } from '../api';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import useSpeechSynthesis from '../hooks/useSpeechSynthesis';
@@ -142,7 +142,7 @@ function TopicSelector({ categories, selected, onChange, disabled }) {
 
 // ─── Setup Screen ───────────────────────────────────────────────────────────
 
-function SetupScreen({ onStart }) {
+function SetupScreen({ onStart, activeState, onResume }) {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -152,6 +152,15 @@ function SetupScreen({ onStart }) {
   const [mode, setMode] = useState('text');
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [submitting, setSubmitting] = useState(false);
+  const [abandoning, setAbandoning] = useState(false);
+  const [pendingActiveSession, setPendingActiveSession] = useState(
+    activeState ? {
+      sessionId: activeState.session?.id,
+      session: activeState.session,
+      nextQuestion: activeState.nextQuestion,
+      answeredCount: activeState.answeredCount,
+    } : null
+  );
 
   useEffect(() => {
     getInterviewFields()
@@ -175,12 +184,48 @@ function SetupScreen({ onStart }) {
         mode,
         totalQuestions,
       });
+      setPendingActiveSession(null);
       onStart(data.data);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to start the interview. Please try again.';
+      const responseData = err.response?.data;
+      if (err.response?.status === 409 && responseData?.data?.code === 'ACTIVE_SESSION_EXISTS') {
+        const d = responseData.data;
+        setPendingActiveSession({
+          sessionId: d.existingSessionId || d.session?.id,
+          session: d.session,
+          nextQuestion: d.nextQuestion,
+          answeredCount: d.answeredCount || 0,
+        });
+        setError(null);
+        return;
+      }
+      const msg = responseData?.message || 'Failed to start the interview. Please try again.';
       setError(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAbandonAndStart = async () => {
+    if (!pendingActiveSession?.sessionId) return;
+    setAbandoning(true);
+    setError(null);
+    try {
+      await abandonInterviewSession(pendingActiveSession.sessionId);
+      setPendingActiveSession(null);
+      await handleSubmit();
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Could not abandon the previous session. Please try again.';
+      setError(msg);
+    } finally {
+      setAbandoning(false);
+    }
+  };
+
+  const handleResumeClick = () => {
+    const sessionId = pendingActiveSession?.sessionId || activeState?.session?.id;
+    if (sessionId) {
+      onResume(sessionId);
     }
   };
 
@@ -188,6 +233,74 @@ function SetupScreen({ onStart }) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+      </div>
+    );
+  }
+
+  if (pendingActiveSession || activeState) {
+    const sess = pendingActiveSession?.session || activeState?.session;
+    const answeredCount = pendingActiveSession?.answeredCount ?? activeState?.answeredCount ?? 0;
+    return (
+      <div className="space-y-8">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-800 rounded-full px-4 py-1.5 mb-4">
+            <Brain className="w-4 h-4 text-blue-400" />
+            <span className="text-sm text-blue-300">Active Interview Found</span>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">Resume Your Interview?</h1>
+          <p className="text-gray-400 max-w-xl mx-auto">
+            You have an incomplete interview session. Choose how to continue.
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        )}
+
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <h3 className="text-lg font-semibold text-white mb-3">Current Session</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Topics:</span>
+              <span className="text-white">{sess?.topics?.join(', ') || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Mode:</span>
+              <span className="text-white capitalize">{sess?.mode || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Difficulty:</span>
+              <span className="text-white capitalize">{sess?.difficulty || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Progress:</span>
+              <span className="text-white">{answeredCount}/{sess?.totalQuestions} questions answered</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={handleResumeClick}
+            className="py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          >
+            <ArrowRight className="w-5 h-5" /> Resume Interview
+          </button>
+          <button
+            onClick={handleAbandonAndStart}
+            disabled={abandoning || submitting}
+            className="py-4 bg-gray-800 border border-gray-700 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {abandoning ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Abandoning...</>
+            ) : (
+              <><RefreshCw className="w-5 h-5" /> Abandon & Start New</>
+            )}
+          </button>
+        </div>
       </div>
     );
   }
@@ -369,6 +482,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const { sessionId, mode, totalQuestions } = sessionData;
 
   const [question, setQuestion] = useState(sessionData.question);
+  const [questionId, setQuestionId] = useState(sessionData.question?.id || null);
   const [nextQuestion, setNextQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
@@ -378,6 +492,9 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const [error, setError] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [completedReport, setCompletedReport] = useState(null);
+  const [nextFailed, setNextFailed] = useState(false);
+  const [loadingNext, setLoadingNext] = useState(false);
 
   const stt = useSpeechRecognition();
   const tts = useSpeechSynthesis();
@@ -397,6 +514,41 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     return () => { tts.cancel(); stt.stop(); };
   }, [tts, stt]);
 
+  // Recovery: no question loaded (resumed session with lost generation, or a
+  // submit whose next-question generation failed). Ask the backend for the
+  // pending/next question. Safe to retry — the backend is idempotent.
+  const loadNextQuestion = useCallback(async () => {
+    if (loadingNext || isComplete) return;
+    setLoadingNext(true);
+    setError(null);
+    try {
+      const { data } = await requestNextInterviewQuestion(sessionId);
+      if (data.data.completed) {
+        setIsComplete(true);
+        setCompletedReport(data.data.report || null);
+        setTimeout(() => onComplete(sessionId), 2000);
+      } else if (data.data.nextQuestion) {
+        setQuestion(data.data.nextQuestion);
+        setQuestionId(data.data.nextQuestion.id || null);
+        setNextFailed(false);
+      } else {
+        setNextFailed(true);
+      }
+    } catch (err) {
+      setNextFailed(true);
+      setError(err.response?.data?.message || 'AI interviewer temporarily unavailable. Please retry.');
+    } finally {
+      setLoadingNext(false);
+    }
+  }, [sessionId, loadingNext, isComplete, onComplete]);
+
+  useEffect(() => {
+    if (!question && !submitted) {
+      loadNextQuestion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question]);
+
   const handleSubmit = async () => {
     const text = mode === 'voice'
       ? (stt.transcript + (stt.interimTranscript ? ' ' + stt.interimTranscript : '')).trim()
@@ -407,6 +559,10 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       return;
     }
     if (loading) return;
+    if (!question?.id) {
+      setError('Question data is missing. Please refresh and try again.');
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -414,6 +570,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
     try {
       const { data } = await submitInterviewAnswer(sessionId, {
+        questionId: question.id,
         answer: text,
         answerType: mode === 'voice' ? 'voice' : 'text',
         transcript: mode === 'voice' ? stt.transcript : undefined,
@@ -422,9 +579,16 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       setFeedback(data.data.evaluation);
       setSubmitted(true);
 
-      if (data.data.isComplete) {
+      // Backend signals interview completion with `completed: true` (report included).
+      if (data.data.completed) {
         setIsComplete(true);
+        setCompletedReport(data.data.report || null);
         setTimeout(() => onComplete(sessionId), 2000);
+      } else if (data.data.generationFailed || !data.data.nextQuestion) {
+        // Answer accepted + evaluated, but the next question could not be
+        // generated right now. Recoverable via "Load next question".
+        setNextQuestion(null);
+        setNextFailed(true);
       } else {
         setNextQuestion(data.data.nextQuestion);
       }
@@ -437,11 +601,18 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   };
 
   const handleNext = () => {
-    if (isComplete || currentIndex >= totalQuestions) {
+    // Completion is driven by the backend (`completed: true` handled in submit).
+    // Here we only guard against a missing next question (network hiccup etc.).
+    if (isComplete) {
       onComplete(sessionId);
       return;
     }
+    if (!nextQuestion) {
+      setError('Next question could not be loaded. Please retry.');
+      return;
+    }
     setQuestion(nextQuestion);
+    setQuestionId(nextQuestion.id || null);
     setNextQuestion(null);
     setFeedback(null);
     setSubmitted(false);
@@ -462,6 +633,9 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           <CheckCircle className="w-8 h-8 text-green-400" />
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Interview Complete!</h2>
+        {completedReport?.overallScore != null && (
+          <p className="text-white text-lg mb-1">Overall Score: {completedReport.overallScore} / 100</p>
+        )}
         <p className="text-gray-400">Generating your report...</p>
         <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mt-4" />
       </div>
@@ -590,6 +764,15 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         </div>
       )}
 
+      {nextFailed && submitted && !error && (
+        <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-300">
+            Your answer was saved and evaluated. The next question could not be generated right now — click the retry button below.
+          </p>
+        </div>
+      )}
+
       {/* Submit / Next */}
       {!submitted ? (
         <button
@@ -603,16 +786,24 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <><Send className="w-4 h-4" /> Submit Answer</>
           )}
         </button>
+      ) : nextFailed ? (
+        <button
+          onClick={loadNextQuestion}
+          disabled={loadingNext}
+          className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+        >
+          {loadingNext ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Loading next question...</>
+          ) : (
+            <><RefreshCw className="w-4 h-4" /> Retry: Load Next Question</>
+          )}
+        </button>
       ) : (
         <button
           onClick={handleNext}
           className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
-          {currentIndex >= totalQuestions ? (
-            <><Award className="w-4 h-4" /> View Report</>
-          ) : (
-            <>Next Question <ArrowRight className="w-4 h-4" /></>
-          )}
+          <>Next Question <ArrowRight className="w-4 h-4" /></>
         </button>
       )}
 
@@ -835,13 +1026,19 @@ export default function MockInterview() {
   const [sessionData, setSessionData] = useState(null);
   const [reportSessionId, setReportSessionId] = useState(null);
   const [checkingActive, setCheckingActive] = useState(true);
-  const [activeSession, setActiveSession] = useState(null);
+  const [resumeError, setResumeError] = useState(null);
+  // Store the full active-session payload: { session, nextQuestion, answeredCount }
+  const [activeState, setActiveState] = useState(null);
 
   useEffect(() => {
     getActiveInterviewSession()
       .then((res) => {
         if (res.data.data?.hasActiveSession) {
-          setActiveSession(res.data.data.session);
+          setActiveState({
+            session: res.data.data.session,
+            nextQuestion: res.data.data.nextQuestion,
+            answeredCount: res.data.data.answeredCount || 0,
+          });
         }
       })
       .catch(() => { /* no active session */ })
@@ -861,18 +1058,35 @@ export default function MockInterview() {
   const handleAbandon = () => {
     setPhase('setup');
     setSessionData(null);
-    setActiveSession(null);
+    setActiveState(null);
   };
 
-  const handleResume = () => {
-    if (activeSession) {
+    const handleResume = async (sessionId) => {
+    if (!sessionId) return;
+    try {
+      const res = await getInterviewSession(sessionId);
+      const state = res.data.data;
+      setActiveState(null);
+      // Edge case: every question answered but session not finalized
+      // (e.g. network dropped on the final submit). Finalize → report.
+      if (!state.nextQuestion) {
+        try { await completeInterviewSession(state.session.id); } catch (_) { /* may already be completed */ }
+        setReportSessionId(state.session.id);
+        setPhase('report');
+        return;
+      }
       setSessionData({
-        sessionId: activeSession._id,
-        mode: activeSession.mode,
-        totalQuestions: activeSession.totalQuestions,
-        question: activeSession.currentQuestion,
+        sessionId: state.session.id,
+        mode: state.session.mode,
+        totalQuestions: state.session.totalQuestions,
+        question: state.nextQuestion,
       });
       setPhase('interview');
+    } catch (err) {
+      console.error('Failed to resume session:', err);
+      setResumeError('Could not resume the interview. Please retry.');
+      setActiveState(null);
+      setPhase('setup');
     }
   };
 
@@ -880,7 +1094,7 @@ export default function MockInterview() {
     setPhase('setup');
     setSessionData(null);
     setReportSessionId(null);
-    setActiveSession(null);
+    setActiveState(null);
   };
 
   if (checkingActive) {
@@ -893,26 +1107,26 @@ export default function MockInterview() {
     );
   }
 
-  return (
+    return (
     <div className={PAGE_CONTAINER}>
-      {activeSession && phase === 'setup' && (
-        <div className="mb-6 bg-blue-900/20 border border-blue-800 rounded-xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-blue-300 font-medium">You have an incomplete interview</p>
-            <p className="text-xs text-gray-400">
-              {activeSession.topics?.join(', ')} \u2022 {activeSession.totalQuestions} questions
-            </p>
+      {resumeError && (
+        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-red-300">{resumeError}</p>
+            <button onClick={() => setResumeError(null)} className="text-xs text-gray-400 hover:text-white mt-1 underline">
+              Dismiss
+            </button>
           </div>
-          <button
-            onClick={handleResume}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-          >
-            Resume
-          </button>
         </div>
       )}
-
-      {phase === 'setup' && <SetupScreen onStart={handleStart} />}
+      {phase === 'setup' && (
+        <SetupScreen
+          onStart={handleStart}
+          activeState={activeState}
+          onResume={handleResume}
+        />
+      )}
       {phase === 'interview' && sessionData && (
         <InterviewSession
           sessionData={sessionData}
@@ -926,10 +1140,3 @@ export default function MockInterview() {
     </div>
   );
 }
-
-
-
-
-
-
-

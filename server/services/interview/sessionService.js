@@ -15,17 +15,20 @@ const InterviewQuestion = require('../../models/InterviewQuestion');
 const InterviewAnswer = require('../../models/InterviewAnswer');
 const fields = require('../../config/interviewFields');
 const { generateQuestion } = require('./questionGenerator');
-const { evaluateAnswer } = require('./evaluator');
+const { evaluateAnswer, heuristicEvaluation } = require('./evaluator');
 const { generateReport } = require('./reportGenerator');
+const { AiServiceError } = require('./aiClient');
 
 const MAX_FOLLOWUPS_PER_QUESTION = 1;
 
 class SessionError extends Error {
-  constructor(message, { statusCode = 400, code } = {}) {
+  constructor(message, { statusCode = 400, code, ...rest } = {}) {
     super(message);
     this.name = 'SessionError';
     this.statusCode = statusCode;
     this.code = code;
+    // Allow attaching arbitrary extra data (e.g. existingSessionId, topics)
+    Object.assign(this, rest);
   }
 }
 
@@ -67,6 +70,7 @@ async function createSession(user, payload) {
     throw new SessionError('You already have an active interview session', {
       statusCode: 409,
       code: 'ACTIVE_SESSION_EXISTS',
+      session: existing,
     });
   }
 
@@ -146,7 +150,7 @@ async function getSessionState(session) {
 
   return {
     session: {
-      id: session._id,
+      id: session._id ? session._id.toString() : session.id,
       topics: session.topics,
       difficulty: session.difficulty,
       experienceLevel: session.experienceLevel,
@@ -158,13 +162,16 @@ async function getSessionState(session) {
       lastActivityAt: session.lastActivityAt,
     },
     nextQuestion: nextQuestion && {
-      id: nextQuestion._id,
+      id: nextQuestion._id ? nextQuestion._id.toString() : (nextQuestion.id ? nextQuestion.id.toString() : null),
       text: nextQuestion.text,
       topic: nextQuestion.topic,
       difficulty: nextQuestion.difficulty,
       type: nextQuestion.type,
       isFollowUp: nextQuestion.isFollowUp,
       order: nextQuestion.order,
+      expectedConcepts: nextQuestion.expectedConcepts || [],
+      expectedAnswer: nextQuestion.expectedAnswer || '',
+      source: nextQuestion.source,
     },
     history,
     answeredCount: answers.filter((a) => !a.question?.isFollowUp).length,
@@ -207,13 +214,16 @@ async function countMainAnswered(session) {
 
 function shapeQuestion(q) {
   return {
-    id: q._id,
+    id: q._id ? q._id.toString() : (q.id ? q.id.toString() : null),
     text: q.text,
     topic: q.topic,
     difficulty: q.difficulty,
     type: q.type,
     isFollowUp: q.isFollowUp,
     order: q.order,
+    expectedConcepts: q.expectedConcepts || [],
+    expectedAnswer: q.expectedAnswer || '',
+    source: q.source,
   };
 }
 
@@ -252,14 +262,29 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
   }
 
   console.log(`[interview] answer evaluation started session=${session._id} question=${question._id}`);
-  const evaluation = await evaluateAnswer({
-    question: question.text,
-    topic: question.topic,
-    answer: answerText,
-    experienceLevel: session.experienceLevel,
-    isFollowUp: question.isFollowUp,
-  });
-  console.log(`[interview] answer evaluation completed session=${session._id} score=${evaluation.overall}`);
+  let evaluation;
+  try {
+    evaluation = await evaluateAnswer({
+      question: question.text,
+      topic: question.topic,
+      answer: answerText,
+      experienceLevel: session.experienceLevel,
+      isFollowUp: question.isFollowUp,
+    });
+  } catch (err) {
+    // AI outage must never block the interview — degrade to heuristic scoring.
+    if (err instanceof AiServiceError) {
+      console.error(`[interview] AI evaluation failed, using heuristic session=${session._id}: ${err.message}`);
+      evaluation = heuristicEvaluation({
+        answer: answerText,
+        expectedConcepts: question.expectedConcepts,
+        expectedAnswer: question.expectedAnswer,
+      });
+    } else {
+      throw err;
+    }
+  }
+  console.log(`[interview] answer evaluation completed session=${session._id} score=${evaluation.overall} evaluator=${evaluation.evaluator || 'ai'}`);
 
   answer = await InterviewAnswer.create({
     session: session._id,
@@ -339,11 +364,41 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
     return { completed: true, report: { overallScore: report.overallScore } };
   }
 
-  // 3) Next main question.
+  // 3) Next main question — generation failure must NOT fail the submit
+  //    (the answer was already accepted). Return a recoverable state instead;
+  //    the client retries via POST /:id/next.
+  try {
+    const nextQuestion = await ensureNextQuestion(session);
+    session.status = 'IN_PROGRESS';
+    session.lastActivityAt = new Date();
+    await session.save();
+    return { nextQuestion: shapeQuestion(nextQuestion), completed: false };
+  } catch (err) {
+    console.error(`[interview] next-question generation failed session=${session._id}: ${err.message}`);
+    return { nextQuestion: null, completed: false, generationFailed: true };
+  }
+}
+
+/**
+ * Idempotently guarantee a pending (unanswered) question exists for the
+ * session. If one is already created (e.g. the client never received it, or a
+ * previous generation response was lost), return it instead of generating a
+ * duplicate. Otherwise generate + persist the next main question.
+ */
+async function ensureNextQuestion(session) {
+  const questions = await InterviewQuestion.find({ session: session._id }).sort({ order: 1 }).lean();
+  const answers = await InterviewAnswer.find({ session: session._id }, 'question').lean();
+  const answeredIds = new Set(answers.map((a) => String(a.question)));
+  const pending = questions.find((q) => !answeredIds.has(String(q._id)));
+  if (pending) {
+    console.log(`[interview] reusing pending question session=${session._id} question=${pending._id}`);
+    return pending;
+  }
+
   const ctx = await buildGenerationContext(session);
   const generated = await generateQuestion({ session, ...ctx });
-  const nextOrder = ((await InterviewQuestion.countDocuments({ session: session._id })) || 0) + 1;
-  const nextQuestion = await InterviewQuestion.create({
+  const nextOrder = (questions.length || 0) + 1;
+  return InterviewQuestion.create({
     session: session._id,
     order: nextOrder,
     topic: generated.topic,
@@ -355,10 +410,38 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
     isFollowUp: false,
     source: generated.source,
   });
-  session.status = 'IN_PROGRESS';
-  session.lastActivityAt = new Date();
-  await session.save();
-  return { nextQuestion: shapeQuestion(nextQuestion), completed: false };
+}
+
+/**
+ * POST /:id/next — fetch the current pending question or generate the next
+ * one. Used after a submit whose next-question generation failed, and by the
+ * resume flow when a session has no pending question yet.
+ */
+async function requestNextQuestion(session, user) {
+  assertOwnership(session, user);
+  if (session.status !== 'IN_PROGRESS') {
+    throw new SessionError('This interview is not in progress', { code: 'NOT_IN_PROGRESS' });
+  }
+
+  // All main questions answered? Finalize (recovers lost completion responses).
+  const mainAnswered = await countMainAnswered(session);
+  if (mainAnswered >= session.totalQuestions) {
+    const report = await completeSession(session);
+    return { completed: true, report: { overallScore: report.overallScore }, nextQuestion: null };
+  }
+
+  try {
+    const nextQuestion = await ensureNextQuestion(session);
+    session.lastActivityAt = new Date();
+    await session.save();
+    return { completed: false, nextQuestion: shapeQuestion(nextQuestion) };
+  } catch (err) {
+    console.error(`[interview] requestNextQuestion failed session=${session._id}: ${err.message}`);
+    throw new SessionError(
+      'AI interviewer temporarily unavailable. Please retry in a moment.',
+      { statusCode: 503, code: 'GENERATION_FAILED' }
+    );
+  }
 }
 
 /** Finalize a session: generate + persist the report. Idempotent. */
@@ -402,6 +485,8 @@ module.exports = {
   getSessionState,
   submitAnswer,
   advanceOrComplete,
+  ensureNextQuestion,
+  requestNextQuestion,
   completeSession,
   abandonSession,
 };

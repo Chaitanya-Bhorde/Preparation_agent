@@ -12,6 +12,7 @@ router.get('/sessions/active', protect, ctrl.getActiveSession);
 router.get('/sessions/:id', protect, ctrl.getSession);
 router.post('/sessions/:id/start', protect, ctrl.startSession);
 router.post('/sessions/:id/answer', protect, ctrl.submitAnswer);
+router.post('/sessions/:id/next', protect, ctrl.requestNext);
 router.post('/sessions/:id/complete', protect, ctrl.completeSession);
 router.post('/sessions/:id/abandon', protect, ctrl.abandonSession);
 router.get('/sessions/:id/report', protect, ctrl.getReport);
