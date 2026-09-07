@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Bot, Mic, MicOff, Volume2, VolumeX, Loader2, Send, CheckCircle, AlertCircle,
   ArrowRight, Award, Brain, RefreshCw, Clock, ChevronRight, X, Search,
@@ -13,7 +13,7 @@ import {
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import useSpeechSynthesis from '../hooks/useSpeechSynthesis';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// --- Helpers ----------------------------------------------------------------
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -56,7 +56,67 @@ function verdictColor(verdict) {
 }
 
 
-// ─── Topic Selector ─────────────────────────────────────────────────────────
+// --- Dynamic Typing Hook ----------------------------------------------------
+// ChatGPT-style character-by-character text reveal. Returns the currently
+// visible slice of `text` plus an `isTyping` flag so the UI can disable
+// controls while the question is being "typed" by the AI interviewer.
+
+function useDynamicTyping(text, speed = 28) {
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    // Reset and start typing whenever the source text changes.
+    if (!text) {
+      setDisplayedText('');
+      setIsTyping(false);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+
+    setIsTyping(true);
+    setDisplayedText('');
+    let index = 0;
+
+    intervalRef.current = setInterval(() => {
+      index++;
+      if (index <= text.length) {
+        setDisplayedText(text.slice(0, index));
+      } else {
+        setIsTyping(false);
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }, speed);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [text, speed]);
+
+  return { displayedText, isTyping };
+}
+
+// --- Dynamic Typing Text Component ------------------------------------------
+// Renders text with a character-by-character typing animation and a blinking
+// cursor while typing. Used for the current interview question.
+
+function DynamicTypingText({ text, speed = 28, className = '' }) {
+  const { displayedText, isTyping } = useDynamicTyping(text, speed);
+
+  return (
+    <span className={className}>
+      {displayedText}
+      {isTyping && (
+        <span className="inline-block w-0.5 h-5 bg-blue-400 ml-0.5 animate-pulse align-middle" />
+      )}
+    </span>
+  );
+}
 
 function TopicSelector({ categories, selected, onChange, disabled }) {
   const [query, setQuery] = useState('');
@@ -145,7 +205,7 @@ function TopicSelector({ categories, selected, onChange, disabled }) {
   );
 }
 
-// ─── Setup Screen ───────────────────────────────────────────────────────────
+// --- Setup Screen -----------------------------------------------------------
 
 function SetupScreen({ onStart, activeState, onResume }) {
   const [config, setConfig] = useState(null);
@@ -474,7 +534,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
   );
 }
 
-// ─── Interview Session ──────────────────────────────────────────────────────
+// --- Interview Session ------------------------------------------------------
 
 function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const { sessionId, mode, totalQuestions } = sessionData;
@@ -523,7 +583,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const [lastSubmitDiag, setLastSubmitDiag] = useState(null); // { url, status, ok, at }
   const [lastTts, setLastTts] = useState(null); // { text, ok, at } of last TTS call
 
-  // Auto-fallback to typing when speech recognition fails/unsupported (§ voice failure handling)
+  // Auto-fallback to typing when speech recognition fails/unsupported (� voice failure handling)
   useEffect(() => {
     if (mode === 'voice' && (stt.error || !stt.isSupported)) setVoiceFallback(true);
   }, [mode, stt.error, stt.isSupported]);
@@ -570,7 +630,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
   // Recovery: no question loaded (resumed session with lost generation, or a
   // submit whose next-question generation failed). Ask the backend for the
-  // pending/next question. Safe to retry — the backend is idempotent.
+  // pending/next question. Safe to retry � the backend is idempotent.
   const loadNextQuestion = useCallback(async () => {
     if (generating || isComplete) return;
     setGenerating(true);
@@ -612,7 +672,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       setError('Please provide an answer before submitting.');
       return;
     }
-    if (submitting) return; // double-submit guard (§ prevent double submission)
+    if (submitting) return; // double-submit guard (� prevent double submission)
     if (!question?.id) {
       setError('Question data is missing. Please retry or resume the interview.');
       return;
@@ -685,6 +745,12 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       onComplete(sessionId);
       return;
     }
+    // Frontend enforcement: never go beyond selected main question count
+    if (currentIndex >= totalQuestions) {
+      setIsComplete(true);
+      onComplete(sessionId);
+      return;
+    }
     if (!nextQuestion) {
       setGenerationFailed(true);
       setError('Next question could not be loaded. Please retry.');
@@ -714,7 +780,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Interview Complete!</h2>
         {completedReport?.overallScore != null && (
-          <p className="text-white text-lg mb-1">Overall Score: {completedReport.overallScore} / 100</p>
+          <p className="text-white text-lg mb-1">Overall Score: {completedReport.score ?? completedReport.overallScore} / {completedReport.maxScore ?? 10}</p>
         )}
         <p className="text-gray-400">Generating your report...</p>
         <Loader2 className="w-6 h-6 animate-spin text-blue-400 mx-auto mt-4" />
@@ -752,7 +818,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         />
       </div>
 
-      {/* Conversation transcript (ChatGPT-like continuity, § conversational UI) */}
+      {/* Conversation transcript (ChatGPT-like continuity, � conversational UI) */}
       {conversation.length > 0 && (
         <details className="bg-gray-900/60 rounded-xl border border-gray-800">
           <summary className="cursor-pointer px-5 py-3 text-sm text-gray-400 hover:text-white flex items-center gap-2 select-none">
@@ -774,7 +840,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
                   <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap">{turn.text}</p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {turn.score != null && (
-                      <span className={classNames('text-xs font-semibold', scoreColor(turn.score))}>{turn.score}/10</span>
+                      <span className={classNames('text-xs font-semibold', scoreColor(turn.score))}>{turn.score}/2</span>
                     )}
                     {turn.verdict && (
                       <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">{verdictLabel(turn.verdict)}</span>
@@ -811,7 +877,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               )}
             </h3>
             {question?.text ? (
-              <p className="text-white text-lg leading-relaxed">{question.text}</p>
+              <div className="text-white text-lg leading-relaxed"><DynamicTypingText text={question.text} speed={25} /></div>
             ) : generationFailed ? (
               <p className="text-amber-300 text-sm">Couldn&apos;t generate the next question.</p>
             ) : (
@@ -851,7 +917,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
                 {tts.isSpeaking ? (
                   <><VolumeX className="w-4 h-4" /> Speaking... (click to stop)</>
                 ) : (
-                  <><Volume2 className="w-4 h-4" /> 🔊 Listen to Question</>
+                  <><Volume2 className="w-4 h-4" /> ?? Listen to Question</>
                 )}
               </button>
             </div>
@@ -877,7 +943,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               )}
               {tts.isSupported && (
                 <span className="text-xs text-gray-500 ml-auto">
-                  TTS: {tts.isSupported ? '✓ supported' : '✗ unavailable'}
+                  TTS: {tts.isSupported ? '? supported' : '? unavailable'}
                 </span>
               )}
             </div>
@@ -902,7 +968,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Voice input unavailable or inconvenient — type your answer here..."
+              placeholder="Voice input unavailable or inconvenient � type your answer here..."
               disabled={submitted || submitting}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-4 text-white text-sm min-h-[120px] focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50"
             />
@@ -925,7 +991,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               )}
               {!stt.isSupported && (
                 <p className="text-xs text-yellow-400 mt-2">
-                  Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari — or type your answer above.
+                  Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari � or type your answer above.
                 </p>
               )}
             </>
@@ -956,7 +1022,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-300">
-            Your answer was saved and evaluated. The next question could not be generated right now — click Retry. Nothing is lost; the retry resumes from your stored answer.
+            Your answer was saved and evaluated. The next question could not be generated right now � click Retry. Nothing is lost; the retry resumes from your stored answer.
           </p>
         </div>
       )}
@@ -998,7 +1064,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           <h3 className="text-sm font-medium text-gray-400 mb-3">Quick Feedback</h3>
           <div className="flex items-center gap-4 mb-3">
             <div className={classNames('text-2xl font-bold', scoreColor(feedback.overall))}>
-              {feedback.overall}/10
+              {feedback.marks ?? feedback.overall}/{feedback.maxMarks ?? 2}
             </div>
             <span className={classNames('text-xs px-2 py-1 rounded capitalize', verdictColor(feedback.verdict))}>
               {verdictLabel(feedback.verdict)}
@@ -1010,7 +1076,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         </div>
       )}
 
-      {/* Diagnostics strip — session/question IDs, question source, submit
+      {/* Diagnostics strip � session/question IDs, question source, submit
           request+response, TTS invocation. Collapsible; useful for verifying
           that questions are LLM-generated (source=ai) and voice speaks them. */}
       <details className="bg-gray-950 border border-gray-800 rounded-lg px-4 py-2">
@@ -1029,7 +1095,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           <div>lastSubmitStatus = {lastSubmitDiag ? `${lastSubmitDiag.status}${lastSubmitDiag.ok ? '' : ' (error shown above)'} @ ${lastSubmitDiag.at}` : 'n/a'}</div>
           <div>ttsSupported = {tts.isSupported ? 'true' : 'false'}</div>
           <div>ttsSpeaking = {tts.isSpeaking ? 'true' : 'false'}</div>
-          <div>lastTts = {lastTts ? `${lastTts.ok ? '✓ spoken' : '✗ failed'} ('${String(lastTts.text).slice(0, 50)}...') @ ${lastTts.at}` : 'n/a'}</div>
+          <div>lastTts = {lastTts ? `${lastTts.ok ? '? spoken' : '? failed'} ('${String(lastTts.text).slice(0, 50)}...') @ ${lastTts.at}` : 'n/a'}</div>
           <div>mode = {mode}</div>
           <div>conversationLength = {conversation.length} turns</div>
         </div>
@@ -1038,7 +1104,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   );
 }
 
-// ─── Report Screen ──────────────────────────────────────────────────────────
+// --- Report Screen ----------------------------------------------------------
 
 function ReportScreen({ sessionId, onRestart }) {
   const [report, setReport] = useState(null);
@@ -1074,6 +1140,8 @@ function ReportScreen({ sessionId, onRestart }) {
 
   const { session, report: reportData, questions } = report;
   const overallScore = reportData?.overallScore ?? null;
+  const score = reportData?.score ?? null;
+  const maxScore = reportData?.maxScore ?? (session?.totalQuestions ? session.totalQuestions * 2 : 10);
 
   return (
     <div className="space-y-8">
@@ -1083,15 +1151,20 @@ function ReportScreen({ sessionId, onRestart }) {
         </div>
         <h1 className="text-3xl font-bold text-white mb-2">Interview Report</h1>
         <p className="text-gray-400">
-          {session?.topics?.join(' • ')} • <span className="capitalize">{session?.difficulty}</span>
+          {session?.topics?.join(' � ')} � <span className="capitalize">{session?.difficulty}</span>
         </p>
       </div>
 
-      {overallScore != null && (
+      {score != null && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 text-center">
           <div className="text-sm text-gray-400 mb-2">Overall Score</div>
-          <div className={classNames('text-6xl font-bold mb-2', scoreColor(overallScore / 10))}>
-            {overallScore}<span className="text-2xl text-gray-500">/100</span>
+          <div className={classNames('text-6xl font-bold mb-2', scoreColor(score / maxScore * 10))}>
+            {score}<span className="text-2xl text-gray-500">/{maxScore}</span>
+          </div>
+          <div className="flex items-center justify-center gap-4 mt-3 text-sm">
+            <span className="text-green-400">✓ {reportData?.stats?.fullCount ?? 0} correct</span>
+            <span className="text-yellow-400">◐ {reportData?.stats?.partialCount ?? 0} partial</span>
+            <span className="text-red-400">✗ {reportData?.stats?.incorrectCount ?? 0} incorrect</span>
           </div>
           {reportData?.communication?.confidenceIndicator && reportData.communication.confidenceIndicator !== 'not_available' && (
             <p className="text-sm text-gray-500 capitalize mb-2">Confidence: {reportData.communication.confidenceIndicator}</p>
@@ -1102,7 +1175,7 @@ function ReportScreen({ sessionId, onRestart }) {
         </div>
       )}
 
-      {/* Interview activity stats (deterministic — from actual interview data) */}
+      {/* Interview activity stats (deterministic � from actual interview data) */}
       {reportData?.stats && (
         <div className="space-y-3">
           {/* Selected count indicator */}
@@ -1206,7 +1279,7 @@ function ReportScreen({ sessionId, onRestart }) {
           <ul className="space-y-2">
             {reportData.mistakes.map((m, i) => (
               <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                <span className="text-red-400 mt-0.5">•</span>
+                <span className="text-red-400 mt-0.5">�</span>
                 <span>{m}</span>
               </li>
             ))}
@@ -1228,14 +1301,14 @@ function ReportScreen({ sessionId, onRestart }) {
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1">
                   <span className="text-xs text-gray-500">
-                    {q.isFollowUp ? '↳ Follow-up' : `Q${questions.slice(0, i).filter(x => !x.isFollowUp).length + 1}`}
+                    {q.isFollowUp ? '? Follow-up' : `Q${questions.slice(0, i).filter(x => !x.isFollowUp).length + 1}`}
                   </span>
                   <p className="text-sm text-white font-medium">{q.question}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {q.isFollowUp && <span className="text-xs bg-amber-900/30 text-amber-300 px-2 py-0.5 rounded">follow-up</span>}
                   {q.topic && <span className="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded">{q.topic}</span>}
-                  <span className={classNames('text-sm font-bold', scoreColor(q.score))}>{q.score ?? '-'}/10</span>
+                  <span className={classNames('text-sm font-bold', scoreColor((q.score / (q.maxScore || 2)) * 10))}>{q.score ?? '-'}/10</span>
                 </div>
               </div>
               <div className="mt-2 space-y-2">
@@ -1295,7 +1368,7 @@ function ReportScreen({ sessionId, onRestart }) {
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────────────
+// --- Main Page --------------------------------------------------------------
 
 export default function MockInterview() {
   const [phase, setPhase] = useState('setup');
@@ -1344,9 +1417,9 @@ export default function MockInterview() {
       const state = res.data.data;
       setActiveState(null);
       // Edge case: every question answered but session not finalized
-      // (e.g. network dropped on the final submit). Finalize → report.
+      // (e.g. network dropped on the final submit). Finalize ? report.
       // NOTE: a session with ZERO answered questions and no pending question
-      // is recoverable (e.g. first-question generation failed at creation) —
+      // is recoverable (e.g. first-question generation failed at creation) �
       // POST /next handles CREATED sessions by generating the first question.
       if (!state.nextQuestion) {
         if ((state.answeredCount || 0) === 0 && ['CREATED', 'IN_PROGRESS'].includes(state.session.status)) {

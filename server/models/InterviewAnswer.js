@@ -40,6 +40,11 @@ const EvaluationSchema = new mongoose.Schema(
     feedback: { type: String }, // concise in-interview feedback
     detailedFeedback: { type: String }, // full feedback shown in the final report
     followUpNeeded: { type: Boolean, default: false },
+    // § scoring spec — deterministic 0|1|2 marks for MAIN questions.
+    // Present on every evaluation for storage/reporting, but ONLY main
+    // question marks are summed into the final score.
+    marks: { type: Number, min: 0, max: 2, default: null },
+    maxMarks: { type: Number, default: 2 },
   },
   { _id: false }
 );
@@ -58,6 +63,9 @@ const InterviewAnswerSchema = new mongoose.Schema(
       required: true,
     },
     answerType: { type: String, enum: ['text', 'voice'], required: true },
+    // § main/follow-up separation — stamped from question.isFollowUp at
+    // creation so the report can filter deterministically by this flag.
+    questionType: { type: String, enum: ['main', 'followup'], default: 'main' },
     text: { type: String, required: true }, // typed answer or edited transcript
     rawTranscript: { type: String }, // unedited speech-to-text output (voice mode)
     evaluation: EvaluationSchema,

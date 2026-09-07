@@ -243,4 +243,27 @@ function heuristicEvaluation({ question, answer, expectedConcepts = [], expected
   };
 }
 
-module.exports = { evaluateAnswer, heuristicEvaluation, clampScore, MIN_ANSWER_LENGTH };
+/**
+ * Deterministic marks derivation (§ scoring spec): every MAIN question is
+ * worth exactly 2 marks — 2 = fully correct/complete, 1 = partially
+ * correct/relevant, 0 = incorrect/irrelevant/empty.
+ *
+ * The mapping from the 0-10 AI evaluation is FIXED (not random):
+ *   verdict 'incorrect' OR overall < 4        → 0
+ *   verdict 'correct'   AND overall >= 8      → 2
+ *   anything else (partial / 4 ≤ score < 8)   → 1
+ * Follow-up evaluations are also given marks for storage, but the report
+ * MUST NOT include them in the main-question score sum.
+ */
+const MARKS_PER_MAIN_QUESTION = 2;
+
+function deriveMarks(evaluation) {
+  if (!evaluation) return 0;
+  const overall = Number(evaluation.overall);
+  if (!Number.isFinite(overall)) return 0;
+  if (evaluation.verdict === 'incorrect' || overall < 4) return 0;
+  if (evaluation.verdict === 'correct' && overall >= 8) return 2;
+  return 1;
+}
+
+module.exports = { evaluateAnswer, heuristicEvaluation, clampScore, deriveMarks, MARKS_PER_MAIN_QUESTION, MIN_ANSWER_LENGTH };

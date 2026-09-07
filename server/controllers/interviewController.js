@@ -82,7 +82,8 @@ exports.createSession = async (req, res) => {
         status: session.status,
         mode: session.mode,
         totalQuestions: session.totalQuestions,
-        question: shapedQuestion,
+        answeredMainCount: 0,
+        question: question ? { ...shapedQuestion, mainQuestionNumber: 1 } : null,
       },
     });
   } catch (err) {
@@ -218,6 +219,8 @@ exports.submitAnswer = async (req, res) => {
           overall: result.evaluation.overall,
           verdict: result.evaluation.verdict,
           quality: result.evaluation.quality,
+          marks: result.evaluation.marks ?? null,
+          maxMarks: result.evaluation.maxMarks ?? 2,
           feedback: result.evaluation.feedback,
           strengths: result.evaluation.strengths,
           missingConcepts: result.evaluation.missingConcepts || [],
@@ -234,6 +237,8 @@ exports.submitAnswer = async (req, res) => {
           : undefined,
         duplicate: Boolean(result.duplicate),
         report: result.report || null,
+        answeredMainCount: Number(result.answeredMainCount ?? 0),
+        totalQuestions: Number(result.totalQuestions ?? session.totalQuestions),
       },
     });
   } catch (err) {

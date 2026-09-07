@@ -30,15 +30,44 @@ const FinalReportSchema = new mongoose.Schema(
     },
     strengths: [String],
     areasToImprove: [String],
-    // Deterministic activity stats (§ report spec) — main questions vs follow-ups
+    // § scoring spec — headline score in MARKS (maxScore = selected × 2).
+    score: { type: Number, min: 0 },
+    maxScore: { type: Number, min: 0 },
+    percentage: { type: Number, min: 0, max: 100 },
+    // Deterministic activity stats — main questions vs follow-ups
     stats: {
-      questionsAsked: Number, // ONLY main questions (the selected count)
-      questionsAnswered: Number, // scored main questions
-      followUpCount: Number, // adaptive probes (do NOT count toward limit)
+      selectedQuestionCount: Number,
+      mainQuestionsAsked: Number, // ONLY main questions (the selected count)
+      mainQuestionsAnswered: Number, // scored main questions
+      questionsAsked: Number, // legacy alias of mainQuestionsAsked
+      questionsAnswered: Number, // legacy alias of mainQuestionsAnswered
+      followUpCount: Number, // adaptive probes (do NOT count toward limit/score)
       followUpsAnswered: Number,
+      fullCount: Number, // mains scored 2/2
+      partialCount: Number, // mains scored 1/2
+      incorrectCount: Number, // mains scored 0/2
       mistakesCount: Number,
-      selectedQuestionCount: Number, // the user's original selection (session.totalQuestions)
     },
+    // Per-main-question analysis (the scored set — one row per main question)
+    mainQuestions: [{
+      questionNumber: Number,
+      question: String,
+      topic: String,
+      userAnswer: String,
+      score: Number, // 0 | 1 | 2
+      maxScore: Number, // always 2
+      result: String, // 'correct' | 'partial' | 'incorrect'
+      verdict: String,
+      explanation: String,
+      missingConcepts: [String],
+      expectedAnswer: String,
+    }],
+    // Supporting AI follow-up conversation (context only — NEVER scored)
+    followUps: [{
+      question: String,
+      userAnswer: String,
+      feedback: String,
+    }],
     mistakes: [String], // detected mistakes from MAIN answers only
     assessment: String, // final AI assessment paragraph
     recommendedTopics: [String],

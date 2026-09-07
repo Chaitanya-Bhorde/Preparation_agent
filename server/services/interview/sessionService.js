@@ -15,7 +15,7 @@ const InterviewQuestion = require('../../models/InterviewQuestion');
 const InterviewAnswer = require('../../models/InterviewAnswer');
 const fields = require('../../config/interviewFields');
 const { generateQuestion } = require('./questionGenerator');
-const { evaluateAnswer, heuristicEvaluation } = require('./evaluator');
+const { evaluateAnswer, heuristicEvaluation, deriveMarks } = require('./evaluator');
 const { generateReport } = require('./reportGenerator');
 const { AiServiceError } = require('./aiClient');
 
@@ -175,6 +175,9 @@ async function getSessionState(session) {
       difficulty: nextQuestion.difficulty,
       type: nextQuestion.type,
       isFollowUp: nextQuestion.isFollowUp,
+      mainQuestionNumber: nextQuestion.isFollowUp
+        ? null
+        : answers.filter((a) => !a.question?.isFollowUp).length + 1,
       order: nextQuestion.order,
       expectedConcepts: nextQuestion.expectedConcepts || [],
       expectedAnswer: nextQuestion.expectedAnswer || '',
@@ -182,6 +185,7 @@ async function getSessionState(session) {
     },
     history,
     answeredCount: answers.filter((a) => !a.question?.isFollowUp).length,
+    answeredMainCount: answers.filter((a) => !a.question?.isFollowUp).length,
     completed: session.status === 'COMPLETED',
   };
 }
@@ -274,7 +278,7 @@ async function clearTransientFailure(session) {
   }
 }
 
-function shapeQuestion(q) {
+function shapeQuestion(q, { answeredMainCount = 0 } = {}) {
   return {
     id: q._id ? q._id.toString() : (q.id ? q.id.toString() : null),
     text: q.text,
@@ -282,6 +286,9 @@ function shapeQuestion(q) {
     difficulty: q.difficulty,
     type: q.type,
     isFollowUp: q.isFollowUp,
+    // § progress numbering: MAIN questions carry their 1-based number within
+    // the selected count; follow-ups are labelled but never numbered/counted.
+    mainQuestionNumber: q.isFollowUp ? null : answeredMainCount + 1,
     order: q.order,
     expectedConcepts: q.expectedConcepts || [],
     expectedAnswer: q.expectedAnswer || '',
@@ -312,21 +319,39 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
     throw new SessionError('Question does not belong to this session', { statusCode: 404, code: 'QUESTION_NOT_FOUND' });
   }
 
+  // § completion invariant — a MAIN question can never be answered once the
+  // selected count has been reached. Follow-ups are exempt (they may arrive
+  // while earlier mains are still being probed, but never extend the count).
+  const mainAnsweredNow = await countMainAnswered(session);
+  if (!question.isFollowUp && mainAnsweredNow >= session.totalQuestions) {
+    throw new SessionError('All selected main questions have already been answered', {
+      statusCode: 409,
+      code: 'MAIN_LIMIT_REACHED',
+    });
+  }
+
   const answerText = String(text || '').trim().slice(0, 8000);
   if (answerText.length < 2) {
     throw new SessionError('Answer cannot be empty', { code: 'EMPTY_ANSWER' });
   }
   const type = answerType === 'voice' ? 'voice' : 'text';
 
-  const storeAnswer = async () => InterviewAnswer.create({
-    session: session._id,
-    question: question._id,
-    answerType: type,
-    text: answerText,
-    rawTranscript: String(rawTranscript || '').trim().slice(0, 8000) || undefined,
-    evaluation,
-    durationSeconds: Math.max(0, Math.min(3600, Number(durationSeconds) || 0)),
-  });
+  const storeAnswer = async () => {
+    // § scoring spec — persist deterministic 0|1|2 marks + question type so
+    // the report can filter main vs follow-up without re-deriving anything.
+    evaluation.marks = deriveMarks(evaluation);
+    evaluation.maxMarks = 2;
+    return InterviewAnswer.create({
+      session: session._id,
+      question: question._id,
+      questionType: question.isFollowUp ? 'followup' : 'main',
+      answerType: type,
+      text: answerText,
+      rawTranscript: String(rawTranscript || '').trim().slice(0, 8000) || undefined,
+      evaluation,
+      durationSeconds: Math.max(0, Math.min(3600, Number(durationSeconds) || 0)),
+    });
+  };
 
   // Idempotency: unique index {session, question} — reuse stored evaluation.
   let answer = await InterviewAnswer.findOne({ session: session._id, question: question._id });
@@ -383,11 +408,33 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
 }
 
 /**
- * Decide the next step after an answer: follow-up question, next main
- * question, or completion (report generation included).
+ * Decide the next step after an answer: completion, follow-up question, or
+ * next main question (§ lifecycle spec).
+ *
+ * ORDER MATTERS:
+ *  1) Completion check FIRST — once answeredMain === selectedQuestionCount the
+ *     interview MUST finish immediately. No follow-up is generated after the
+ *     final main answer (follow-ups only happen BETWEEN main questions).
+ *  2) Follow-up (only straight after a non-final main answer, budget-capped).
+ *  3) Next main question — hard-capped by the selected count in
+ *     ensureNextQuestion, so the AI can never push past the limit.
  */
 async function advanceOrComplete(session, evaluation, justAnsweredQuestion = null) {
-  // 1) Follow-up decision — only straight after a main question, budget-capped.
+  const answeredMainCount = await countMainAnswered(session);
+
+  // 1) Interview finished? (all main questions answered — strict invariant)
+  if (answeredMainCount >= session.totalQuestions) {
+    const report = await completeSession(session);
+    return {
+      completed: true,
+      report: { score: report.score, maxScore: report.maxScore, overallScore: report.overallScore },
+      answeredMainCount,
+      totalQuestions: session.totalQuestions,
+      nextQuestion: null,
+    };
+  }
+
+  // 2) Follow-up decision — only straight after a main question, budget-capped.
   //    Incorrect answers get a corrective probe ("clarify"), partial answers a
   //    deepening probe ("follow_up") — decided from the analysis action.
   const action = evaluation?.recommendedAction
@@ -400,8 +447,7 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
       isFollowUp: true,
       parentQuestion: justAnsweredQuestion._id,
     });
-    const mainAnswered = await countMainAnswered(session);
-    if (followUpCount < MAX_FOLLOWUPS_PER_QUESTION && mainAnswered < session.totalQuestions) {
+    if (followUpCount < MAX_FOLLOWUPS_PER_QUESTION) {
       try {
         const ctx = await buildGenerationContext(session);
         const prevAnswerDoc = await InterviewAnswer.findOne({
@@ -434,7 +480,12 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
         session.lastActivityAt = new Date();
         await session.save();
         await clearTransientFailure(session);
-        return { nextQuestion: shapeQuestion(followUp), completed: false };
+        return {
+          nextQuestion: shapeQuestion(followUp, { answeredMainCount }),
+          completed: false,
+          answeredMainCount,
+          totalQuestions: session.totalQuestions,
+        };
       } catch (err) {
         console.error(`[interview] follow-up generation failed session=${session._id}: ${err.message}`);
         await recordTransientFailure(session, 'GENERATION_FAILED', `Follow-up generation failed: ${err.message}`);
@@ -443,27 +494,38 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
     }
   }
 
-  // 2) Interview finished? (all main questions answered)
-  const mainAnswered = await countMainAnswered(session);
-  if (mainAnswered >= session.totalQuestions) {
-    const report = await completeSession(session);
-    return { completed: true, report: { overallScore: report.overallScore } };
-  }
-
   // 3) Next main question — generation failure must NOT fail the submit
   //    (the answer was already accepted). Return a recoverable state instead;
-  //    the client retries via POST /:id/next.
+  //    the client retries via POST /:id/next. ensureNextQuestion enforces the
+  //    main-question ceiling, so the AI can never add a question beyond N.
   try {
     const nextQuestion = await ensureNextQuestion(session);
     session.status = 'IN_PROGRESS';
     session.lastActivityAt = new Date();
     await session.save();
     await clearTransientFailure(session);
-    return { nextQuestion: shapeQuestion(nextQuestion), completed: false };
+    return {
+      nextQuestion: shapeQuestion(nextQuestion, { answeredMainCount }),
+      completed: false,
+      answeredMainCount,
+      totalQuestions: session.totalQuestions,
+    };
   } catch (err) {
+    if (err instanceof SessionError && err.code === 'MAIN_LIMIT_REACHED') {
+      // Defensive: every main is asked/answered but the session never
+      // finalized (e.g. an old session). Finalize now.
+      const report = await completeSession(session);
+      return {
+        completed: true,
+        report: { score: report.score, maxScore: report.maxScore, overallScore: report.overallScore },
+        answeredMainCount,
+        totalQuestions: session.totalQuestions,
+        nextQuestion: null,
+      };
+    }
     console.error(`[interview] next-question generation failed session=${session._id}: ${err.message}`);
     await recordTransientFailure(session, 'GENERATION_FAILED', `Next-question generation failed: ${err.message}`);
-    return { nextQuestion: null, completed: false, generationFailed: true };
+    return { nextQuestion: null, completed: false, generationFailed: true, answeredMainCount, totalQuestions: session.totalQuestions };
   }
 }
 
@@ -481,6 +543,18 @@ async function ensureNextQuestion(session) {
   if (pending) {
     console.log(`[interview] reusing pending question session=${session._id} question=${pending._id}`);
     return pending;
+  }
+
+  // § HARD CEILING — never generate more MAIN questions than the user
+  // selected. This is the backend enforcement (not a frontend counter) that
+  // makes "6th main question" impossible for any selected count (1, 2, 5, 10…).
+  const mainAsked = questions.filter((q) => !q.isFollowUp).length;
+  if (mainAsked >= session.totalQuestions) {
+    console.warn(`[interview] main-question limit reached session=${session._id} asked=${mainAsked} selected=${session.totalQuestions}`);
+    throw new SessionError('All selected main questions have already been asked', {
+      statusCode: 409,
+      code: 'MAIN_LIMIT_REACHED',
+    });
   }
 
   const ctx = await buildGenerationContext(session);
@@ -521,7 +595,13 @@ async function requestNextQuestion(session, user) {
   const mainAnswered = await countMainAnswered(session);
   if (mainAnswered >= session.totalQuestions) {
     const report = await completeSession(session);
-    return { completed: true, report: { overallScore: report.overallScore }, nextQuestion: null };
+    return {
+      completed: true,
+      report: { score: report.score, maxScore: report.maxScore, overallScore: report.overallScore },
+      answeredMainCount: mainAnswered,
+      totalQuestions: session.totalQuestions,
+      nextQuestion: null,
+    };
   }
 
   try {
@@ -533,7 +613,12 @@ async function requestNextQuestion(session, user) {
     session.lastActivityAt = new Date();
     await session.save();
     await clearTransientFailure(session);
-    return { completed: false, nextQuestion: shapeQuestion(nextQuestion) };
+    return {
+      completed: false,
+      nextQuestion: shapeQuestion(nextQuestion, { answeredMainCount: mainAnswered }),
+      answeredMainCount: mainAnswered,
+      totalQuestions: session.totalQuestions,
+    };
   } catch (err) {
     console.error(`[interview] requestNextQuestion failed session=${session._id}: ${err.message}`);
     await recordTransientFailure(session, 'GENERATION_FAILED', `Next-question generation failed: ${err.message}`);

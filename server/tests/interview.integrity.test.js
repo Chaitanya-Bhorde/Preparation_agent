@@ -245,14 +245,14 @@ describe('report aggregation', () => {
       {
         question: { text: 'Q1', topic: 'Java' },
         evaluation: {
-          overall: 9, correctness: 9, technicalAccuracy: 9, completeness: 8, clarity: 9, depth: 8, communication: 9,
+          overall: 9, verdict: 'correct', correctness: 9, technicalAccuracy: 9, completeness: 8, clarity: 9, depth: 8, communication: 9,
           missingConcepts: [],
         },
       },
       {
         question: { text: 'Q2', topic: 'DBMS' },
         evaluation: {
-          overall: 5, correctness: 5, technicalAccuracy: 5, completeness: 5, clarity: 6, depth: 4, communication: 6,
+          overall: 5, verdict: 'partially_correct', correctness: 5, technicalAccuracy: 5, completeness: 5, clarity: 6, depth: 4, communication: 6,
           missingConcepts: ['indexes'],
         },
       },
@@ -260,10 +260,15 @@ describe('report aggregation', () => {
 
     // AI call will fail (no API key in test env) → deterministic fallback used.
     const report = await generateReport(session, answers);
-    expect(report.overallScore).toBe(70); // avg(9,5)=7 → 70/100
+    // Q1: overall 9/10, verdict=correct → marks 2 (fully correct)
+    // Q2: overall 5/10, verdict=partially_correct → marks 1 (partially correct)
+    // totalMarks = 3, maxScore = 4, percentage = 75
+    expect(report.score).toBe(3);
+    expect(report.maxScore).toBe(4);
+    expect(report.overallScore).toBe(75);
     expect(report.topicPerformance).toEqual([
-      { topic: 'Java', averageScore: 9, questionsAsked: 1 },
-      { topic: 'DBMS', averageScore: 5, questionsAsked: 1 },
+      { topic: 'Java', averageScore: 2, questionsAsked: 1 },
+      { topic: 'DBMS', averageScore: 1, questionsAsked: 1 },
     ]);
     expect(report.skills.technicalDepth).toBe(6); // avg(8,4)
     expect(report.generatedBy).toBe('deterministic-fallback');
