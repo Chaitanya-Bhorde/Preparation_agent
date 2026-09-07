@@ -61,11 +61,28 @@ function buildFallbackAssessment(session, topicPerformance, skills) {
  * @returns {object} finalReport subdocument payload
  */
 async function generateReport(session, answers) {
+  // Separate main questions from follow-ups for accurate counting
+  const mainAnswers = answers.filter((a) => a.question && !a.question.isFollowUp);
+  const followUpAnswers = answers.filter((a) => a.question && a.question.isFollowUp);
+  
   const scored = answers.filter((a) => a.evaluation && typeof a.evaluation.overall === 'number');
+  const scoredMain = mainAnswers.filter((a) => a.evaluation && typeof a.evaluation.overall === 'number');
+  const scoredFollowUps = followUpAnswers.filter((a) => a.evaluation && typeof a.evaluation.overall === 'number');
+
+  // Debug logging for report generation
+  console.log(`[interview] report generation debug session=${session._id}:`, {
+    selectedQuestionCount: session.totalQuestions,
+    totalAnswers: answers.length,
+    mainAnswers: mainAnswers.length,
+    followUpAnswers: followUpAnswers.length,
+    scoredMain: scoredMain.length,
+    scoredFollowUps: scoredFollowUps.length,
+  });
 
   // ── Deterministic aggregation ───────────────────────────────────────────
+  // Topic performance based on MAIN questions only (follow-ups are adaptive probes)
   const topicAgg = {};
-  for (const a of scored) {
+  for (const a of scoredMain) {
     const t = a.question?.topic || 'General';
     if (!topicAgg[t]) topicAgg[t] = { sum: 0, n: 0 };
     topicAgg[t].sum += a.evaluation.overall;
@@ -75,7 +92,8 @@ async function generateReport(session, answers) {
     .map(([topic, { sum, n }]) => ({ topic, averageScore: round1(sum / n), questionsAsked: n }))
     .sort((a, b) => b.averageScore - a.averageScore);
 
-  const avg = (fn) => (scored.length ? round1(scored.reduce((s, a) => s + fn(a.evaluation), 0) / scored.length) : 0);
+  // Skills based on main questions only for accurate assessment
+  const avg = (fn) => (scoredMain.length ? round1(scoredMain.reduce((s, a) => s + fn(a.evaluation), 0) / scoredMain.length) : 0);
   const skills = {
     conceptualUnderstanding: avg((e) => e.correctness),
     problemSolving: avg((e) => (e.technicalAccuracy + e.depth) / 2),
@@ -86,40 +104,50 @@ async function generateReport(session, answers) {
   const communication = {
     clarity: clarityAvg,
     conciseness: avg((e) => e.completeness),
-    confidenceIndicator: clarityAvg >= 7.5 ? 'strong' : clarityAvg >= 6 ? 'good' : clarityAvg >= 4 ? 'moderate' : scored.length ? 'low' : 'not_available',
+    confidenceIndicator: clarityAvg >= 7.5 ? 'strong' : clarityAvg >= 6 ? 'good' : clarityAvg >= 4 ? 'moderate' : scoredMain.length ? 'low' : 'not_available',
     notes: 'Confidence/clarity is inferred from answer communication scores collected during the interview.',
   };
 
-  const overallScore = scored.length
-    ? round0((scored.reduce((s, a) => s + a.evaluation.overall, 0) / scored.length) * 10)
+  // Overall score calculated from MAIN questions only (the selected interview length)
+  const overallScore = scoredMain.length
+    ? round0((scoredMain.reduce((s, a) => s + a.evaluation.overall, 0) / scoredMain.length) * 10)
     : 0;
 
   // ── Interview activity stats (§ report spec) — always deterministic ─────
-  const questionsAsked = answers.length; // includes follow-ups
-  const followUpCount = answers.filter((a) => a.question?.isFollowUp).length;
+  // CRITICAL: questionsAsked counts ONLY main questions (the selected count)
+  // Follow-ups are adaptive probes and counted separately
+  const questionsAsked = mainAnswers.length;
+  const questionsAnswered = scoredMain.length;
+  const followUpCount = followUpAnswers.length;
+  const followUpsAnswered = scoredFollowUps.length;
+  
   const mistakes = [];
-  for (const a of scored) {
+  for (const a of scoredMain) {
     for (const m of a.evaluation.detectedMistakes || []) {
       if (m && !mistakes.some((x) => x.toLowerCase() === m.toLowerCase())) mistakes.push(String(m).slice(0, 140));
     }
   }
-  for (const a of scored) {
+  for (const a of scoredMain) {
     if ((a.evaluation.verdict === 'incorrect' || a.evaluation.quality === 'incorrect') && a.question?.text) {
       mistakes.push(`Incorrect: ${String(a.question.text).slice(0, 100)}`);
     }
   }
   const stats = {
     questionsAsked,
-    questionsAnswered: scored.length,
+    questionsAnswered,
     followUpCount,
+    followUpsAnswered,
     mistakesCount: mistakes.length,
+    selectedQuestionCount: session.totalQuestions, // The user's selected count
   };
 
+  // QA rows for AI assessment: include both main and follow-ups for context
   const qaRows = scored.map((a) => ({
     question: a.question?.text || '',
     topic: a.question?.topic || '',
     overall: a.evaluation.overall,
     missingConcepts: a.evaluation.missingConcepts || [],
+    isFollowUp: a.question?.isFollowUp || false,
   }));
 
   // ── AI assessment (with deterministic fallback) ─────────────────────────

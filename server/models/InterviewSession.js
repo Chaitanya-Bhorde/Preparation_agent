@@ -30,6 +30,16 @@ const FinalReportSchema = new mongoose.Schema(
     },
     strengths: [String],
     areasToImprove: [String],
+    // Deterministic activity stats (§ report spec) — main questions vs follow-ups
+    stats: {
+      questionsAsked: Number, // ONLY main questions (the selected count)
+      questionsAnswered: Number, // scored main questions
+      followUpCount: Number, // adaptive probes (do NOT count toward limit)
+      followUpsAnswered: Number,
+      mistakesCount: Number,
+      selectedQuestionCount: Number, // the user's original selection (session.totalQuestions)
+    },
+    mistakes: [String], // detected mistakes from MAIN answers only
     assessment: String, // final AI assessment paragraph
     recommendedTopics: [String],
     generatedBy: { type: String, enum: ['ai', 'deterministic-fallback'], default: 'ai' },

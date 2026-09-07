@@ -552,6 +552,22 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [conversation.length, submitted]);
 
+  // Log question changes for debugging - tracks AI vs fallback and question progression
+  useEffect(() => {
+    if (question?.id) {
+      console.log('[Interview] Question changed:', {
+        sessionId,
+        questionId: question.id,
+        questionNumber: currentIndex,
+        totalQuestions,
+        source: question.source,
+        isFollowUp: question.isFollowUp,
+        text: question.text?.slice(0, 100),
+        mode,
+      });
+    }
+  }, [question?.id, currentIndex, mode, sessionId, totalQuestions, question?.source, question?.isFollowUp, question?.text]);
+
   // Recovery: no question loaded (resumed session with lost generation, or a
   // submit whose next-question generation failed). Ask the backend for the
   // pending/next question. Safe to retry — the backend is idempotent.
@@ -807,34 +823,64 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           </div>
         </div>
 
+        {/* Voice controls: TTS + Recording */}
         {mode === 'voice' && (
-          <div className="flex items-center gap-2 mt-4">
-            <button type="button" onClick={() => stt.isListening ? stt.stop() : stt.start()}
-              disabled={submitted || submitting}
-              className={classNames(
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                stt.isListening ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
-                (submitted || submitting) && 'opacity-50 cursor-not-allowed'
+          <div className="space-y-3 mt-4">
+            {/* TTS Speak Button - Primary action in voice mode */}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => {
+                if (tts.isSpeaking) {
+                  tts.cancel();
+                } else {
+                  // Speak the current question - triggered by user click (no autoplay policy issue)
+                  tts.speak(question?.text)
+                    .then(() => setLastTts({ text: question?.text, ok: true, at: new Date().toLocaleTimeString() }))
+                    .catch((err) => {
+                      console.error('[TTS] Speech failed:', err);
+                      setLastTts({ text: question?.text, ok: false, at: new Date().toLocaleTimeString() });
+                    });
+                }
+              }}
+                className={classNames(
+                  'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                  tts.isSpeaking
+                    ? 'bg-blue-600 text-white animate-pulse'
+                    : 'bg-blue-600/20 text-blue-300 border border-blue-700 hover:bg-blue-600/30'
+                )}
+              >
+                {tts.isSpeaking ? (
+                  <><VolumeX className="w-4 h-4" /> Speaking... (click to stop)</>
+                ) : (
+                  <><Volume2 className="w-4 h-4" /> 🔊 Listen to Question</>
+                )}
+              </button>
+            </div>
+
+            {/* Recording controls */}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => stt.isListening ? stt.stop() : stt.start()}
+                disabled={submitted || submitting}
+                className={classNames(
+                  'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                  stt.isListening ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
+                  (submitted || submitting) && 'opacity-50 cursor-not-allowed'
+                )}
+              >
+                {stt.isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {stt.isListening ? 'Stop Recording' : 'Start Recording'}
+              </button>
+              {stt.isListening && (
+                <span className="flex items-center gap-1.5 text-xs text-red-400">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  Listening...
+                </span>
               )}
-            >
-              {stt.isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              {stt.isListening ? 'Stop Recording' : 'Start Recording'}
-            </button>
-            <button type="button" onClick={() => tts.isSpeaking ? tts.cancel() : tts.speak(question?.text)}
-              className={classNames(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                tts.isSpeaking ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+              {tts.isSupported && (
+                <span className="text-xs text-gray-500 ml-auto">
+                  TTS: {tts.isSupported ? '✓ supported' : '✗ unavailable'}
+                </span>
               )}
-            >
-              {tts.isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              {tts.isSpeaking ? 'Stop' : 'Read Aloud'}
-            </button>
-            {stt.isListening && (
-              <span className="flex items-center gap-1.5 text-xs text-red-400">
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                Listening...
-              </span>
-            )}
+            </div>
           </div>
         )}
       </div>
@@ -974,13 +1020,18 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         <div className="space-y-1.5 mt-2 text-[11px] font-mono text-gray-500">
           <div>sessionId = {sessionId}</div>
           <div>questionId = {question?.id ?? 'n/a'}</div>
-          <div>questionSource = {question?.source ?? 'n/a'} (ai = LLM-generated, fallback = static bank)</div>
+          <div>questionNumber = {currentIndex} / {totalQuestions}</div>
+          <div>questionSource = <span className={question?.source === 'ai' ? 'text-green-400' : 'text-amber-400'}>{question?.source ?? 'n/a'}</span> (ai = LLM-generated, fallback = static bank)</div>
           <div>questionFollowUp = {question?.isFollowUp ? 'true' : 'false'}</div>
+          <div>questionText = {question?.question ? `"${String(question.question).slice(0, 80)}..."` : 'n/a'}</div>
           <div>evaluator = {feedback?.evaluator ? feedback.evaluator : 'ai unless degraded'}</div>
           <div>lastSubmitUrl = {lastSubmitDiag?.url ?? 'n/a'}</div>
           <div>lastSubmitStatus = {lastSubmitDiag ? `${lastSubmitDiag.status}${lastSubmitDiag.ok ? '' : ' (error shown above)'} @ ${lastSubmitDiag.at}` : 'n/a'}</div>
           <div>ttsSupported = {tts.isSupported ? 'true' : 'false'}</div>
-          <div>lastTts = {lastTts ? `${lastTts.ok ? 'spoken' : 'failed'} ('${String(lastTts.text).slice(0, 50)}') @ ${lastTts.at}` : 'n/a'}</div>
+          <div>ttsSpeaking = {tts.isSpeaking ? 'true' : 'false'}</div>
+          <div>lastTts = {lastTts ? `${lastTts.ok ? '✓ spoken' : '✗ failed'} ('${String(lastTts.text).slice(0, 50)}...') @ ${lastTts.at}` : 'n/a'}</div>
+          <div>mode = {mode}</div>
+          <div>conversationLength = {conversation.length} turns</div>
         </div>
       </details>
     </div>
@@ -1053,18 +1104,27 @@ function ReportScreen({ sessionId, onRestart }) {
 
       {/* Interview activity stats (deterministic — from actual interview data) */}
       {reportData?.stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Questions Asked', value: reportData.stats.questionsAsked },
-            { label: 'Questions Answered', value: reportData.stats.questionsAnswered },
-            { label: 'Follow-ups', value: reportData.stats.followUpCount },
-            { label: 'Mistakes Found', value: reportData.stats.mistakesCount },
-          ].map((s) => (
-            <div key={s.label} className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
-              <div className="text-2xl font-bold text-white">{s.value ?? 0}</div>
-              <div className="text-xs text-gray-500 mt-1">{s.label}</div>
-            </div>
-          ))}
+        <div className="space-y-3">
+          {/* Selected count indicator */}
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3 text-center">
+            <span className="text-blue-300 text-sm">
+              Interview Length: <strong>{reportData.stats.selectedQuestionCount}</strong> main questions selected
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { label: 'Main Questions', value: reportData.stats.questionsAsked, sub: 'selected count' },
+              { label: 'Answered', value: reportData.stats.questionsAnswered, sub: 'main questions' },
+              { label: 'Follow-ups', value: reportData.stats.followUpCount, sub: 'adaptive probes' },
+              { label: 'Mistakes Found', value: reportData.stats.mistakesCount, sub: 'from main answers' },
+            ].map((s) => (
+              <div key={s.label} className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+                <div className="text-2xl font-bold text-white">{s.value ?? 0}</div>
+                <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+                <div className="text-xs text-gray-600">{s.sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1158,16 +1218,22 @@ function ReportScreen({ sessionId, onRestart }) {
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-blue-400" />
           Question Analysis
+          <span className="text-xs text-gray-500 font-normal ml-2">
+            ({questions.filter(q => !q.isFollowUp).length} main + {questions.filter(q => q.isFollowUp).length} follow-ups)
+          </span>
         </h2>
         <div className="space-y-4">
           {questions.map((q, i) => (
-            <div key={i} className="bg-gray-800 rounded-lg p-4">
+            <div key={i} className={classNames('bg-gray-800 rounded-lg p-4', q.isFollowUp && 'border-l-4 border-amber-600')}>
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1">
-                  <span className="text-xs text-gray-500">Q{i + 1}</span>
+                  <span className="text-xs text-gray-500">
+                    {q.isFollowUp ? '↳ Follow-up' : `Q${questions.slice(0, i).filter(x => !x.isFollowUp).length + 1}`}
+                  </span>
                   <p className="text-sm text-white font-medium">{q.question}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {q.isFollowUp && <span className="text-xs bg-amber-900/30 text-amber-300 px-2 py-0.5 rounded">follow-up</span>}
                   {q.topic && <span className="text-xs bg-purple-900/30 text-purple-300 px-2 py-0.5 rounded">{q.topic}</span>}
                   <span className={classNames('text-sm font-bold', scoreColor(q.score))}>{q.score ?? '-'}/10</span>
                 </div>
