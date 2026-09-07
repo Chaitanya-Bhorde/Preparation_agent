@@ -14,7 +14,7 @@ describe('parseInput (generic, any shape)', () => {
   });
   it('handles nested (matrix + scalar) structures', () => {
     const f = { fields: [{ name: 'board', type: 'string[][]' }, { name: 'word', type: 'string' }] };
-    expect(G.parseInput('{"board":[["A","B"],["C","D"]],"word":"ACB"}', f)).toEqual([['A', 'B'], ['C', 'D']], 'ACB');
+    expect(G.parseInput('{"board":[["A","B"],["C","D"]],"word":"ACB"}', f)).toEqual([[['A', 'B'], ['C', 'D']], 'ACB']);
   });
   it('handles empty arrays and null values', () => {
     const f = { fields: [{ name: 'grid', type: 'integer[][]' }] };

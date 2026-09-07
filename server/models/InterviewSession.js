@@ -73,6 +73,19 @@ const InterviewSessionSchema = new mongoose.Schema(
       default: 'CREATED',
       index: true,
     },
+    // Transient failure trace (§ state machine): records the last recoverable
+    // AI/analysis failure so it is observable for resume + debugging. Cleared
+    // automatically once the pipeline recovers. The session `status` itself is
+    // NEVER flipped to a failure state — a transient LLM blip must not block
+    // the interview lifecycle.
+    transientFailure: {
+      type: {
+        type: String,
+        enum: ['GENERATION_FAILED', 'ANALYSIS_FAILED', 'SUBMISSION_FAILED'],
+      },
+      message: { type: String, default: '' },
+      at: { type: Date },
+    },
     currentQuestionIndex: { type: Number, default: 0 }, // main questions answered so far
     score: { type: Number, default: 0, min: 0, max: 100 }, // filled on completion
     finalReport: FinalReportSchema,

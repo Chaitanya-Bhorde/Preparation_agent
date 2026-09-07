@@ -19,6 +19,22 @@ const EvaluationSchema = new mongoose.Schema(
       enum: ['correct', 'partially_correct', 'incorrect'],
       default: 'partially_correct',
     },
+    // Rich qualitative analysis (LLM-derived, § analysis contract). Kept
+    // separate from the numeric dimensions so the report can use them.
+    quality: {
+      type: String,
+      enum: ['strong', 'average', 'weak', 'incorrect'],
+      default: 'average',
+    },
+    confidence: { type: Number, min: 0, max: 10 },
+    relevance: { type: Number, min: 0, max: 10 },
+    detectedMistakes: [{ type: String }],
+    recommendedAction: {
+      type: String,
+      enum: ['follow_up', 'next_topic', 'clarify', 'retry'],
+      default: 'next_topic',
+    },
+    followUpReason: { type: String, default: '' },
     strengths: [{ type: String }],
     missingConcepts: [{ type: String }],
     feedback: { type: String }, // concise in-interview feedback

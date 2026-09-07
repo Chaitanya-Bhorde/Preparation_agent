@@ -2,7 +2,7 @@
 import {
   Bot, Mic, MicOff, Volume2, VolumeX, Loader2, Send, CheckCircle, AlertCircle,
   ArrowRight, Award, Brain, RefreshCw, Clock, ChevronRight, X, Search,
-  MessageSquare, BarChart3, Target, Lightbulb, BookOpen, Star, TrendingUp,
+  MessageSquare, BarChart3, Target, Lightbulb, BookOpen, Star, TrendingUp, Keyboard,
 } from 'lucide-react';
 import { PAGE_CONTAINER } from '../utils/ui';
 import {
@@ -485,7 +485,27 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const [questionId, setQuestionId] = useState(sessionData.question?.id || null);
   const [nextQuestion, setNextQuestion] = useState(null);
   const [answer, setAnswer] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);   // POST /answer in flight
+  const [generating, setGenerating] = useState(false);   // POST /next in flight
+  const [generationFailed, setGenerationFailed] = useState(false);
+  const [conversation, setConversation] = useState(() => {
+    // Seed from server-side history when resuming an interview.
+    const hist = Array.isArray(sessionData.history) ? sessionData.history : [];
+    const turns = [];
+    for (const h of hist) {
+      if (h.question) turns.push({ role: 'ai', text: h.question, isFollowUp: h.isFollowUp });
+      if (h.answer) {
+        turns.push({
+          role: 'user',
+          text: h.answer,
+          score: h.score ?? null,
+          verdict: h.verdict ?? null,
+          feedback: h.feedback ?? null,
+        });
+      }
+    }
+    return turns;
+  });
   const [feedback, setFeedback] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(1);
   const [elapsed, setElapsed] = useState(0);
@@ -493,11 +513,16 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const [submitted, setSubmitted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [completedReport, setCompletedReport] = useState(null);
-  const [nextFailed, setNextFailed] = useState(false);
-  const [loadingNext, setLoadingNext] = useState(false);
+  const [voiceFallback, setVoiceFallback] = useState(false); // typed answer in voice mode
+  const conversationEndRef = useRef(null);
 
   const stt = useSpeechRecognition();
   const tts = useSpeechSynthesis();
+
+  // Auto-fallback to typing when speech recognition fails/unsupported (§ voice failure handling)
+  useEffect(() => {
+    if (mode === 'voice' && (stt.error || !stt.isSupported)) setVoiceFallback(true);
+  }, [mode, stt.error, stt.isSupported]);
 
   useEffect(() => {
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -506,20 +531,25 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
   useEffect(() => {
     if (mode === 'voice' && question?.text && tts.isSupported) {
-      tts.speak(question.text);
+      tts.speak(question.text).catch(() => { /* TTS failure is non-blocking */ });
     }
   }, [question, mode, tts]);
 
   useEffect(() => {
     return () => { tts.cancel(); stt.stop(); };
-  }, [tts, stt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [conversation.length, submitted]);
 
   // Recovery: no question loaded (resumed session with lost generation, or a
   // submit whose next-question generation failed). Ask the backend for the
   // pending/next question. Safe to retry — the backend is idempotent.
   const loadNextQuestion = useCallback(async () => {
-    if (loadingNext || isComplete) return;
-    setLoadingNext(true);
+    if (generating || isComplete) return;
+    setGenerating(true);
     setError(null);
     try {
       const { data } = await requestNextInterviewQuestion(sessionId);
@@ -530,27 +560,27 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       } else if (data.data.nextQuestion) {
         setQuestion(data.data.nextQuestion);
         setQuestionId(data.data.nextQuestion.id || null);
-        setNextFailed(false);
+        setGenerationFailed(false);
       } else {
-        setNextFailed(true);
+        setGenerationFailed(true);
       }
     } catch (err) {
-      setNextFailed(true);
+      setGenerationFailed(true);
       setError(err.response?.data?.message || 'AI interviewer temporarily unavailable. Please retry.');
     } finally {
-      setLoadingNext(false);
+      setGenerating(false);
     }
-  }, [sessionId, loadingNext, isComplete, onComplete]);
+  }, [sessionId, generating, isComplete, onComplete]);
 
   useEffect(() => {
-    if (!question && !submitted) {
+    if (!question && !submitted && !generating && !generationFailed) {
       loadNextQuestion();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
 
   const handleSubmit = async () => {
-    const text = mode === 'voice'
+    const text = mode === 'voice' && !voiceFallback
       ? (stt.transcript + (stt.interimTranscript ? ' ' + stt.interimTranscript : '')).trim()
       : answer.trim();
 
@@ -558,26 +588,33 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       setError('Please provide an answer before submitting.');
       return;
     }
-    if (loading) return;
+    if (submitting) return; // double-submit guard (§ prevent double submission)
     if (!question?.id) {
-      setError('Question data is missing. Please refresh and try again.');
+      setError('Question data is missing. Please retry or resume the interview.');
       return;
     }
 
     setError(null);
-    setLoading(true);
+    setSubmitting(true);
     stt.stop();
 
     try {
       const { data } = await submitInterviewAnswer(sessionId, {
-        questionId: question.id,
+        questionId: question.id, // always the EXACT currently displayed question
         answer: text,
         answerType: mode === 'voice' ? 'voice' : 'text',
         transcript: mode === 'voice' ? stt.transcript : undefined,
       });
 
-      setFeedback(data.data.evaluation);
+      const evalRes = data.data.evaluation || {};
+      setFeedback(evalRes);
       setSubmitted(true);
+      // Add the completed exchange to the conversation transcript.
+      setConversation((prev) => [
+        ...prev,
+        { role: 'ai', text: question.text, isFollowUp: question.isFollowUp },
+        { role: 'user', text, score: evalRes.overall ?? null, verdict: evalRes.verdict ?? null, feedback: evalRes.feedback ?? null },
+      ]);
 
       // Backend signals interview completion with `completed: true` (report included).
       if (data.data.completed) {
@@ -586,9 +623,11 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         setTimeout(() => onComplete(sessionId), 2000);
       } else if (data.data.generationFailed || !data.data.nextQuestion) {
         // Answer accepted + evaluated, but the next question could not be
-        // generated right now. Recoverable via "Load next question".
+        // generated right now. Recoverable via "Retry" (POST /next is
+        // idempotent and regenerates from the stored answer/context).
         setNextQuestion(null);
-        setNextFailed(true);
+        setGenerationFailed(true);
+        if (data.data.message) setError(null);
       } else {
         setNextQuestion(data.data.nextQuestion);
       }
@@ -596,7 +635,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       const msg = err.response?.data?.message || 'Failed to submit answer. Please try again.';
       setError(msg);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -608,6 +647,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       return;
     }
     if (!nextQuestion) {
+      setGenerationFailed(true);
       setError('Next question could not be loaded. Please retry.');
       return;
     }
@@ -617,6 +657,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     setFeedback(null);
     setSubmitted(false);
     setAnswer('');
+    setGenerationFailed(false);
     stt.reset();
     setCurrentIndex((i) => i + 1);
   };
@@ -672,6 +713,43 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         />
       </div>
 
+      {/* Conversation transcript (ChatGPT-like continuity, § conversational UI) */}
+      {conversation.length > 0 && (
+        <details className="bg-gray-900/60 rounded-xl border border-gray-800">
+          <summary className="cursor-pointer px-5 py-3 text-sm text-gray-400 hover:text-white flex items-center gap-2 select-none">
+            <MessageSquare className="w-4 h-4 text-gray-500" />
+            Conversation so far ({conversation.filter((t) => t.role === 'user').length} answered)
+          </summary>
+          <div className="px-5 pb-4 space-y-3 max-h-72 overflow-y-auto">
+            {conversation.map((turn, i) => (
+              turn.role === 'ai' ? (
+                <div key={i} className="flex items-start gap-2">
+                  <Bot className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-200 leading-relaxed">{turn.text}</p>
+                    {turn.isFollowUp && <span className="text-xs text-amber-400/80">follow-up</span>}
+                  </div>
+                </div>
+              ) : (
+                <div key={i} className="ml-6 pl-3 border-l-2 border-gray-800">
+                  <p className="text-sm text-gray-400 leading-relaxed whitespace-pre-wrap">{turn.text}</p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {turn.score != null && (
+                      <span className={classNames('text-xs font-semibold', scoreColor(turn.score))}>{turn.score}/10</span>
+                    )}
+                    {turn.verdict && (
+                      <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">{verdictLabel(turn.verdict)}</span>
+                    )}
+                  </div>
+                  {turn.feedback && <p className="text-xs text-gray-500 italic mt-1">{turn.feedback}</p>}
+                </div>
+              )
+            ))}
+            <div ref={conversationEndRef} />
+          </div>
+        </details>
+      )}
+
       {/* Question card */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div className="flex items-start gap-3 mb-4">
@@ -682,6 +760,8 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <h3 className="text-sm font-medium text-blue-400 mb-1">AI Interviewer</h3>
             {question?.text ? (
               <p className="text-white text-lg leading-relaxed">{question.text}</p>
+            ) : generationFailed ? (
+              <p className="text-amber-300 text-sm">Couldn&apos;t generate the next question.</p>
             ) : (
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
@@ -695,11 +775,11 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           <div className="flex items-center gap-2 mt-4">
             <button
               onClick={() => stt.isListening ? stt.stop() : stt.start()}
-              disabled={submitted || loading}
+              disabled={submitted || submitting}
               className={classNames(
                 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
                 stt.isListening ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
-                (submitted || loading) && 'opacity-50 cursor-not-allowed'
+                (submitted || submitting) && 'opacity-50 cursor-not-allowed'
               )}
             >
               {stt.isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -728,19 +808,48 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       {/* Answer area */}
       {mode === 'voice' ? (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">Your Answer (Voice)</h3>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 min-h-[100px] text-white text-sm">
-            {stt.transcript}
-            {stt.interimTranscript && <span className="text-gray-500">{stt.interimTranscript}</span>}
-            {!stt.transcript && !stt.interimTranscript && !stt.isListening && (
-              <span className="text-gray-600">Click "Start Recording" to begin...</span>
-            )}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-400">Your Answer (Voice)</h3>
+            <button
+              onClick={() => setVoiceFallback((v) => !v)}
+              className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+              disabled={submitted || submitting}
+            >
+              {voiceFallback ? <Mic className="w-3.5 h-3.5" /> : <Keyboard className="w-3.5 h-3.5" />}
+              {voiceFallback ? 'Use microphone instead' : 'Voice unavailable? Type instead'}
+            </button>
           </div>
-          {stt.error && <p className="text-xs text-red-400 mt-2">{stt.error}</p>}
-          {!stt.isSupported && (
-            <p className="text-xs text-yellow-400 mt-2">
-              Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.
-            </p>
+          {voiceFallback ? (
+            <textarea
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              placeholder="Voice input unavailable or inconvenient — type your answer here..."
+              disabled={submitted || submitting}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-4 text-white text-sm min-h-[120px] focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50"
+            />
+          ) : (
+            <>
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 min-h-[100px] text-white text-sm">
+                {stt.transcript}
+                {stt.interimTranscript && <span className="text-gray-500">{stt.interimTranscript}</span>}
+                {!stt.transcript && !stt.interimTranscript && !stt.isListening && (
+                  <span className="text-gray-600">Click &quot;Start Recording&quot; to begin...</span>
+                )}
+              </div>
+              {stt.error && (
+                <div className="text-xs text-red-400 mt-2">
+                  <p>{stt.error}</p>
+                  <button onClick={() => setVoiceFallback(true)} className="underline hover:text-red-300 mt-1">
+                    Type your answer instead
+                  </button>
+                </div>
+              )}
+              {!stt.isSupported && (
+                <p className="text-xs text-yellow-400 mt-2">
+                  Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari — or type your answer above.
+                </p>
+              )}
+            </>
           )}
         </div>
       ) : (
@@ -750,7 +859,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             placeholder="Type your answer here..."
-            disabled={submitted || loading}
+            disabled={submitted || submitting}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg p-4 text-white text-sm min-h-[120px] focus:outline-none focus:border-blue-500 resize-none disabled:opacity-50"
           />
         </div>
@@ -764,11 +873,11 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         </div>
       )}
 
-      {nextFailed && submitted && !error && (
+      {generationFailed && submitted && !error && (
         <div className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-300">
-            Your answer was saved and evaluated. The next question could not be generated right now — click the retry button below.
+            Your answer was saved and evaluated. The next question could not be generated right now — click Retry. Nothing is lost; the retry resumes from your stored answer.
           </p>
         </div>
       )}
@@ -777,25 +886,25 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       {!submitted ? (
         <button
           onClick={handleSubmit}
-          disabled={loading || (mode === 'voice' ? !stt.transcript.trim() : !answer.trim())}
+          disabled={submitting || (mode === 'voice' && !voiceFallback ? !stt.transcript.trim() : !answer.trim())}
           className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
-          {loading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Evaluating...</>
+          {submitting ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Evaluating your answer &amp; preparing the next question...</>
           ) : (
             <><Send className="w-4 h-4" /> Submit Answer</>
           )}
         </button>
-      ) : nextFailed ? (
+      ) : generationFailed ? (
         <button
           onClick={loadNextQuestion}
-          disabled={loadingNext}
+          disabled={generating}
           className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
-          {loadingNext ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Loading next question...</>
+          {generating ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Generating next question...</>
           ) : (
-            <><RefreshCw className="w-4 h-4" /> Retry: Load Next Question</>
+            <><RefreshCw className="w-4 h-4" /> Retry</>
           )}
         </button>
       ) : (
@@ -873,7 +982,7 @@ function ReportScreen({ sessionId, onRestart }) {
         </div>
         <h1 className="text-3xl font-bold text-white mb-2">Interview Report</h1>
         <p className="text-gray-400">
-          {session?.topics?.join(' \u2022 ')} \u2022 <span className="capitalize">{session?.difficulty}</span>
+          {session?.topics?.join(' • ')} • <span className="capitalize">{session?.difficulty}</span>
         </p>
       </div>
 
@@ -883,23 +992,44 @@ function ReportScreen({ sessionId, onRestart }) {
           <div className={classNames('text-6xl font-bold mb-2', scoreColor(overallScore / 10))}>
             {overallScore}<span className="text-2xl text-gray-500">/100</span>
           </div>
-          {reportData?.summary && (
-            <p className="text-gray-400 max-w-2xl mx-auto">{reportData.summary}</p>
+          {reportData?.communication?.confidenceIndicator && reportData.communication.confidenceIndicator !== 'not_available' && (
+            <p className="text-sm text-gray-500 capitalize mb-2">Confidence: {reportData.communication.confidenceIndicator}</p>
+          )}
+          {reportData?.assessment && (
+            <p className="text-gray-400 max-w-2xl mx-auto">{reportData.assessment}</p>
           )}
         </div>
       )}
 
-      {reportData?.topicPerformance && Object.keys(reportData.topicPerformance).length > 0 && (
+      {/* Interview activity stats (deterministic — from actual interview data) */}
+      {reportData?.stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Questions Asked', value: reportData.stats.questionsAsked },
+            { label: 'Questions Answered', value: reportData.stats.questionsAnswered },
+            { label: 'Follow-ups', value: reportData.stats.followUpCount },
+            { label: 'Mistakes Found', value: reportData.stats.mistakesCount },
+          ].map((s) => (
+            <div key={s.label} className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center">
+              <div className="text-2xl font-bold text-white">{s.value ?? 0}</div>
+              <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {reportData?.topicPerformance && Array.isArray(reportData.topicPerformance) && reportData.topicPerformance.length > 0 && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-purple-400" />
             Topic Performance
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {Object.entries(reportData.topicPerformance).map(([topic, score]) => (
-              <div key={topic} className={classNames('rounded-lg border p-3', scoreBg(score * 10))}>
-                <div className="text-xs text-gray-400">{topic}</div>
-                <div className={classNames('text-lg font-bold', scoreColor(score))}>{score}/10</div>
+            {reportData.topicPerformance.map((tp) => (
+              <div key={tp.topic} className={classNames('rounded-lg border p-3', scoreBg(tp.averageScore))}>
+                <div className="text-xs text-gray-400">{tp.topic}</div>
+                <div className={classNames('text-lg font-bold', scoreColor(tp.averageScore))}>{tp.averageScore}/10</div>
+                <div className="text-xs text-gray-600">{tp.questionsAsked} question{tp.questionsAsked === 1 ? '' : 's'}</div>
               </div>
             ))}
           </div>
@@ -908,38 +1038,69 @@ function ReportScreen({ sessionId, onRestart }) {
 
       {reportData?.skills && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {reportData.skills.technical && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Star className="w-5 h-5 text-yellow-400" />
-                Technical Skills
-              </h2>
-              <div className="space-y-2">
-                {Object.entries(reportData.skills.technical).map(([key, val]) => (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400" />
+              Technical Skills
+            </h2>
+            <div className="space-y-2">
+              {[
+                ['Conceptual Understanding', reportData.skills.conceptualUnderstanding],
+                ['Problem Solving', reportData.skills.problemSolving],
+                ['Technical Depth', reportData.skills.technicalDepth],
+                ['Accuracy', reportData.skills.accuracy],
+              ].map(([key, val]) => (
+                typeof val === 'number' && (
                   <div key={key} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400 capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="text-sm text-gray-400">{key}</span>
                     <span className={classNames('text-sm font-semibold', scoreColor(val))}>{val}/10</span>
                   </div>
-                ))}
-              </div>
+                )
+              ))}
             </div>
-          )}
-          {reportData.skills.communication && (
+          </div>
+          {reportData.communication && (
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-cyan-400" />
                 Communication
               </h2>
               <div className="space-y-2">
-                {Object.entries(reportData.skills.communication).map(([key, val]) => (
-                  <div key={key} className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400 capitalize">{key.replace(/_/g, ' ')}</span>
-                    <span className={classNames('text-sm font-semibold', scoreColor(val))}>{val}/10</span>
-                  </div>
+                {[
+                  ['Clarity', reportData.communication.clarity],
+                  ['Conciseness', reportData.communication.conciseness],
+                ].map(([key, val]) => (
+                  typeof val === 'number' && (
+                    <div key={key} className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400">{key}</span>
+                      <span className={classNames('text-sm font-semibold', scoreColor(val))}>{val}/10</span>
+                    </div>
+                  )
                 ))}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Confidence</span>
+                  <span className="text-sm font-semibold text-white capitalize">{reportData.communication.confidenceIndicator || 'not_available'}</span>
+                </div>
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {reportData?.mistakes?.length > 0 && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-400" />
+            Mistakes &amp; Misconceptions Detected
+          </h2>
+          <ul className="space-y-2">
+            {reportData.mistakes.map((m, i) => (
+              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                <span className="text-red-400 mt-0.5">•</span>
+                <span>{m}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -1069,7 +1230,26 @@ export default function MockInterview() {
       setActiveState(null);
       // Edge case: every question answered but session not finalized
       // (e.g. network dropped on the final submit). Finalize → report.
+      // NOTE: a session with ZERO answered questions and no pending question
+      // is recoverable (e.g. first-question generation failed at creation) —
+      // POST /next handles CREATED sessions by generating the first question.
       if (!state.nextQuestion) {
+        if ((state.answeredCount || 0) === 0 && ['CREATED', 'IN_PROGRESS'].includes(state.session.status)) {
+          try {
+            const retry = await requestNextInterviewQuestion(sessionId);
+            if (retry.data.data.nextQuestion) {
+              setSessionData({
+                sessionId: state.session.id,
+                mode: state.session.mode,
+                totalQuestions: state.session.totalQuestions,
+                question: retry.data.data.nextQuestion,
+                history: state.history || [],
+              });
+              setPhase('interview');
+              return;
+            }
+          } catch (_) { /* fall through to finalize attempt below */ }
+        }
         try { await completeInterviewSession(state.session.id); } catch (_) { /* may already be completed */ }
         setReportSessionId(state.session.id);
         setPhase('report');
@@ -1080,6 +1260,7 @@ export default function MockInterview() {
         mode: state.session.mode,
         totalQuestions: state.session.totalQuestions,
         question: state.nextQuestion,
+        history: state.history || [],
       });
       setPhase('interview');
     } catch (err) {

@@ -55,7 +55,52 @@ function adaptDifficulty(base, recentScores = []) {
   return base;
 }
 
-function buildContextBlock(session, questionSummaries, recentQA) {
+/**
+ * The dedicated interviewer persona/system prompt (§ system prompt spec).
+ * Used as the system role for every next-question generation call.
+ */
+const INTERVIEWER_SYSTEM_PROMPT = `You are an expert technical interviewer conducting a realistic software engineering interview.
+
+Your job is NOT to follow a fixed question list.
+
+You must dynamically decide the next question based on:
+- candidate profile and target topics
+- previous questions
+- candidate answers
+- correctness and answer quality
+- technical depth and communication quality
+- mistakes and missing concepts
+- current difficulty
+- interview progression
+
+After every candidate answer:
+1. Understand the answer semantically.
+2. Evaluate correctness.
+3. Identify missing concepts.
+4. Identify misconceptions.
+5. Decide whether a follow-up is useful.
+6. Decide whether difficulty should increase/decrease.
+7. Decide whether to move to another topic.
+8. Generate exactly ONE next question.
+
+Never repeat a previously asked question.
+
+Follow-ups must directly relate to the candidate's answer.
+
+Behave like a professional human interviewer: ask concise, natural interview questions, one at a time.
+
+Do not provide the answer unless the interview mode explicitly requires it.
+Do not reveal internal scoring or reasoning to the candidate.
+
+If the candidate gives a weak answer, probe the missing concept.
+If the candidate gives an excellent answer, increase difficulty.
+If the candidate gives an incorrect answer, clarify or probe appropriately.
+
+Maintain conversational continuity with what was just discussed.
+
+You output ONLY valid JSON matching the requested shape — no prose, no markdown fences.`;
+
+function buildContextBlock(session, questionSummaries, recentQA, extra = {}) {
   const topicLabels = session.topics.join(', ');
   const askedList = questionSummaries
     .slice(-8)
@@ -66,22 +111,53 @@ function buildContextBlock(session, questionSummaries, recentQA) {
   const qaBlock = recentQA
     .map((qa) => `Q: ${qa.question}\nA: ${String(qa.answer).slice(0, 300)}\nScore: ${qa.score}/10`)
     .join('\n---\n');
-  return { topicLabels, askedList, conceptList, qaBlock };
+  const topicCounts = extra.topicCounts || {};
+  const coverageList = session.topics
+    .map((t) => `${t}: ${topicCounts[t] ?? 0} asked`)
+    .join(', ') || 'none yet';
+  const strongList = (extra.strongAreas || []).join(' | ') || 'none yet';
+  const weakList = (extra.weakAreas || []).join(' | ') || 'none yet';
+  const missingList = (extra.missingSoFar || []).join(', ') || 'none yet';
+  return {
+    topicLabels,
+    askedList,
+    conceptList,
+    qaBlock,
+    coverageList,
+    strongList,
+    weakList,
+    missingList,
+    remainingMain: typeof extra.remainingMain === 'number' ? extra.remainingMain : null,
+  };
 }
 
-function questionPrompt({ session, targetDifficulty, isFollowUp, prevQuestion, prevAnswer, prevEvaluation, questionSummaries, recentQA }) {
-  const { topicLabels, askedList, conceptList, qaBlock } = buildContextBlock(session, questionSummaries, recentQA);
+function questionPrompt({ session, targetDifficulty, isFollowUp, prevQuestion, prevAnswer, prevEvaluation, questionSummaries, recentQA, ...extraCtx }) {
+  const {
+    topicLabels, askedList, conceptList, qaBlock,
+    coverageList, strongList, weakList, missingList, remainingMain,
+  } = buildContextBlock(session, questionSummaries, recentQA, extraCtx);
 
+  const action = prevEvaluation?.recommendedAction;
   const followUpBlock = isFollowUp
     ? `
 THIS MUST BE A DIRECT FOLLOW-UP to the previous question, probing deeper into the same concept based on the candidate's answer. Do NOT switch to a new concept or topic.
 
 Previous question: "${prevQuestion}"
 Candidate's answer: "${(prevAnswer || '').slice(0, 600)}"
-Evaluation summary: score ${prevEvaluation?.overall ?? 'n/a'}/10, missing concepts: ${(prevEvaluation?.missingConcepts || []).join(', ') || 'none noted'}.
+Evaluation summary: score ${prevEvaluation?.overall ?? 'n/a'}/10, quality: ${prevEvaluation?.quality ?? 'n/a'}, missing concepts: ${(prevEvaluation?.missingConcepts || []).join(', ') || 'none noted'}, detected mistakes: ${(prevEvaluation?.detectedMistakes || []).join(', ') || 'none noted'}.
+Recommended action: ${action || 'follow_up'}${prevEvaluation?.followUpReason ? ` — ${prevEvaluation.followUpReason}` : ''}.
 If the answer was strong (score >= 7): ask a harder probing follow-up (internal mechanics, edge cases, trade-offs).
-If the answer was weak (score < 4): ask a simpler clarifying follow-up on the same concept.`
+If the answer was weak (score < 4): ask a simpler clarifying follow-up on the same concept.
+If the answer was INCORRECT or contained a misconception: open the follow-up by gently noting the answer was not quite right, then ask a question that helps the candidate work through the correct concept (a corrective probe). Never reveal the full answer directly.
+Reference the candidate's own wording naturally so the conversation feels continuous.`
     : '';
+
+  const coverageBlock = `
+Topic coverage so far: ${coverageList}${remainingMain != null ? `\nMain questions remaining in the budget: ${remainingMain}` : ''}
+Unless this is a follow-up, rotate to one of the LEAST covered topics when its fundamentals have not been tested yet.
+Strong areas observed (candidate answered these well — push these deeper or move past them): ${strongList}
+Weak areas observed (candidate struggled — simplify, probe missing concepts, or balance with other topics): ${weakList}
+Concepts the candidate missed so far (do NOT re-ask them directly, but you may test adjacent understanding): ${missingList}`;
 
   return `You are a senior technical interviewer conducting a realistic mock interview for a ${session.experienceLevel}-level candidate.
 
@@ -93,8 +169,8 @@ ${askedList || '(none asked yet)'}
 4. Target difficulty: ${targetDifficulty}. Wording must be clear, unambiguous, one identifiable concept, appropriate for a real fresher/junior technical interview. Avoid obscure trivia.
 5. Respond ONLY with valid JSON.
 
-Recent interview context (last answers):
-${qaBlock || '(interview just started)'}
+Recent interview context (last answers — maintain conversational continuity):
+${qaBlock || '(interview just started)'}${coverageBlock}
 ${followUpBlock}
 
 JSON shape:
@@ -198,13 +274,18 @@ async function generateQuestion(opts) {
     const prompt = questionPrompt({
       session, targetDifficulty, isFollowUp, prevQuestion: prevQuestion?.text,
       prevAnswer, prevEvaluation, questionSummaries, recentQA,
+      topicCounts: opts.topicCounts,
+      remainingMain: opts.remainingMain,
+      strongAreas: opts.strongAreas,
+      weakAreas: opts.weakAreas,
+      missingSoFar: opts.missingSoFar,
     });
 
     for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
       try {
         const parsed = await callJson(
           [
-            { role: 'system', content: 'You are a precise JSON generator for a technical interview system. Output only valid JSON matching the requested shape.' },
+            { role: 'system', content: INTERVIEWER_SYSTEM_PROMPT },
             { role: 'user', content: prompt },
           ],
           { temperature: attempt === 0 ? 0.6 : 0.85 }
@@ -242,4 +323,5 @@ module.exports = {
   adaptDifficulty,
   validateGeneratedQuestion,
   buildFallback,
+  INTERVIEWER_SYSTEM_PROMPT,
 };

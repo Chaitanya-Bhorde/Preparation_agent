@@ -202,12 +202,13 @@ exports.submitAnswer = async (req, res) => {
     const session = await InterviewSession.findById(req.params.id);
     if (!session) return res.status(404).json({ success: false, message: 'Interview session not found.' });
 
-    const { questionId, answer, answerType, durationSeconds } = req.body;
+    const { questionId, answer, answerType, durationSeconds, transcript } = req.body;
     const result = await svc.submitAnswer(session, req.user, {
       questionId,
       text: sanitizeAnswer(answer),
       answerType: answerType === 'voice' ? 'voice' : 'text',
       durationSeconds,
+      rawTranscript: sanitizeAnswer(transcript),
     });
 
     res.json({
@@ -216,12 +217,22 @@ exports.submitAnswer = async (req, res) => {
         evaluation: {
           overall: result.evaluation.overall,
           verdict: result.evaluation.verdict,
+          quality: result.evaluation.quality,
           feedback: result.evaluation.feedback,
           strengths: result.evaluation.strengths,
+          missingConcepts: result.evaluation.missingConcepts || [],
+          recommendedAction: result.evaluation.recommendedAction,
         },
         nextQuestion: result.nextQuestion || null,
         completed: Boolean(result.completed),
         generationFailed: Boolean(result.generationFailed),
+        // The submitted answer is stored; only the NEXT question generation
+        // failed — the client can safely retry via POST /next (idempotent).
+        retryable: Boolean(result.generationFailed),
+        message: result.generationFailed
+          ? 'Your answer was saved and evaluated, but the next question could not be generated. Retry to continue.'
+          : undefined,
+        duplicate: Boolean(result.duplicate),
         report: result.report || null,
       },
     });

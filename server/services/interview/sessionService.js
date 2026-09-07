@@ -157,6 +157,13 @@ async function getSessionState(session) {
       mode: session.mode,
       totalQuestions: session.totalQuestions,
       status: session.status,
+      transientFailure: session.transientFailure
+        ? {
+            type: session.transientFailure.type,
+            message: session.transientFailure.message,
+            at: session.transientFailure.at,
+          }
+        : null,
       currentQuestionIndex: session.currentQuestionIndex,
       startedAt: session.startedAt,
       lastActivityAt: session.lastActivityAt,
@@ -202,7 +209,41 @@ async function buildGenerationContext(session) {
 
   const recentScores = answers.slice(-3).map((a) => a.evaluation?.overall ?? 0);
 
-  return { questionSummaries, recentQA, recentScores };
+  // Topic coverage plan (§ topic management): how many questions each selected
+  // topic has received so far, so the AI can balance topics adaptively.
+  const topicCounts = {};
+  for (const t of session.topics) topicCounts[t] = 0;
+  for (const q of questionSummaries) {
+    if (topicCounts[q.topic] != null) topicCounts[q.topic] += 1;
+  }
+
+  // Strong/weak areas from recent evaluations (drives adaptive difficulty).
+  const strongAreas = [];
+  const weakAreas = [];
+  const missingSoFar = [];
+  for (const a of answers.slice(-4)) {
+    const q = a.question?.text || '';
+    const score = a.evaluation?.overall ?? 0;
+    if (score >= 7.5) strongAreas.push(q);
+    if (score <= 4.5) weakAreas.push(q);
+    for (const m of a.evaluation?.missingConcepts || []) missingSoFar.push(m);
+  }
+
+  return {
+    questionSummaries,
+    recentQA,
+    recentScores,
+    topicCounts,
+    remainingMain: Math.max(0, session.totalQuestions - countMainAnsweredSync(answers)),
+    strongAreas: [...new Set(strongAreas)].slice(0, 4),
+    weakAreas: [...new Set(weakAreas)].slice(0, 4),
+    missingSoFar: [...new Set(missingSoFar)].slice(0, 8),
+  };
+}
+
+// Sync helper over already-fetched answers (main questions answered).
+function countMainAnsweredSync(answers) {
+  return (answers || []).filter((a) => a.question && !a.question.isFollowUp).length;
 }
 
 async function countMainAnswered(session) {
@@ -210,6 +251,27 @@ async function countMainAnswered(session) {
     .populate('question', 'isFollowUp')
     .lean();
   return answers.filter((a) => a.question && !a.question.isFollowUp).length;
+}
+
+/** Persist a recoverable failure trace (never flips the session status). */
+async function recordTransientFailure(session, type, message) {
+  try {
+    session.transientFailure = { type, message: String(message || '').slice(0, 300), at: new Date() };
+    await session.save();
+  } catch (err) {
+    console.error(`[interview] failed to record transient failure session=${session._id}: ${err.message}`);
+  }
+}
+
+/** Clear the failure trace once the pipeline recovers. */
+async function clearTransientFailure(session) {
+  if (!session.transientFailure) return;
+  try {
+    session.set('transientFailure', undefined);
+    await session.save();
+  } catch (err) {
+    console.error(`[interview] failed to clear transient failure session=${session._id}: ${err.message}`);
+  }
 }
 
 function shapeQuestion(q) {
@@ -230,9 +292,11 @@ function shapeQuestion(q) {
 /**
  * Submit an answer for the current question.
  * Idempotent: re-submitting an already-answered question returns the stored
- * evaluation without another AI call (cost control).
+ * evaluation without another AI call (cost control). A simultaneous duplicate
+ * submit that races past the findOne check is caught via the unique index
+ * (E11000) and handled idempotently instead of surfacing a 500.
  */
-async function submitAnswer(session, user, { questionId, text, answerType, durationSeconds }) {
+async function submitAnswer(session, user, { questionId, text, answerType, durationSeconds, rawTranscript }) {
   assertOwnership(session, user);
 
   if (session.status !== 'IN_PROGRESS') {
@@ -254,11 +318,21 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
   }
   const type = answerType === 'voice' ? 'voice' : 'text';
 
+  const storeAnswer = async () => InterviewAnswer.create({
+    session: session._id,
+    question: question._id,
+    answerType: type,
+    text: answerText,
+    rawTranscript: String(rawTranscript || '').trim().slice(0, 8000) || undefined,
+    evaluation,
+    durationSeconds: Math.max(0, Math.min(3600, Number(durationSeconds) || 0)),
+  });
+
   // Idempotency: unique index {session, question} — reuse stored evaluation.
   let answer = await InterviewAnswer.findOne({ session: session._id, question: question._id });
   if (answer) {
     const next = await advanceOrComplete(session, answer.evaluation);
-    return { evaluation: answer.evaluation, ...next };
+    return { evaluation: answer.evaluation, duplicate: true, ...next };
   }
 
   console.log(`[interview] answer evaluation started session=${session._id} question=${question._id}`);
@@ -280,20 +354,24 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
         expectedConcepts: question.expectedConcepts,
         expectedAnswer: question.expectedAnswer,
       });
+      await recordTransientFailure(session, 'ANALYSIS_FAILED', `AI evaluation unavailable (${err.message}); heuristic scoring used.`);
     } else {
       throw err;
     }
   }
   console.log(`[interview] answer evaluation completed session=${session._id} score=${evaluation.overall} evaluator=${evaluation.evaluator || 'ai'}`);
 
-  answer = await InterviewAnswer.create({
-    session: session._id,
-    question: question._id,
-    answerType: type,
-    text: answerText,
-    evaluation,
-    durationSeconds: Math.max(0, Math.min(3600, Number(durationSeconds) || 0)),
-  });
+  try {
+    answer = await storeAnswer();
+  } catch (err) {
+    // Lost race with a duplicate submit of the same question → idempotent.
+    if (err && err.code === 11000) {
+      answer = await InterviewAnswer.findOne({ session: session._id, question: question._id });
+      const next = await advanceOrComplete(session, answer.evaluation);
+      return { evaluation: answer.evaluation, duplicate: true, ...next };
+    }
+    throw err;
+  }
 
   if (!question.isFollowUp) {
     session.currentQuestionIndex = (session.currentQuestionIndex || 0) + 1;
@@ -310,7 +388,13 @@ async function submitAnswer(session, user, { questionId, text, answerType, durat
  */
 async function advanceOrComplete(session, evaluation, justAnsweredQuestion = null) {
   // 1) Follow-up decision — only straight after a main question, budget-capped.
-  if (evaluation?.followUpNeeded && justAnsweredQuestion && !justAnsweredQuestion.isFollowUp) {
+  //    Incorrect answers get a corrective probe ("clarify"), partial answers a
+  //    deepening probe ("follow_up") — decided from the analysis action.
+  const action = evaluation?.recommendedAction
+    || (evaluation?.followUpNeeded ? 'follow_up' : 'next_topic');
+  const wantsFollowUp = action === 'follow_up' || action === 'clarify' || Boolean(evaluation?.followUpNeeded);
+
+  if (wantsFollowUp && justAnsweredQuestion && !justAnsweredQuestion.isFollowUp) {
     const followUpCount = await InterviewQuestion.countDocuments({
       session: session._id,
       isFollowUp: true,
@@ -349,9 +433,11 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
         session.status = 'IN_PROGRESS';
         session.lastActivityAt = new Date();
         await session.save();
+        await clearTransientFailure(session);
         return { nextQuestion: shapeQuestion(followUp), completed: false };
       } catch (err) {
         console.error(`[interview] follow-up generation failed session=${session._id}: ${err.message}`);
+        await recordTransientFailure(session, 'GENERATION_FAILED', `Follow-up generation failed: ${err.message}`);
         // fall through to main-question flow — the interview must continue
       }
     }
@@ -372,9 +458,11 @@ async function advanceOrComplete(session, evaluation, justAnsweredQuestion = nul
     session.status = 'IN_PROGRESS';
     session.lastActivityAt = new Date();
     await session.save();
+    await clearTransientFailure(session);
     return { nextQuestion: shapeQuestion(nextQuestion), completed: false };
   } catch (err) {
     console.error(`[interview] next-question generation failed session=${session._id}: ${err.message}`);
+    await recordTransientFailure(session, 'GENERATION_FAILED', `Next-question generation failed: ${err.message}`);
     return { nextQuestion: null, completed: false, generationFailed: true };
   }
 }
@@ -416,10 +504,16 @@ async function ensureNextQuestion(session) {
  * POST /:id/next — fetch the current pending question or generate the next
  * one. Used after a submit whose next-question generation failed, and by the
  * resume flow when a session has no pending question yet.
+ *
+ * ACCEPTED for both CREATED and IN_PROGRESS sessions: a CREATED session here
+ * means the first-question generation failed during create (the session doc
+ * was persisted before the AI call). The retry must generate the first
+ * question and flip the session to IN_PROGRESS — otherwise the client would
+ * be stuck in a permanent retry loop.
  */
 async function requestNextQuestion(session, user) {
   assertOwnership(session, user);
-  if (session.status !== 'IN_PROGRESS') {
+  if (session.status !== 'IN_PROGRESS' && session.status !== 'CREATED') {
     throw new SessionError('This interview is not in progress', { code: 'NOT_IN_PROGRESS' });
   }
 
@@ -432,11 +526,17 @@ async function requestNextQuestion(session, user) {
 
   try {
     const nextQuestion = await ensureNextQuestion(session);
+    if (session.status === 'CREATED') {
+      session.status = 'IN_PROGRESS';
+      session.startedAt = session.startedAt || new Date();
+    }
     session.lastActivityAt = new Date();
     await session.save();
+    await clearTransientFailure(session);
     return { completed: false, nextQuestion: shapeQuestion(nextQuestion) };
   } catch (err) {
     console.error(`[interview] requestNextQuestion failed session=${session._id}: ${err.message}`);
+    await recordTransientFailure(session, 'GENERATION_FAILED', `Next-question generation failed: ${err.message}`);
     throw new SessionError(
       'AI interviewer temporarily unavailable. Please retry in a moment.',
       { statusCode: 503, code: 'GENERATION_FAILED' }

@@ -112,13 +112,18 @@ async function callJson(messages, { temperature = 0.4, maxTokens = MAX_COMPLETIO
           providerError: `${status}`,
         });
         // 429 (rate limit) IS retryable — honor Retry-After when present.
+        // 400 json_validate_failed is a TRANSIENT model-format failure
+        // (common with reasoning models) — retrying the same prompt can and
+        // often does succeed, so treat it as retryable too.
         // Other 4xx (bad key / bad request) will not improve on retry — stop early.
-        if (status === 429) {
+        const isJsonValidateFailure =
+          status === 400 && String(err.response?.data?.error?.code) === 'json_validate_failed';
+        if (status === 429 || isJsonValidateFailure) {
           if (attempt < MAX_RETRIES) {
             const retryAfter = Number(err.response.headers?.['retry-after']);
             const wait = Number.isFinite(retryAfter) && retryAfter > 0
               ? Math.min(retryAfter * 1000, 15000)
-              : 1500 * (attempt + 1);
+              : 1200 * (attempt + 1);
             await new Promise((r) => setTimeout(r, wait));
           }
           continue;

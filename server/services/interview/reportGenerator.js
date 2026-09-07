@@ -82,16 +82,38 @@ async function generateReport(session, answers) {
     technicalDepth: avg((e) => e.depth),
     accuracy: avg((e) => e.technicalAccuracy),
   };
+  const clarityAvg = avg((e) => e.clarity);
   const communication = {
-    clarity: avg((e) => e.clarity),
+    clarity: clarityAvg,
     conciseness: avg((e) => e.completeness),
-    confidenceIndicator: 'not_available', // reliable voice metrics are not measurable in-browser
-    notes: 'Confidence indicators require voice-delivery analysis, which browsers do not expose reliably.',
+    confidenceIndicator: clarityAvg >= 7.5 ? 'strong' : clarityAvg >= 6 ? 'good' : clarityAvg >= 4 ? 'moderate' : scored.length ? 'low' : 'not_available',
+    notes: 'Confidence/clarity is inferred from answer communication scores collected during the interview.',
   };
 
   const overallScore = scored.length
     ? round0((scored.reduce((s, a) => s + a.evaluation.overall, 0) / scored.length) * 10)
     : 0;
+
+  // ── Interview activity stats (§ report spec) — always deterministic ─────
+  const questionsAsked = answers.length; // includes follow-ups
+  const followUpCount = answers.filter((a) => a.question?.isFollowUp).length;
+  const mistakes = [];
+  for (const a of scored) {
+    for (const m of a.evaluation.detectedMistakes || []) {
+      if (m && !mistakes.some((x) => x.toLowerCase() === m.toLowerCase())) mistakes.push(String(m).slice(0, 140));
+    }
+  }
+  for (const a of scored) {
+    if ((a.evaluation.verdict === 'incorrect' || a.evaluation.quality === 'incorrect') && a.question?.text) {
+      mistakes.push(`Incorrect: ${String(a.question.text).slice(0, 100)}`);
+    }
+  }
+  const stats = {
+    questionsAsked,
+    questionsAnswered: scored.length,
+    followUpCount,
+    mistakesCount: mistakes.length,
+  };
 
   const qaRows = scored.map((a) => ({
     question: a.question?.text || '',
@@ -134,6 +156,8 @@ async function generateReport(session, answers) {
     topicPerformance,
     skills,
     communication,
+    stats,
+    mistakes: mistakes.slice(0, 10),
     strengths: aiPart.strengths,
     areasToImprove: aiPart.areasToImprove,
     assessment: aiPart.assessment,
