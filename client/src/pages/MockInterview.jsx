@@ -7,8 +7,8 @@ import {
 import { PAGE_CONTAINER } from '../utils/ui';
 import {
   getInterviewFields, createInterviewSession, getActiveInterviewSession,
-  getInterviewSession, submitInterviewAnswer, completeInterviewSession,
-  abandonInterviewSession, getInterviewReport,
+  getInterviewSession, submitInterviewAnswer, requestNextInterviewQuestion,
+  completeInterviewSession, abandonInterviewSession, getInterviewReport,
 } from '../api';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import useSpeechSynthesis from '../hooks/useSpeechSynthesis';
@@ -45,6 +45,14 @@ function verdictLabel(verdict) {
   if (!verdict) return 'Not evaluated';
   const map = { correct: 'Correct', partially_correct: 'Partially Correct', incorrect: 'Incorrect' };
   return map[verdict] || verdict;
+}
+
+function verdictColor(verdict) {
+  if (!verdict) return 'bg-gray-800 text-gray-400';
+  if (verdict === 'correct') return 'bg-green-900/30 text-green-400';
+  if (verdict === 'partially_correct') return 'bg-yellow-900/30 text-yellow-400';
+  if (verdict === 'incorrect') return 'bg-red-900/30 text-red-400';
+  return 'bg-gray-800 text-gray-400';
 }
 
 
@@ -97,8 +105,7 @@ function TopicSelector({ categories, selected, onChange, disabled }) {
           const isOpen = expanded.includes(cat.id);
           return (
             <div key={cat.id}>
-              <button
-                type="button"
+              <button type="button"
                 onClick={() => toggleCategory(cat.id)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 rounded transition-colors"
               >
@@ -113,9 +120,7 @@ function TopicSelector({ categories, selected, onChange, disabled }) {
                   {cat.fields.map((field) => {
                     const isSelected = selected.includes(field.id);
                     return (
-                      <button
-                        key={field.id}
-                        type="button"
+                      <button type="button" key={field.id}
                         onClick={() => toggleField(field.id)}
                         disabled={disabled}
                         className={classNames(
@@ -283,14 +288,12 @@ function SetupScreen({ onStart, activeState, onResume }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={handleResumeClick}
+          <button type="button" onClick={handleResumeClick}
             className="py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
           >
             <ArrowRight className="w-5 h-5" /> Resume Interview
           </button>
-          <button
-            onClick={handleAbandonAndStart}
+          <button type="button" onClick={handleAbandonAndStart}
             disabled={abandoning || submitting}
             className="py-4 bg-gray-800 border border-gray-700 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
@@ -333,8 +336,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
         </h2>
         <div className="grid grid-cols-2 gap-3">
           {config?.modes?.map((m) => (
-            <button
-              key={m}
+            <button type="button" key={m}
               onClick={() => setMode(m)}
               className={classNames(
                 'p-4 rounded-lg border text-left transition-all',
@@ -377,7 +379,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
               return (
                 <span key={tid} className="inline-flex items-center gap-1 bg-blue-600/20 text-blue-300 text-xs px-2 py-1 rounded">
                   {label}
-                  <button onClick={() => setSelectedTopics((p) => p.filter((x) => x !== tid))} className="hover:text-white">
+                  <button type="button" onClick={() => setSelectedTopics((p) => p.filter((x) => x !== tid))} className="hover:text-white">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -396,8 +398,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
           </h2>
           <div className="space-y-2">
             {config?.difficulties?.map((d) => (
-              <button
-                key={d}
+              <button type="button" key={d}
                 onClick={() => setDifficulty(d)}
                 className={classNames(
                   'w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors',
@@ -418,8 +419,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
           </h2>
           <div className="space-y-2">
             {config?.experienceLevels?.map((l) => (
-              <button
-                key={l}
+              <button type="button" key={l}
                 onClick={() => setExperienceLevel(l)}
                 className={classNames(
                   'w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors',
@@ -443,8 +443,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
         </h2>
         <div className="flex gap-3">
           {config?.questionCounts?.map((c) => (
-            <button
-              key={c}
+            <button type="button" key={c}
               onClick={() => setTotalQuestions(c)}
               className={classNames(
                 'flex-1 py-3 rounded-lg text-sm font-medium transition-colors',
@@ -461,8 +460,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
 
       {/* Start Button */}
 
-      <button
-        onClick={handleSubmit}
+      <button type="button" onClick={handleSubmit}
         disabled={submitting || selectedTopics.length === 0}
         className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold text-lg disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
       >
@@ -518,6 +516,12 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
   const stt = useSpeechRecognition();
   const tts = useSpeechSynthesis();
+  // Only speak each question ONCE (the `tts` object identity changes every
+  // render, so naively depending on it would restart the audio constantly).
+  const lastSpokenQuestionRef = useRef(null);
+  // Diagnostics: last answer-submit request/response for the debug strip.
+  const [lastSubmitDiag, setLastSubmitDiag] = useState(null); // { url, status, ok, at }
+  const [lastTts, setLastTts] = useState(null); // { text, ok, at } of last TTS call
 
   // Auto-fallback to typing when speech recognition fails/unsupported (§ voice failure handling)
   useEffect(() => {
@@ -530,10 +534,14 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   }, []);
 
   useEffect(() => {
-    if (mode === 'voice' && question?.text && tts.isSupported) {
-      tts.speak(question.text).catch(() => { /* TTS failure is non-blocking */ });
+    const qid = question?.id;
+    if (mode === 'voice' && qid && tts.isSupported && lastSpokenQuestionRef.current !== qid) {
+      lastSpokenQuestionRef.current = qid;
+      tts.speak(question.text)
+        .then(() => setLastTts({ text: question.text, ok: true, at: new Date().toLocaleTimeString() }))
+        .catch(() => setLastTts({ text: question.text, ok: false, at: new Date().toLocaleTimeString() }));
     }
-  }, [question, mode, tts]);
+  }, [question?.id]);
 
   useEffect(() => {
     return () => { tts.cancel(); stt.stop(); };
@@ -599,11 +607,19 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     stt.stop();
 
     try {
+      const submitUrl = `/api/interview/sessions/${sessionId}/answer`;
       const { data } = await submitInterviewAnswer(sessionId, {
         questionId: question.id, // always the EXACT currently displayed question
         answer: text,
         answerType: mode === 'voice' ? 'voice' : 'text',
         transcript: mode === 'voice' ? stt.transcript : undefined,
+      });
+      setLastSubmitDiag({
+        url: submitUrl,
+        status: '200 OK',
+        ok: true,
+        at: new Date().toLocaleTimeString(),
+        questionId: question.id,
       });
 
       const evalRes = data.data.evaluation || {};
@@ -633,6 +649,13 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to submit answer. Please try again.';
+      setLastSubmitDiag({
+        url: `/api/interview/sessions/${sessionId}/answer`,
+        status: String(err.response?.status || 'network-error'),
+        ok: false,
+        at: new Date().toLocaleTimeString(),
+        questionId: question.id,
+      });
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -700,7 +723,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <span className="text-xs bg-purple-900/30 text-purple-300 px-2 py-1 rounded">{question.topic}</span>
           )}
         </div>
-        <button onClick={handleAbandon} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
+        <button type="button" onClick={handleAbandon} className="text-xs text-gray-500 hover:text-red-400 transition-colors">
           End Interview
         </button>
       </div>
@@ -757,7 +780,20 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <Bot className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-blue-400 mb-1">AI Interviewer</h3>
+            <h3 className="text-sm font-medium text-blue-400 mb-1 flex items-center gap-2">
+              AI Interviewer
+              {question?.source && (
+                <span className={classNames(
+                  'text-[10px] px-1.5 py-0.5 rounded font-mono uppercase',
+                  question.source === 'ai' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-amber-300'
+                )}>
+                  {question.source === 'ai' ? 'AI-generated' : 'fallback'}
+                </span>
+              )}
+              {question?.isFollowUp && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-300">follow-up</span>
+              )}
+            </h3>
             {question?.text ? (
               <p className="text-white text-lg leading-relaxed">{question.text}</p>
             ) : generationFailed ? (
@@ -773,8 +809,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
         {mode === 'voice' && (
           <div className="flex items-center gap-2 mt-4">
-            <button
-              onClick={() => stt.isListening ? stt.stop() : stt.start()}
+            <button type="button" onClick={() => stt.isListening ? stt.stop() : stt.start()}
               disabled={submitted || submitting}
               className={classNames(
                 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -785,8 +820,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               {stt.isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               {stt.isListening ? 'Stop Recording' : 'Start Recording'}
             </button>
-            <button
-              onClick={() => tts.isSpeaking ? tts.cancel() : tts.speak(question?.text)}
+            <button type="button" onClick={() => tts.isSpeaking ? tts.cancel() : tts.speak(question?.text)}
               className={classNames(
                 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
                 tts.isSpeaking ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
@@ -810,8 +844,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-400">Your Answer (Voice)</h3>
-            <button
-              onClick={() => setVoiceFallback((v) => !v)}
+            <button type="button" onClick={() => setVoiceFallback((v) => !v)}
               className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
               disabled={submitted || submitting}
             >
@@ -839,7 +872,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               {stt.error && (
                 <div className="text-xs text-red-400 mt-2">
                   <p>{stt.error}</p>
-                  <button onClick={() => setVoiceFallback(true)} className="underline hover:text-red-300 mt-1">
+                  <button type="button" onClick={() => setVoiceFallback(true)} className="underline hover:text-red-300 mt-1">
                     Type your answer instead
                   </button>
                 </div>
@@ -884,8 +917,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
       {/* Submit / Next */}
       {!submitted ? (
-        <button
-          onClick={handleSubmit}
+        <button type="button" onClick={handleSubmit}
           disabled={submitting || (mode === 'voice' && !voiceFallback ? !stt.transcript.trim() : !answer.trim())}
           className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
@@ -896,8 +928,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           )}
         </button>
       ) : generationFailed ? (
-        <button
-          onClick={loadNextQuestion}
+        <button type="button" onClick={loadNextQuestion}
           disabled={generating}
           className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
@@ -908,8 +939,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           )}
         </button>
       ) : (
-        <button
-          onClick={handleNext}
+        <button type="button" onClick={handleNext}
           className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           <>Next Question <ArrowRight className="w-4 h-4" /></>
@@ -933,6 +963,26 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           )}
         </div>
       )}
+
+      {/* Diagnostics strip — session/question IDs, question source, submit
+          request+response, TTS invocation. Collapsible; useful for verifying
+          that questions are LLM-generated (source=ai) and voice speaks them. */}
+      <details className="bg-gray-950 border border-gray-800 rounded-lg px-4 py-2">
+        <summary className="cursor-pointer text-xs text-gray-500 hover:text-white select-none">
+          Diagnostics (session / question / source / API / TTS)
+        </summary>
+        <div className="space-y-1.5 mt-2 text-[11px] font-mono text-gray-500">
+          <div>sessionId = {sessionId}</div>
+          <div>questionId = {question?.id ?? 'n/a'}</div>
+          <div>questionSource = {question?.source ?? 'n/a'} (ai = LLM-generated, fallback = static bank)</div>
+          <div>questionFollowUp = {question?.isFollowUp ? 'true' : 'false'}</div>
+          <div>evaluator = {feedback?.evaluator ? feedback.evaluator : 'ai unless degraded'}</div>
+          <div>lastSubmitUrl = {lastSubmitDiag?.url ?? 'n/a'}</div>
+          <div>lastSubmitStatus = {lastSubmitDiag ? `${lastSubmitDiag.status}${lastSubmitDiag.ok ? '' : ' (error shown above)'} @ ${lastSubmitDiag.at}` : 'n/a'}</div>
+          <div>ttsSupported = {tts.isSupported ? 'true' : 'false'}</div>
+          <div>lastTts = {lastTts ? `${lastTts.ok ? 'spoken' : 'failed'} ('${String(lastTts.text).slice(0, 50)}') @ ${lastTts.at}` : 'n/a'}</div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -964,7 +1014,7 @@ function ReportScreen({ sessionId, onRestart }) {
       <div className="text-center py-12">
         <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
         <p className="text-gray-400">{error || 'Report not available.'}</p>
-        <button onClick={onRestart} className="mt-4 text-blue-400 hover:text-blue-300 text-sm">
+        <button type="button" onClick={onRestart} className="mt-4 text-blue-400 hover:text-blue-300 text-sm">
           Start New Interview
         </button>
       </div>
@@ -1169,8 +1219,7 @@ function ReportScreen({ sessionId, onRestart }) {
       )}
 
       <div className="flex gap-3">
-        <button
-          onClick={onRestart}
+        <button type="button" onClick={onRestart}
           className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           <RefreshCw className="w-4 h-4" /> New Interview
@@ -1295,7 +1344,7 @@ export default function MockInterview() {
           <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm text-red-300">{resumeError}</p>
-            <button onClick={() => setResumeError(null)} className="text-xs text-gray-400 hover:text-white mt-1 underline">
+            <button type="button" onClick={() => setResumeError(null)} className="text-xs text-gray-400 hover:text-white mt-1 underline">
               Dismiss
             </button>
           </div>
