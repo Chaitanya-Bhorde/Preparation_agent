@@ -181,33 +181,48 @@ async function generateReport(session, answers) {
   };
 
 
-  // ── AI qualitative assessment (with deterministic fallback) ────────────
+  // Zero-answers guard
+  const answeredMains = mainAnswers.filter((a) => a.text && String(a.text).trim().length > 2);
+  const hasAnyAnswers = answeredMains.length > 0;
+
   let aiPart = null;
   let generatedBy = 'deterministic-fallback';
-  try {
-    const parsed = await callJson(
-      [
-        { role: 'system', content: 'You are a precise JSON generator. Output only valid JSON matching the requested shape.' },
-        { role: 'user', content: buildReportPrompt(session, mainQuestions) },
-      ],
-      { temperature: 0.4, maxTokens: 800 }
-    );
-    if (parsed && typeof parsed.assessment === 'string' && parsed.assessment.trim().length > 20) {
-      generatedBy = 'ai';
-      aiPart = {
-        assessment: parsed.assessment.trim().slice(0, 1200),
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String).slice(0, 4) : [],
-        areasToImprove: Array.isArray(parsed.areasToImprove) ? parsed.areasToImprove.map(String).slice(0, 4) : [],
-        recommendedTopics: Array.isArray(parsed.recommendedTopics)
-          ? parsed.recommendedTopics.map((t) => String(t).slice(0, 60)).filter(Boolean).slice(0, 8)
-          : [],
-      };
-    }
-  } catch (err) {
-    console.error(`[interview] report AI call failed: ${err.message}`);
-  }
 
-  if (!aiPart) aiPart = buildFallbackAssessment(session, mainQuestions);
+  if (!hasAnyAnswers) {
+    aiPart = {
+      assessment: 'No answers were submitted, so candidate understanding could not be evaluated.',
+      strengths: [],
+      areasToImprove: [],
+      recommendedTopics: [],
+    };
+    generatedBy = 'no-answers';
+  } else {
+    const answeredQuestions = mainQuestions.filter((q) => q.userAnswer && q.userAnswer.trim().length > 0);
+    try {
+      const parsed = await callJson(
+        [
+          { role: 'system', content: 'You are a precise JSON generator. Output only valid JSON matching the requested shape.' },
+          { role: 'user', content: buildReportPrompt(session, answeredQuestions) },
+        ],
+        { temperature: 0.4, maxTokens: 800 }
+      );
+      if (parsed && typeof parsed.assessment === 'string' && parsed.assessment.trim().length > 20) {
+        generatedBy = 'ai';
+        aiPart = {
+          assessment: parsed.assessment.trim().slice(0, 1200),
+          strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String).slice(0, 4) : [],
+          areasToImprove: Array.isArray(parsed.areasToImprove) ? parsed.areasToImprove.map(String).slice(0, 4) : [],
+          recommendedTopics: Array.isArray(parsed.recommendedTopics)
+            ? parsed.recommendedTopics.map((t) => String(t).slice(0, 60)).filter(Boolean).slice(0, 8)
+            : [],
+        };
+      }
+    } catch (err) {
+      console.error('[interview] report AI call failed: ' + err.message);
+    }
+
+    if (!aiPart) aiPart = buildFallbackAssessment(session, answeredQuestions);
+  }
 
   return {
     // § headline score — marks based, e.g. 7/10 for a 5-question interview

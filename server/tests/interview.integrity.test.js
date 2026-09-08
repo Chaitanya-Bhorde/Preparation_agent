@@ -243,6 +243,7 @@ describe('report aggregation', () => {
     const session = { topics: ['Java', 'DBMS'], difficulty: 'medium', experienceLevel: 'fresher' };
     const answers = [
       {
+        text: 'A detailed answer covering the correct approach with examples.',
         question: { text: 'Q1', topic: 'Java' },
         evaluation: {
           overall: 9, verdict: 'correct', correctness: 9, technicalAccuracy: 9, completeness: 8, clarity: 9, depth: 8, communication: 9,
@@ -250,6 +251,7 @@ describe('report aggregation', () => {
         },
       },
       {
+        text: 'A short partially relevant answer.',
         question: { text: 'Q2', topic: 'DBMS' },
         evaluation: {
           overall: 5, verdict: 'partially_correct', correctness: 5, technicalAccuracy: 5, completeness: 5, clarity: 6, depth: 4, communication: 6,
@@ -276,9 +278,60 @@ describe('report aggregation', () => {
     expect(report.recommendedTopics.length).toBeGreaterThan(0);
   });
 
-  test('handles zero answered questions without crashing', async () => {
-    const report = await generateReport({ topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher' }, []);
+  test('zero answers → score 0 and NO fabricated strengths/weaknesses/analysis', async () => {
+    const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 1 };
+    const report = await generateReport(session, []);
+    expect(report.score).toBe(0);
+    expect(report.maxScore).toBe(2);
     expect(report.overallScore).toBe(0);
     expect(report.topicPerformance).toEqual([]);
+    expect(report.generatedBy).toBe('no-answers');
+    // The report MUST NOT claim any demonstrated understanding.
+    expect(report.assessment).toContain('No answers were submitted');
+    expect(report.strengths).toEqual([]);
+    expect(report.areasToImprove).toEqual([]);
+    expect(report.recommendedTopics).toEqual([]);
+  });
+
+  test('all main answers empty/missing → same no-analysis behavior regardless of follow-ups', async () => {
+    const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 1 };
+    const answers = [
+      { question: { text: 'Q1', topic: 'Java' }, evaluation: { overall: 0, verdict: 'incorrect' } },
+      { question: { text: 'FU1', topic: 'Java', isFollowUp: true }, evaluation: { overall: 8, verdict: 'correct' } },
+    ];
+    const report = await generateReport(session, answers);
+    expect(report.score).toBe(0);
+    expect(report.maxScore).toBe(2);
+    expect(report.assessment).toContain('No answers were submitted');
+    expect(report.strengths).toEqual([]);
+    expect(report.areasToImprove).toEqual([]);
+    expect(report.recommendedTopics).toEqual([]);
+    // Follow-ups never contribute to score or denominator.
+    expect(report.stats.followUpCount).toBe(1);
+    expect(report.maxScore).toBe(2);
+  });
+
+  test('partial answers → analysis only from answered questions', async () => {
+    const session = { topics: ['Java'], difficulty: 'medium', experienceLevel: 'fresher' };
+    // Only Q1 was actually answered; Q2 has NO answer record (user submitted zero answers
+    // for it, or interview was auto-submitted after 3 proctoring violations).
+    const answers = [
+      {
+        text: 'A thoughtful, correct answer with examples.',
+        question: { text: 'Q1', topic: 'Java' },
+        evaluation: {
+          overall: 9, verdict: 'correct', correctness: 9, technicalAccuracy: 9, completeness: 8, clarity: 9, depth: 8, communication: 9,
+          missingConcepts: [],
+        },
+      },
+    ];
+    const report = await generateReport(session, answers);
+    // Only Q1 counts in the analysis set.
+    expect(report.mainQuestions.length).toBe(1);
+    expect(report.score).toBe(2);
+    expect(report.maxScore).toBe(2);
+    // Analysis is built strictly from the answered question's actual data.
+    expect(report.assessment.length).toBeGreaterThan(0);
+    expect(report.strengths).toEqual(['Solid answers in Java']);
   });
 });

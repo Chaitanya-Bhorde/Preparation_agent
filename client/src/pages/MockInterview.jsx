@@ -993,7 +993,14 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
               )}
             </h3>
             {question?.text ? (
-              <div className="text-white text-lg leading-relaxed"><DynamicTypingText text={question.text} speed={25} /></div>
+              mode === 'voice' ? (
+                <div className="flex items-center gap-2 text-gray-400 text-sm leading-relaxed">
+                  <Volume2 className="w-5 h-5 text-blue-400 animate-pulse" />
+                  <span>AI is speaking the question. Listen carefully, then speak or type your answer.</span>
+                </div>
+              ) : (
+                <div className="text-white text-lg leading-relaxed"><DynamicTypingText text={question.text} speed={25} /></div>
+              )
             ) : generationFailed ? (
               <p className="text-amber-300 text-sm">Couldn&apos;t generate the next question.</p>
             ) : (
@@ -1033,7 +1040,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
                 {tts.isSpeaking ? (
                   <><VolumeX className="w-4 h-4" /> Speaking... (click to stop)</>
                 ) : (
-                  <><Volume2 className="w-4 h-4" /> ?? Listen to Question</>
+                  <><Volume2 className="w-4 h-4" /> 🔊 Listen to Question</>
                 )}
               </button>
             </div>
