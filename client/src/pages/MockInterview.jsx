@@ -12,6 +12,7 @@ import {
 } from '../api';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import useSpeechSynthesis from '../hooks/useSpeechSynthesis';
+import useProctoring from '../hooks/useProctoring';
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -579,10 +580,36 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   // Only speak each question ONCE (the `tts` object identity changes every
   // render, so naively depending on it would restart the audio constantly).
   const lastSpokenQuestionRef = useRef(null);
+
+  // Proctoring: camera, face detection, tab switch monitoring
+  const proctoring = useProctoring({
+    enabled: !!sessionId && !isComplete,
+    onViolation: (reason, count) => {
+      console.log(`[Proctoring] Warning ${count}/2: ${reason}`);
+    },
+    onAutoSubmit: (reason) => {
+      console.log(`[Proctoring] Auto-submit triggered: ${reason}`);
+      autoSubmitDueToProctoring(reason);
+    },
+  });
   // Diagnostics: last answer-submit request/response for the debug strip.
   const [lastSubmitDiag, setLastSubmitDiag] = useState(null); // { url, status, ok, at }
   const [lastTts, setLastTts] = useState(null); // { text, ok, at } of last TTS call
 
+
+  // Start camera when interview begins
+  useEffect(() => {
+    if (sessionId && !isComplete && !proctoring.cameraActive && !proctoring.cameraError) {
+      proctoring.startCamera();
+    }
+  }, [sessionId, isComplete, proctoring.cameraActive, proctoring.cameraError]);
+
+  // Stop camera on completion
+  useEffect(() => {
+    if (isComplete) {
+      proctoring.stopCamera();
+    }
+  }, [isComplete]);
   // Auto-fallback to typing when speech recognition fails/unsupported (� voice failure handling)
   useEffect(() => {
     if (mode === 'voice' && (stt.error || !stt.isSupported)) setVoiceFallback(true);
@@ -628,6 +655,47 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     }
   }, [question?.id, currentIndex, mode, sessionId, totalQuestions, question?.source, question?.isFollowUp, question?.text]);
 
+
+  const autoSubmittedRef = useRef(false);
+
+  // Auto-submit due to proctoring violation (3rd violation)
+  const autoSubmitDueToProctoring = useCallback(async (reason) => {
+    if (autoSubmittedRef.current) return;
+    autoSubmittedRef.current = true;
+    console.log('[Interview] Auto-submitting due to proctoring: ' + reason);
+
+    // Stop all media
+    proctoring.stopCamera();
+    stt.stop();
+    tts.cancel();
+
+    try {
+      // Submit current answer if there is one
+      const currentAnswer = mode === 'voice' && !voiceFallback
+        ? (stt.transcript + (stt.interimTranscript ? ' ' + stt.interimTranscript : '')).trim()
+        : answer.trim();
+
+      if (currentAnswer && question?.id && !submitting) {
+        await submitInterviewAnswer(sessionId, {
+          questionId: question.id,
+          answer: currentAnswer,
+          answerType: mode === 'voice' ? 'voice' : 'text',
+          transcript: mode === 'voice' ? stt.transcript : undefined,
+          submissionReason: 'PROCTORING_VIOLATION',
+        });
+      }
+
+      // Complete the session
+      const { data } = await completeInterviewSession(sessionId);
+      setIsComplete(true);
+      setCompletedReport(data.data?.report || null);
+      setTimeout(() => onComplete(sessionId), 1500);
+    } catch (err) {
+      console.error('[Interview] Auto-submit failed:', err);
+      setIsComplete(true);
+      setTimeout(() => onComplete(sessionId), 1500);
+    }
+  }, [sessionId, mode, voiceFallback, stt.transcript, stt.interimTranscript, answer, question?.id, submitting, proctoring, stt, tts, onComplete]);
   // Recovery: no question loaded (resumed session with lost generation, or a
   // submit whose next-question generation failed). Ask the backend for the
   // pending/next question. Safe to retry � the backend is idempotent.
@@ -817,6 +885,54 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
           style={{ width: (currentIndex / totalQuestions * 100) + '%' }}
         />
       </div>
+
+
+      {/* Proctoring Status Bar */}
+      {sessionId && !isComplete && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="relative w-24 h-18 bg-black rounded-lg overflow-hidden flex-shrink-0">
+                <video
+                  ref={proctoring.videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                {!proctoring.cameraActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                    <span className="text-xs text-gray-500">No Camera</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className={proctoring.cameraActive ? 'w-2 h-2 bg-green-500 rounded-full' : 'w-2 h-2 bg-red-500 rounded-full'} />
+                  <span className={proctoring.cameraActive ? 'text-green-400' : 'text-red-400'}>
+                    {proctoring.cameraActive ? 'Camera Active' : proctoring.cameraError || 'Camera Inactive'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span>Face: {proctoring.faceDetected ? '✓ Detected' : '✗ Not Detected'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <span>Warnings: {proctoring.violationCount}/{proctoring.maxWarnings}</span>
+                </div>
+              </div>
+            </div>
+            {proctoring.lastWarning && (
+              <div className="flex-1 min-w-[200px]">
+                <div className={proctoring.lastWarning.count >= 2 ? 'bg-red-900/30 border border-red-700 rounded-lg p-3' : 'bg-yellow-900/30 border border-yellow-700 rounded-lg p-3'}>
+                  <p className={proctoring.lastWarning.count >= 2 ? 'text-red-300 text-sm' : 'text-yellow-300 text-sm'}>
+                    ⚠️ {proctoring.lastWarning.message}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Conversation transcript (ChatGPT-like continuity, � conversational UI) */}
       {conversation.length > 0 && (
