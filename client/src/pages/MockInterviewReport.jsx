@@ -124,9 +124,15 @@ export default function MockInterviewReport() {
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-8">
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-400" />Question Details</h2>
         <div className="space-y-4">
-          {questions.map((q, i) => (
-            <div key={i} className={`bg-gray-800 rounded-lg p-4 ${q.isFollowUp ? 'border-l-4 border-amber-600' : ''}`}>
-              <div className="flex items-start justify-between gap-3 mb-2"><div className="flex-1"><span className="text-xs text-gray-500">{q.isFollowUp ? 'Follow-up' : `Q${mainQuestions.indexOf(q) + 1}`}</span><p className="text-sm text-white font-medium">{q.question}</p></div><span className={`text-sm font-bold ${scoreColor((q.marks ?? q.score ?? 0) / (q.maxMarks ?? 2) * 10)}`}>{q.marks ?? q.score ?? '-'}/{q.maxMarks ?? 2}</span></div>
+                    {mainQuestions.map((q, i) => (
+            <div key={i} className="bg-gray-800 rounded-lg p-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex-1">
+                  <span className="text-xs text-gray-500">Q{i + 1} • {q.topic}</span>
+                  <p className="text-sm text-white font-medium">{q.question}</p>
+                </div>
+                <span className={`text-sm font-bold ${scoreColor((q.marks ?? q.score ?? 0) / (q.maxMarks ?? 2) * 10)}`}>{q.marks ?? q.score ?? '-'}/{q.maxMarks ?? 2}</span>
+              </div>
               <div className="mt-2 space-y-2"><div><span className="text-xs text-gray-500">Your answer:</span><p className="text-sm text-gray-300 mt-0.5">{q.answer || <span className="text-gray-600 italic">No answer</span>}</p></div>{q.feedback && <p className="text-xs text-gray-400 italic">{q.feedback}</p>}</div>
             </div>
           ))}

@@ -396,6 +396,8 @@ exports.getHistoryDetail = async (req, res) => {
       score: a.evaluation?.overall ?? null,
       marks: a.evaluation?.marks ?? null,
       maxMarks: a.evaluation?.maxMarks ?? 2,
+      marks: a.evaluation?.marks ?? null,
+      maxMarks: a.evaluation?.maxMarks ?? 2,
       verdict: a.evaluation?.verdict ?? null,
       result: a.evaluation?.verdict === 'correct' ? 'correct' : a.evaluation?.verdict === 'partially_correct' ? 'partial' : 'incorrect',
       strengths: a.evaluation?.strengths ?? [],
@@ -451,16 +453,20 @@ exports.getReport = async (req, res) => {
       .sort({ submittedAt: 1 })
       .lean();
 
-    const questionAnalysis = answers.map((a) => ({
+        const questionAnalysis = answers.map((a) => ({
       question: a.question?.text,
       topic: a.question?.topic,
       difficulty: a.question?.difficulty,
       isFollowUp: a.question?.isFollowUp,
+      questionType: a.questionType || (a.question?.isFollowUp ? 'followup' : 'main'),
       expectedAnswer: a.question?.expectedAnswer,
       expectedConcepts: a.question?.expectedConcepts,
       answer: a.text,
       answerType: a.answerType,
-      score: a.evaluation?.overall ?? null,
+      // ✅ FIXED: expose marks/maxMarks alongside overall so frontend can show 0/1/2 + /2 scoring
+      score: a.evaluation?.marks ?? ((a.question?.isFollowUp || a.questionType === 'followup') ? a.evaluation?.overall : a.evaluation?.overall),
+      marks: a.evaluation?.marks ?? null,
+      maxMarks: a.evaluation?.maxMarks ?? 2,
       correctness: a.evaluation?.correctness ?? null,
       depth: a.evaluation?.depth ?? null,
       clarity: a.evaluation?.clarity ?? null,
