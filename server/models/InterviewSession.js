@@ -112,6 +112,16 @@ const InterviewSessionSchema = new mongoose.Schema(
       default: 'CREATED',
       index: true,
     },
+    submissionReason: {
+      type: String,
+      enum: ['COMPLETED', 'PROCTORING_VIOLATION', 'USER_EXITED', 'ABANDONED'],
+      default: 'COMPLETED',
+    },
+    proctoringViolations: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     // Transient failure trace (§ state machine): records the last recoverable
     // AI/analysis failure so it is observable for resume + debugging. Cleared
     // automatically once the pipeline recovers. The session `status` itself is

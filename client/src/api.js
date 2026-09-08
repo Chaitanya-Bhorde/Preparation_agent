@@ -128,6 +128,8 @@ export const requestNextInterviewQuestion = (id) => API.post(`/interview/session
 export const completeInterviewSession = (id) => API.post(`/interview/sessions/${id}/complete`);
 export const abandonInterviewSession = (id) => API.post(`/interview/sessions/${id}/abandon`);
 export const getInterviewReport = (id) => API.get(`/interview/sessions/${id}/report`);
+export const getInterviewHistory = () => API.get('/interview/history');
+export const getInterviewHistoryDetail = (id) => API.get(`/interview/history/${id}`);
 
 // Practice History
 export const getPracticeHistory = (params) => API.get('/submissions/history', { params });

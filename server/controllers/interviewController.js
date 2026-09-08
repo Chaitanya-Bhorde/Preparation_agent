@@ -323,6 +323,117 @@ exports.abandonSession = async (req, res) => {
   }
 };
 
+// GET /api/interview/history - user's completed interviews
+exports.getHistory = async (req, res) => {
+  try {
+    const InterviewSession = require('../models/InterviewSession');
+    const sessions = await InterviewSession.find({
+      user: req.user.id,
+      status: { $in: ['COMPLETED', 'ABANDONED'] },
+    })
+      .sort({ completedAt: -1, createdAt: -1 })
+      .select('topics difficulty mode totalQuestions status submissionReason proctoringViolations score finalReport startedAt completedAt createdAt')
+      .lean();
+
+    const history = sessions.map((s) => ({
+      id: s._id,
+      topics: s.topics,
+      difficulty: s.difficulty,
+      mode: s.mode,
+      totalQuestions: s.totalQuestions,
+      status: s.status,
+      submissionReason: s.submissionReason || 'COMPLETED',
+      proctoringViolations: s.proctoringViolations || 0,
+      score: s.finalReport?.score ?? s.score ?? 0,
+      maxScore: s.finalReport?.maxScore ?? s.totalQuestions * 2,
+      percentage: s.finalReport?.percentage ?? 0,
+      mainQuestionsAnswered: s.finalReport?.stats?.mainQuestionsAnswered ?? 0,
+      followUpCount: s.finalReport?.stats?.followUpCount ?? 0,
+      strongTopics: s.finalReport?.strengths ?? [],
+      weakTopics: s.finalReport?.areasToImprove ?? [],
+      topicPerformance: s.finalReport?.topicPerformance ?? [],
+      completedAt: s.completedAt,
+      createdAt: s.createdAt,
+      duration: s.startedAt && s.completedAt
+        ? Math.round((new Date(s.completedAt) - new Date(s.startedAt)) / 1000)
+        : null,
+    }));
+
+    res.json({ success: true, data: history });
+  } catch (err) {
+    console.error('[interview] history error:', err.message);
+    res.status(500).json({ success: false, message: 'Could not load interview history.' });
+  }
+};
+
+// GET /api/interview/history/:id - detailed report for a specific interview
+exports.getHistoryDetail = async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid interview id.' });
+    }
+    const InterviewSession = require('../models/InterviewSession');
+    const session = await InterviewSession.findById(req.params.id);
+    if (!session) return res.status(404).json({ success: false, message: 'Interview not found.' });
+
+    svc.assertOwnership(session, req.user);
+
+    const InterviewAnswer = require('../models/InterviewAnswer');
+    const answers = await InterviewAnswer.find({ session: session._id })
+      .populate('question', 'text topic difficulty isFollowUp order expectedConcepts expectedAnswer')
+      .sort({ submittedAt: 1 })
+      .lean();
+
+    const questionAnalysis = answers.map((a) => ({
+      question: a.question?.text,
+      topic: a.question?.topic,
+      difficulty: a.question?.difficulty,
+      isFollowUp: a.question?.isFollowUp || false,
+      expectedAnswer: a.question?.expectedAnswer,
+      expectedConcepts: a.question?.expectedConcepts,
+      answer: a.text,
+      answerType: a.answerType,
+      score: a.evaluation?.overall ?? null,
+      marks: a.evaluation?.marks ?? null,
+      maxMarks: a.evaluation?.maxMarks ?? 2,
+      verdict: a.evaluation?.verdict ?? null,
+      result: a.evaluation?.verdict === 'correct' ? 'correct' : a.evaluation?.verdict === 'partially_correct' ? 'partial' : 'incorrect',
+      strengths: a.evaluation?.strengths ?? [],
+      missingConcepts: a.evaluation?.missingConcepts ?? [],
+      feedback: a.evaluation?.detailedFeedback || a.evaluation?.feedback || '',
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        session: {
+          id: session._id,
+          topics: session.topics,
+          difficulty: session.difficulty,
+          experienceLevel: session.experienceLevel,
+          mode: session.mode,
+          status: session.status,
+          submissionReason: session.submissionReason || 'COMPLETED',
+          proctoringViolations: session.proctoringViolations || 0,
+          totalQuestions: session.totalQuestions,
+          startedAt: session.startedAt,
+          completedAt: session.completedAt,
+          duration: session.startedAt && session.completedAt
+            ? Math.round((new Date(session.completedAt) - new Date(session.startedAt)) / 1000)
+            : null,
+        },
+        report: session.finalReport || null,
+        questions: questionAnalysis,
+      },
+    });
+  } catch (err) {
+    if (err instanceof svc.SessionError) {
+      return res.status(err.statusCode).json({ success: false, message: err.message, data: { code: err.code } });
+    }
+    console.error('[interview] history detail error:', err.message);
+    res.status(500).json({ success: false, message: 'Could not load interview details.' });
+  }
+};
 // GET /api/interview/sessions/:id/report â€” final report
 exports.getReport = async (req, res) => {
   try {

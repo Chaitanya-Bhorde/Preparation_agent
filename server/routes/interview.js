@@ -6,6 +6,10 @@ const ctrl = require('../controllers/interviewController');
 // Selectable interview fields/config (auth-gated like the rest of the app)
 router.get('/fields', protect, ctrl.getFields);
 
+// History
+router.get('/history', protect, ctrl.getHistory);
+router.get('/history/:id', protect, ctrl.getHistoryDetail);
+
 // Session lifecycle
 router.post('/sessions', protect, ctrl.createSession);
 router.get('/sessions/active', protect, ctrl.getActiveSession);

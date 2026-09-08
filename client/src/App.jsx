@@ -24,6 +24,8 @@ const Readiness = lazy(() => import('./pages/Readiness'));
 const GlobalLeaderboardPage = lazy(() => import('./pages/GlobalLeaderboardPage'));
 const ProgressExport = lazy(() => import('./pages/ProgressExport'));
 const MockInterview = lazy(() => import('./pages/MockInterview'));
+const MockInterviewHistory = lazy(() => import('./pages/MockInterviewHistory'));
+const MockInterviewReport = lazy(() => import('./pages/MockInterviewReport'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));
 const InterviewExperiences = lazy(() => import('./pages/InterviewExperiences'));
 const DSAPractice = lazy(() => import('./pages/DSAPractice'));
@@ -81,6 +83,8 @@ function App() {
             <Route path="/progress-export" element={<PrivateRoute><ProgressExport /></PrivateRoute>} />
             <Route path="/interview-experiences" element={<PrivateRoute><InterviewExperiences /></PrivateRoute>} />
             <Route path="/mock-interview" element={<PrivateRoute><MockInterview /></PrivateRoute>} />
+            <Route path="/mock-interview/history" element={<PrivateRoute><MockInterviewHistory /></PrivateRoute>} />
+            <Route path="/mock-interview/report/:id" element={<PrivateRoute><MockInterviewReport /></PrivateRoute>} />
             <Route path="/practice-history" element={<PrivateRoute><PracticeHistory /></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
