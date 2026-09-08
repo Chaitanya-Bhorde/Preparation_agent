@@ -1207,6 +1207,24 @@ function ReportScreen({ sessionId, onRestart }) {
             <BarChart3 className="w-5 h-5 text-purple-400" />
             Topic Performance
           </h2>
+          <div className="space-y-3 mb-4">
+            {reportData.topicPerformance.map((tp) => {
+              const pct = Math.min(100, Math.max(0, (tp.averageScore / 10) * 100));
+              const barColor = pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-500' : pct >= 20 ? 'bg-orange-500' : 'bg-red-500';
+              return (
+                <div key={tp.topic} className="space-y-1">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-300 font-medium">{tp.topic}</span>
+                    <span className={classNames('font-semibold', scoreColor(tp.averageScore))}>{tp.averageScore}/10</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                    <div className={classNames('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="text-xs text-gray-500">{tp.questionsAsked} question{tp.questionsAsked === 1 ? '' : 's'}</div>
+                </div>
+              );
+            })}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {reportData.topicPerformance.map((tp) => (
               <div key={tp.topic} className={classNames('rounded-lg border p-3', scoreBg(tp.averageScore))}>
@@ -1218,6 +1236,93 @@ function ReportScreen({ sessionId, onRestart }) {
           </div>
         </div>
       )}
+
+      {/* Strong vs Weak Topics - derived from actual interview performance */}
+      {reportData?.topicPerformance && Array.isArray(reportData.topicPerformance) && reportData.topicPerformance.length > 0 && (() => {
+        const sorted = [...reportData.topicPerformance].sort((a, b) => b.averageScore - a.averageScore);
+        const strong = sorted.filter((t) => t.averageScore >= 7);
+        const avg = sorted.filter((t) => t.averageScore >= 4 && t.averageScore < 7);
+        const weak = sorted.filter((t) => t.averageScore < 4);
+        return (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-green-400" />
+              Strong vs Weak Topics
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-green-400 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-400 rounded-full" /> Strong Topics
+                </h3>
+                {strong.length > 0 ? strong.map((t) => (
+                  <div key={t.topic} className="flex items-center gap-2 text-sm text-gray-300">
+                    <span className="text-green-400">✓</span>
+                    <span>{t.topic}</span>
+                    <span className="text-xs text-gray-500 ml-auto">{t.averageScore}/10</span>
+                  </div>
+                )) : <p className="text-xs text-gray-500">No topics scored ≥7 yet</p>}
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-yellow-400 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full" /> Average
+                </h3>
+                {avg.length > 0 ? avg.map((t) => (
+                  <div key={t.topic} className="flex items-center gap-2 text-sm text-gray-300">
+                    <span className="text-yellow-400">•</span>
+                    <span>{t.topic}</span>
+                    <span className="text-xs text-gray-500 ml-auto">{t.averageScore}/10</span>
+                  </div>
+                )) : <p className="text-xs text-gray-500">No topics in 4-7 range</p>}
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-red-400 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-red-400 rounded-full" /> Weak Topics
+                </h3>
+                {weak.length > 0 ? weak.map((t) => (
+                  <div key={t.topic} className="flex items-center gap-2 text-sm text-gray-300">
+                    <span className="text-red-400">⚠</span>
+                    <span>{t.topic}</span>
+                    <span className="text-xs text-gray-500 ml-auto">{t.averageScore}/10</span>
+                  </div>
+                )) : <p className="text-xs text-gray-500">No topics scored &lt;4</p>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Question-wise Score Chart - visual bar chart for each main question */}
+      {questions.filter((q) => !q.isFollowUp).length > 0 && (() => {
+        const mainQs = questions.filter((q) => !q.isFollowUp);
+        return (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Target className="w-5 h-5 text-blue-400" />
+              Question-wise Score
+            </h2>
+            <div className="space-y-3">
+              {mainQs.map((q, i) => {
+                const pct = Math.min(100, Math.max(0, ((q.score ?? 0) / (q.maxScore || 2)) * 100));
+                const barColor = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-300 font-medium">Q{i + 1}</span>
+                      <span className={classNames('font-semibold', scoreColor((q.score ?? 0) / (q.maxScore || 2) * 10))}>
+                        {q.score ?? '-'}/{q.maxScore ?? 2}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                      <div className={classNames('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">{q.question}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {reportData?.skills && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
