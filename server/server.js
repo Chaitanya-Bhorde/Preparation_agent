@@ -99,7 +99,6 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/topics', require('./routes/topics'));
-app.use('/api/companies', require('./routes/companies'));
 app.use('/api/mistakes', require('./routes/mistakes'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/readiness', require('./routes/readiness'));
@@ -107,6 +106,8 @@ app.use('/api/drafts', require('./routes/drafts'));
   app.use('/api/coding', require('./routes/coding'));
   app.use('/api/aptitude', require('./routes/aptitude'));
 app.use('/api/coding-problems', require('./routes/codingProblems'));
+app.use('/api/core-subjects', require('./routes/coreSubjects'));
+
 app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));

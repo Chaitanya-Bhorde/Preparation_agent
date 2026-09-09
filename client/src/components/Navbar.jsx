@@ -16,9 +16,9 @@ import {
   Bot,
   GraduationCap,
   ChevronDown,
-  Building2,
   Target,
   Sparkles,
+  Briefcase,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -27,45 +27,12 @@ export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
-  const [companyOpen, setCompanyOpen] = useState(false);
-  const [companies, setCompanies] = useState([]);
   const practiceRef = useRef(null);
-  const companyRef = useRef(null);
-
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
 
   useEffect(() => {
     setPracticeOpen(false);
-    setCompanyOpen(false);
     setMobileMenuOpen(false);
   }, [location.pathname]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (practiceRef.current && !practiceRef.current.contains(e.target)) {
-        setPracticeOpen(false);
-      }
-      if (companyRef.current && !companyRef.current.contains(e.target)) {
-        setCompanyOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchCompanies = async () => {
-    try {
-      const res = await fetch('/api/companies', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      const data = await res.json();
-      if (data.success) setCompanies(data.data || []);
-    } catch (error) {
-      console.error('Failed to fetch companies:', error);
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -136,42 +103,11 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Company Wise Dropdown */}
-            <div className="relative" ref={companyRef}>
-              <button
-                onClick={() => { setCompanyOpen(!companyOpen); setPracticeOpen(false); }}
-                className={`text-sm font-medium pb-1 transition-colors flex items-center gap-1 ${
-                  location.pathname.startsWith('/companies') ? 'text-white border-b-2 border-blue-400' : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                <Building2 className="w-4 h-4" />
-                Company Wise
-                <ChevronDown className={`w-3 h-3 transition-transform ${companyOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {companyOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl py-2 max-h-80 overflow-y-auto animate-fadeIn">
-                  {companies.length === 0 ? (
-                    <div className="px-3 py-2 text-gray-500 text-sm">Loading companies...</div>
-                  ) : (
-                    companies.slice(0, 15).map((c) => (
-                      <Link
-                        key={c._id}
-                        to={`/companies/${c.slug}`}
-                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                      >
-                        <Building2 className="w-4 h-4 text-gray-500 shrink-0" />
-                        <span className="truncate">{c.name}</span>
-                      </Link>
-                    ))
-                  )}
-                  {companies.length > 15 && (
-                    <Link to="/companies" className="block px-3 py-2 text-xs text-blue-400 hover:text-blue-300 text-center border-t border-gray-700 mt-1">
-                      View all {companies.length} companies →
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Interview Preparation */}
+            <Link to="/interview-prep" className={linkClass(isActive('/interview-prep'))}>
+              <Briefcase className="w-4 h-4 inline mr-1" />
+              Interview Prep
+            </Link>
 
             <Link to="/resume" className={linkClass(isActive('/resume'))}>
               <FileText className="w-4 h-4 inline mr-1" />
@@ -230,17 +166,10 @@ export default function Navbar() {
             <Link to="/practice/aptitude" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
               <Brain className="w-4 h-4 text-purple-400" /> Aptitude Practice
             </Link>
-            <div className="px-2 py-1 text-xs text-gray-500 uppercase tracking-wider mt-1">Company Wise</div>
-            {companies.slice(0, 8).map((c) => (
-              <Link key={c._id} to={`/companies/${c.slug}`} className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
-                <Building2 className="w-4 h-4 text-gray-500" /> {c.name}
-              </Link>
-            ))}
-            {companies.length > 8 && (
-              <Link to="/companies" className="block px-4 py-1 text-xs text-blue-400 text-center" onClick={() => setMobileMenuOpen(false)}>
-                View all {companies.length} companies →
-              </Link>
-            )}
+            <div className="px-2 py-1 text-xs text-gray-500 uppercase tracking-wider mt-1">Interview Prep</div>
+            <Link to="/interview-prep" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded ml-2" onClick={() => setMobileMenuOpen(false)}>
+              <Briefcase className="w-4 h-4 text-blue-400" /> Interview Preparation
+            </Link>
             <div className="border-t border-gray-700 my-1"></div>
             <Link to="/resume" className="flex items-center gap-2 px-2 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded" onClick={() => setMobileMenuOpen(false)}>
               <FileText className="w-4 h-4" /> Resume Analysis

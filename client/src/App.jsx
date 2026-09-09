@@ -17,7 +17,8 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const Resume = lazy(() => import('./pages/Resume'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Topics = lazy(() => import('./pages/Topics'));
-const Companies = lazy(() => import('./pages/Companies'));
+const InterviewPreparation = lazy(() => import('./pages/InterviewPreparation'));
+const SubjectDetail = lazy(() => import('./pages/SubjectDetail'));
 const Mistakes = lazy(() => import('./pages/Mistakes'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Readiness = lazy(() => import('./pages/Readiness'));
@@ -74,8 +75,8 @@ function App() {
             <Route path="/resume" element={<PrivateRoute><Resume /></PrivateRoute>} />
             <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
             <Route path="/topics" element={<PrivateRoute><Topics /></PrivateRoute>} />
-            <Route path="/companies" element={<PrivateRoute><Companies /></PrivateRoute>} />
-            <Route path="/companies/:slug" element={<PrivateRoute><Companies /></PrivateRoute>} />
+            <Route path="/interview-prep" element={<PrivateRoute><InterviewPreparation /></PrivateRoute>} />
+            <Route path="/interview-prep/:subjectSlug" element={<PrivateRoute><SubjectDetail /></PrivateRoute>} />
             <Route path="/mistakes" element={<PrivateRoute><Mistakes /></PrivateRoute>} />
             <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
             <Route path="/readiness" element={<PrivateRoute><Readiness /></PrivateRoute>} />

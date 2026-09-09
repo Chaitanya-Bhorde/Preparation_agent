@@ -67,9 +67,6 @@ export const getPlatformAnalyticsAllUsers = () => API.get('/analytics/overall/al
 export const getTopicProgress = () => API.get('/topics/progress');
 export const getTopicDetails = (topic) => API.get(`/topics/${topic}`);
 export const getConceptNotes = () => API.get('/topics/notes/all');
-export const getCompanies = () => API.get('/companies');
-export const getCompanyProblems = (company) => API.get(`/companies/${company}/problems`);
-export const getCompanyInfo = (company) => API.get(`/companies/${company}`);
 export const createMistake = (data) => API.post('/mistakes', data);
 export const getMyMistakes = (params) => API.get('/mistakes', { params });
 export const updateMistakeStatus = (id, status) => API.patch(`/mistakes/${id}`, { status });
@@ -154,5 +151,17 @@ export const getAptitudeMockQuestions = (mockTestId) => API.get(`/aptitude/mock/
 
 // Leaderboard sections (DSA / Aptitude / SQL)
 export const getLeaderboardSection = (section, params) => API.get(`/leaderboard/${section}`, { params });
+
+// Core Subjects (Interview Preparation)
+export const getCoreSubjects = () => API.get('/core-subjects');
+export const getCoreSubject = (subjectSlug) => API.get(`/core-subjects/${subjectSlug}`);
+export const getCoreSubjectTopics = (subjectSlug) => API.get(`/core-subjects/${subjectSlug}/topics`);
+export const getCoreSubjectNotes = (subjectSlug, params) => API.get(`/core-subjects/${subjectSlug}/notes`, { params });
+export const getCoreSubjectMCQs = (subjectSlug, params) => API.get(`/core-subjects/${subjectSlug}/mcqs`, { params });
+export const getCoreSubjectInterviewQuestions = (subjectSlug, params) => API.get(`/core-subjects/${subjectSlug}/interview-questions`, { params });
+export const submitCoreMCQAttempt = (subjectSlug, questionId, data) => API.post(`/core-subjects/${subjectSlug}/mcqs/${questionId}/attempt`, data);
+export const submitCoreInterviewAttempt = (subjectSlug, questionId, data) => API.post(`/core-subjects/${subjectSlug}/interview-questions/${questionId}/attempt`, data);
+export const getCoreSubjectProgress = (subjectSlug) => API.get(`/core-subjects/${subjectSlug}/progress`);
+
 
 export default API;

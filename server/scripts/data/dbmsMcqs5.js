@@ -1,0 +1,18 @@
+// DBMS MCQs Part 5 (Concurrency Control, Joins, Normalization advanced)
+module.exports = [
+  { topic: 'Concurrency Control', question: 'Shared lock allows:', options: ['Only reading', 'Only writing', 'Both', 'Neither'], correctAnswer: 0, explanation: 'Shared lock: multiple readers.', difficulty: 'easy' },
+  { topic: 'Concurrency Control', question: 'Exclusive lock allows:', options: ['Multiple readers', 'Multiple writers', 'One writer only', 'Readers and writers'], correctAnswer: 2, explanation: 'Exclusive: one writer, no other access.', difficulty: 'easy' },
+  { topic: 'Concurrency Control', question: 'Lost update when:', options: ['Two read same', 'Two update same, one lost', 'Read uncommitted', 'Fails'], correctAnswer: 1, explanation: 'Lost update: one overwrites other.', difficulty: 'medium' },
+  { topic: 'Concurrency Control', question: 'Dirty read:', options: ['Read committed', 'Read uncommitted', 'Read twice', 'Read new rows'], correctAnswer: 1, explanation: 'Dirty read: reading uncommitted data.', difficulty: 'medium' },
+  { topic: 'Concurrency Control', question: 'Conflict serializability:', options: ['Swap non-conflicting ops', 'Swap any ops', 'COMMIT order', 'Transaction count'], correctAnswer: 0, explanation: 'Swap non-conflicting operations.', difficulty: 'hard' },
+  { topic: 'Joins', question: 'INNER JOIN returns:', options: ['All from both', 'Only matching', 'All from left', 'All from right'], correctAnswer: 1, explanation: 'INNER JOIN: only matching rows.', difficulty: 'easy' },
+  { topic: 'Joins', question: 'LEFT JOIN returns:', options: ['Only matching', 'All left + matching right', 'All right', 'No rows'], correctAnswer: 1, explanation: 'LEFT JOIN: all left + matching right.', difficulty: 'easy' },
+  { topic: 'Joins', question: 'FULL OUTER JOIN:', options: ['Only matching', 'All from both', 'All left only', 'All right only'], correctAnswer: 1, explanation: 'FULL OUTER: all from both.', difficulty: 'medium' },
+  { topic: 'Joins', question: 'SELF JOIN:', options: ['Two different tables', 'Table with itself', 'No condition', 'PK only'], correctAnswer: 1, explanation: 'SELF JOIN: table with itself.', difficulty: 'medium' },
+  { topic: 'Joins', question: 'CROSS JOIN:', options: ['Only matching', 'Cartesian product', 'Only left', 'Only right'], correctAnswer: 1, explanation: 'CROSS JOIN: Cartesian product.', difficulty: 'easy' },
+  { topic: 'Normalization', question: 'Transitive dependency:', options: ['A->B, B->C means A->C', 'A depends on B directly', 'Composite key dep', 'Foreign key dep'], correctAnswer: 0, explanation: 'A->B and B->C means A->C transitively.', difficulty: 'medium' },
+  { topic: 'Normalization', question: '3NF requires 2NF and:', options: ['No partial deps', 'No transitive deps on CKs', 'Every determinant is CK', 'No NULLs'], correctAnswer: 1, explanation: '3NF = 2NF + no transitive dependencies.', difficulty: 'medium' },
+  { topic: 'Normalization', question: 'BCNF requires:', options: ['Every determinant is CK', 'No transitive deps', 'No partial deps', 'All atomic'], correctAnswer: 0, explanation: 'BCNF: every determinant must be a candidate key.', difficulty: 'hard' },
+  { topic: 'Normalization', question: 'Sufficient NF for most design?', options: ['1NF', '2NF', '3NF', 'BCNF'], correctAnswer: 2, explanation: '3NF is generally sufficient.', difficulty: 'easy' },
+  { topic: 'Normalization', question: 'Not in 2NF suffers from:', options: ['Insertion anomaly only', 'Update, insertion, deletion anomalies', 'No anomalies', 'Only deletion anomaly'], correctAnswer: 1, explanation: 'Improperly normalized tables have multiple anomalies.', difficulty: 'medium' },
+];

@@ -110,6 +110,26 @@ exports.getRecommendations = async (req, res) => {
       _id: { $in: revisionProblemIds },
     }).select('-testCases -solution');
 
+    // Core subjects performance integration
+    const CoreSubjectSubmission = require('../models/CoreSubjectSubmission');
+    const Subject = require('../models/Subject');
+    const coreSubmissions = await CoreSubjectSubmission.find({ userId: req.user.id });
+    const coreSubjectWeakTopics = [];
+    if (coreSubmissions.length > 0) {
+      const subjectIds = [...new Set(coreSubmissions.map(s => s.subject.toString()))];
+      for (const subjId of subjectIds) {
+        const subjSubs = coreSubmissions.filter(s => s.subject.toString() === subjId);
+        const mcqSubs = subjSubs.filter(s => s.questionType === 'mcq');
+        const correct = mcqSubs.filter(s => s.isCorrect).length;
+        const total = mcqSubs.length;
+        const accuracy = total > 0 ? (correct / total) * 100 : 0;
+        if (total >= 3 && accuracy < 60) {
+          const subj = await Subject.findById(subjId).select('name slug');
+          if (subj) coreSubjectWeakTopics.push({ subject: subj.name, slug: subj.slug, accuracy: Math.round(accuracy), total });
+        }
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -119,6 +139,7 @@ exports.getRecommendations = async (req, res) => {
         tagPerformance: tagSuccessRates,
         targetDifficulty,
         recentSuccessRate: Math.round(recentSuccessRate * 100),
+        coreSubjectWeakTopics,
       },
     });
   } catch (error) {

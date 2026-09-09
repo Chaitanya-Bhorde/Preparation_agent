@@ -1,0 +1,18 @@
+// DBMS MCQs Part 3 (Transactions, ACID, Indexing, Deadlocks, Concurrency, Joins)
+module.exports = [
+  { topic: 'Transactions', question: 'A transaction is:', options: ['Single SQL query', 'Logical unit of work', 'Database table', 'Backup operation'], correctAnswer: 1, explanation: 'Transaction: logical unit of work with one or more SQL ops.', difficulty: 'easy' },
+  { topic: 'Transactions', question: 'Makes changes permanent:', options: ['ROLLBACK', 'COMMIT', 'SAVEPOINT', 'BEGIN'], correctAnswer: 1, explanation: 'COMMIT makes changes permanent.', difficulty: 'easy' },
+  { topic: 'Transactions', question: 'ROLLBACK does:', options: ['Saves permanently', 'Undoes all changes', 'Creates savepoint', 'Starts transaction'], correctAnswer: 1, explanation: 'ROLLBACK undoes all changes.', difficulty: 'easy' },
+  { topic: 'Transactions', question: 'NOT part of ACID:', options: ['Atomicity', 'Consistency', 'Isolation', 'Availability'], correctAnswer: 3, explanation: 'ACID = Atomicity, Consistency, Isolation, Durability.', difficulty: 'easy' },
+  { topic: 'Transactions', question: 'Failed transaction moves to:', options: ['Committed', 'Aborted', 'Active', 'Partially Committed'], correctAnswer: 1, explanation: 'Failed transaction moves to Aborted.', difficulty: 'medium' },
+  { topic: 'Transactions', question: 'SAVEPOINT used to:', options: ['Commit', 'Rollback to specific point', 'Start', 'End'], correctAnswer: 1, explanation: 'SAVEPOINT creates point for partial rollback.', difficulty: 'medium' },
+  { topic: 'Transactions', question: 'NOT a transaction state:', options: ['Active', 'Partially Committed', 'Suspended', 'Aborted'], correctAnswer: 2, explanation: 'Suspended is not a standard state.', difficulty: 'medium' },
+  { topic: 'Transactions', question: 'When committed:', options: ['Changes temporary', 'Changes permanent', 'Changes undone', 'Paused'], correctAnswer: 1, explanation: 'Committed changes become permanent.', difficulty: 'easy' },
+  { topic: 'Transactions', question: 'Nested transaction:', options: ['Transaction within another', 'Two parallel', 'Failed', 'Read-only'], correctAnswer: 0, explanation: 'Nested: transaction within another transaction.', difficulty: 'hard' },
+  { topic: 'Transactions', question: 'Concurrent transactions dont interfere:', options: ['Atomicity', 'Consistency', 'Isolation', 'Durability'], correctAnswer: 2, explanation: 'Isolation ensures no interference.', difficulty: 'easy' },
+  { topic: 'ACID Properties', question: 'Atomicity means:', options: ['Indivisible', 'Consistent', 'Isolated', 'Durable'], correctAnswer: 0, explanation: 'Atomicity: all or nothing.', difficulty: 'easy' },
+  { topic: 'ACID Properties', question: 'Durability ensures:', options: ['Isolated', 'Committed data survives failures', 'Consistent', 'Atomic'], correctAnswer: 1, explanation: 'Durability: committed data survives failures.', difficulty: 'easy' },
+  { topic: 'ACID Properties', question: 'Consistency ensures:', options: ['Parallel', 'Valid state to valid state', 'Never lost', 'Fast'], correctAnswer: 1, explanation: 'Consistency: valid state to valid state.', difficulty: 'medium' },
+  { topic: 'ACID Properties', question: 'Related to concurrency control:', options: ['Atomicity', 'Consistency', 'Isolation', 'Durability'], correctAnswer: 2, explanation: 'Isolation relates to concurrency control.', difficulty: 'medium' },
+  { topic: 'ACID Properties', question: 'Crash after COMMIT violates:', options: ['Atomicity', 'Consistency', 'Isolation', 'Durability'], correctAnswer: 3, explanation: 'Durability violated: committed data must survive.', difficulty: 'hard' },
+];
