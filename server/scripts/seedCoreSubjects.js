@@ -5,22 +5,22 @@ const Topic = require('../models/Topic');
 const Note = require('../models/Note');
 const MCQ = require('../models/MCQ');
 const CoreInterviewQuestion = require('../models/CoreInterviewQuestion');
-const { DBMS_MCQS } = require('./data/dbmsMcqs1');
-const { DBMS_MCQS_PART2 } = require('./data/dbmsMcqs2');
-const { DBMS_MCQS_PART3 } = require('./data/dbmsMcqs3');
-const { DBMS_MCQS_PART4 } = require('./data/dbmsMcqs4');
-const { DBMS_MCQS_PART5 } = require('./data/dbmsMcqs5');
-const OS_MCQS_PART1 = require('./data/osMcqs1');
-const OS_MCQS_PART2 = require('./data/osMcqs2');
-const CNS_MCQS_PART1 = require('./data/cnsMcqs1');
-const CNS_MCQS_PART2 = require('./data/cnsMcqs2');
-const SQL_MCQS_PART1 = require('./data/sqlMcqs1');
-const SQL_MCQS_PART2 = require('./data/sqlMcqs2');
+const DBMS_MCQS_1 = require('./data/dbmsMcqs1');
+const DBMS_MCQS_2 = require('./data/dbmsMcqs2');
+const DBMS_MCQS_3 = require('./data/dbmsMcqs3');
+const DBMS_MCQS_4 = require('./data/dbmsMcqs4');
+const DBMS_MCQS_5 = require('./data/dbmsMcqs5');
+const OS_MCQS_1 = require('./data/osMcqs1');
+const OS_MCQS_2 = require('./data/osMcqs2');
+const CNS_MCQS_1 = require('./data/cnsMcqs1');
+const CNS_MCQS_2 = require('./data/cnsMcqs2');
+const SQL_MCQS_1 = require('./data/sqlMcqs1');
+const SQL_MCQS_2 = require('./data/sqlMcqs2');
 
-const DBMS_ALL_MCQS = [...DBMS_MCQS, ...DBMS_MCQS_PART2, ...DBMS_MCQS_PART3, ...DBMS_MCQS_PART4, ...DBMS_MCQS_PART5];
-const OS_ALL_MCQS = [...OS_MCQS_PART1, ...OS_MCQS_PART2];
-const CNS_ALL_MCQS = [...CNS_MCQS_PART1, ...CNS_MCQS_PART2];
-const SQL_ALL_MCQS = [...SQL_MCQS_PART1, ...SQL_MCQS_PART2];
+const DBMS_ALL_MCQS = [...DBMS_MCQS_1, ...DBMS_MCQS_2, ...DBMS_MCQS_3, ...DBMS_MCQS_4, ...DBMS_MCQS_5];
+const OS_ALL_MCQS = [...OS_MCQS_1, ...OS_MCQS_2];
+const CNS_ALL_MCQS = [...CNS_MCQS_1, ...CNS_MCQS_2];
+const SQL_ALL_MCQS = [...SQL_MCQS_1, ...SQL_MCQS_2];
 const DBMS_INTERVIEW_QS = require('./data/dbmsInterview');
 const DBMS_INTERVIEW_QS_2 = require('./data/dbmsInterview2');
 const DBMS_ALL_INTERVIEW = [...DBMS_INTERVIEW_QS, ...DBMS_INTERVIEW_QS_2];
@@ -65,7 +65,12 @@ async function seed() {
       console.log(`Seeded subject: ${subject.name}`);
       const topicNames = TOPICS[subjData.slug] || [];
       for (let i = 0; i < topicNames.length; i++) {
-        await Topic.create({ subject: subject._id, name: topicNames[i], slug: slugify(topicNames[i]), order: i });
+        const slug = slugify(topicNames[i]);
+        await Topic.findOneAndUpdate(
+          { subject: subject._id, slug },
+          { subject: subject._id, name: topicNames[i], slug, order: i },
+          { upsert: true, new: true }
+        );
       }
       console.log(`  Seeded ${topicNames.length} topics`);
     }
