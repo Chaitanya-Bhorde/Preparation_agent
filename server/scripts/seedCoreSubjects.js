@@ -25,6 +25,9 @@ const DBMS_INTERVIEW_QS = require('./data/dbmsInterview');
 const DBMS_INTERVIEW_QS_2 = require('./data/dbmsInterview2');
 const DBMS_ALL_INTERVIEW = [...DBMS_INTERVIEW_QS, ...DBMS_INTERVIEW_QS_2];
 const DBMS_NOTES = require('./data/dbmsNotes');
+const OS_NOTES = require('./data/osNotes');
+const CNS_NOTES = require('./data/cnsNotes');
+const SQL_NOTES = require('./data/sqlNotes');
 
 const SUBJECTS = [
   { name: 'DBMS', slug: 'dbms', description: 'Database Management Systems - Core concepts for placement interviews.', icon: 'Database', color: 'blue', order: 1 },
@@ -143,6 +146,45 @@ async function seed() {
       }));
       await Note.insertMany(notesToInsert);
       console.log(`Seeded ${notesToInsert.length} DBMS Notes`);
+    }
+    // Seed OS Notes
+    if (osSubject && OS_NOTES.length > 0) {
+      const osTopics = await Topic.find({ subject: osSubject._id });
+      const topicMap = {};
+      osTopics.forEach(t => { topicMap[t.name] = t._id; });
+      const notesToInsert = OS_NOTES.map(n => ({
+        subject: osSubject._id, topic: topicMap[n.topic] || osTopics[0]._id,
+        title: n.title, content: n.content, keyPoints: n.keyPoints || [],
+        interviewTips: n.interviewTips || [], order: 0,
+      }));
+      await Note.insertMany(notesToInsert);
+      console.log(`Seeded ${notesToInsert.length} OS Notes`);
+    }
+    // Seed CNS Notes
+    if (cnsSubject && CNS_NOTES.length > 0) {
+      const cnsTopics = await Topic.find({ subject: cnsSubject._id });
+      const topicMap = {};
+      cnsTopics.forEach(t => { topicMap[t.name] = t._id; });
+      const notesToInsert = CNS_NOTES.map(n => ({
+        subject: cnsSubject._id, topic: topicMap[n.topic] || cnsTopics[0]._id,
+        title: n.title, content: n.content, keyPoints: n.keyPoints || [],
+        interviewTips: n.interviewTips || [], order: 0,
+      }));
+      await Note.insertMany(notesToInsert);
+      console.log(`Seeded ${notesToInsert.length} CNS Notes`);
+    }
+    // Seed SQL Notes
+    if (sqlSubject && SQL_NOTES.length > 0) {
+      const sqlTopics = await Topic.find({ subject: sqlSubject._id });
+      const topicMap = {};
+      sqlTopics.forEach(t => { topicMap[t.name] = t._id; });
+      const notesToInsert = SQL_NOTES.map(n => ({
+        subject: sqlSubject._id, topic: topicMap[n.topic] || sqlTopics[0]._id,
+        title: n.title, content: n.content, keyPoints: n.keyPoints || [],
+        interviewTips: n.interviewTips || [], order: 0,
+      }));
+      await Note.insertMany(notesToInsert);
+      console.log(`Seeded ${notesToInsert.length} SQL Notes`);
     }
     console.log('Seed completed successfully');
     await mongoose.disconnect();

@@ -79,8 +79,8 @@ export default function InterviewPreparation() {
               <p className="text-gray-400 text-sm mb-4 line-clamp-2">{subject.description}</p>
               <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
                 <span className={`px-2 py-1 rounded ${bgColor} ${textColor}`}>{subject.topics} topics</span>
+                <span className={`px-2 py-1 rounded ${bgColor} ${textColor}`}>{subject.notes} notes</span>
                 <span className={`px-2 py-1 rounded ${bgColor} ${textColor}`}>{subject.mcqs} MCQs</span>
-                <span className={`px-2 py-1 rounded ${bgColor} ${textColor}`}>{subject.interviewQuestions} Q&A</span>
               </div>
               <div className={`flex items-center gap-1 text-sm font-medium ${textColor} group-hover:gap-2 transition-all`}>
                 Explore <ChevronRight className="w-4 h-4" />

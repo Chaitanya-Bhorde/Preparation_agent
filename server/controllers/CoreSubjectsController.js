@@ -13,10 +13,11 @@ exports.getSubjects = async (req, res) => {
       const topicCount = await Topic.countDocuments({ subject: subject._id, isActive: true });
       const mcqCount = await MCQ.countDocuments({ subject: subject._id, isActive: true });
       const iqCount = await CoreInterviewQuestion.countDocuments({ subject: subject._id, isActive: true });
+      const noteCount = await Note.countDocuments({ subject: subject._id, isActive: true });
       result.push({
         _id: subject._id, name: subject.name, slug: subject.slug,
         description: subject.description, icon: subject.icon, color: subject.color,
-        topics: topicCount, mcqs: mcqCount, interviewQuestions: iqCount,
+        topics: topicCount, mcqs: mcqCount, interviewQuestions: iqCount, notes: noteCount,
       });
     }
     res.json({ success: true, data: result });
