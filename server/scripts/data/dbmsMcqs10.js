@@ -1,0 +1,7 @@
+// DBMS MCQs Part 10 - B-Tree indexing details
+module.exports = [
+  { topic: 'B-Tree', question: 'In a B-tree of order m, every node except the root must have at least:', options: ['m children', 'ceil(m/2) children', '2 children', 'm-1 children'], correctAnswer: 1, explanation: 'The minimum degree bound keeps the tree balanced and the height logarithmic.', difficulty: 'hard' },
+  { topic: 'B-Tree', question: 'In a B-tree, data pointers may be stored in:', options: ['Leaves only', 'Internal nodes as well as leaves', 'The root only', 'A separate index file'], correctAnswer: 1, explanation: 'Unlike a B+ tree, a B-tree stores records (or record pointers) in internal nodes too.', difficulty: 'medium' },
+  { topic: 'B-Tree', question: 'Why are B-trees preferred over binary search trees for disks?', options: ['They use less CPU', 'High fan-out reduces tree height and disk seeks', 'They need no balancing', 'They store fewer keys'], correctAnswer: 1, explanation: 'A node holding hundreds of keys means only a few disk reads per lookup.', difficulty: 'easy' },
+  { topic: 'B-Tree', question: 'Range queries are slower on a plain B-tree because:', options: ['Keys are unsorted', 'Leaves are not linked, forcing root-to-leaf traversals', 'Nodes hold too many keys', 'It cannot store duplicates'], correctAnswer: 1, explanation: 'Missing leaf links mean each successive key needs a fresh traversal, which is why B+ trees are used for indexes.', difficulty: 'hard' },
+];
