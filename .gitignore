@@ -21,3 +21,10 @@ client_log.txt
 server_err.txt
 server_log.txt
 
+# Temporary seeder/coverage diagnostics (local only)
+server/audit.txt
+server/cov*.txt
+server/scripts/_*.txt
+server/scripts/_*.js
+server/scripts/seedInterviewPrep.topics.*
+
