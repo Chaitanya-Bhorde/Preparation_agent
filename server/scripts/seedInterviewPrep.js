@@ -79,6 +79,25 @@ function loadRecords(files, dir) {
   }
   return records;
 }
+
+// A topic is often covered by more than one notes file (an early short summary
+// plus a later, more detailed one). The UI renders exactly one note per topic
+// (SubjectDetail looks up notes.find(n => n.topic === topic._id)), so keep only
+// the most detailed note per topic - otherwise the short summary can win the
+// lookup and the detailed notes never surface.
+function bestNotePerTopic(records) {
+  const byTopic = new Map();
+  for (const record of records) {
+    if (!record || !record.topic) continue;
+    const current = byTopic.get(record.topic);
+    const currentLength = current ? (current.content || '').length : -1;
+    if (!current || (record.content || '').length > currentLength) {
+      byTopic.set(record.topic, record);
+    }
+  }
+  return Array.from(byTopic.values());
+}
+
 async function seedSubject(subjectDef, dir) {
   const subject = await Subject.findOneAndUpdate(
     { slug: subjectDef.slug },
@@ -100,8 +119,10 @@ async function seedSubject(subjectDef, dir) {
 
   const files = discoverFiles(subjectDef.slug, dir);
 
-  // Notes: rebuild for this subject only, so re-running is idempotent.
-  const notes = loadRecords(files.notes, dir);
+  // Notes: rebuild for this subject only, so re-running is idempotent. Only the
+  // most detailed note per topic is kept so every topic surfaces exactly one
+  // (detailed) note.
+  const notes = bestNotePerTopic(loadRecords(files.notes, dir));
   await Note.deleteMany({ subject: subject._id });
   const noteDocs = [];
   notes.forEach((note, index) => {

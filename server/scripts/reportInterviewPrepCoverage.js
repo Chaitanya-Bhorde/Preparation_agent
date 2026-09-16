@@ -28,6 +28,12 @@ function discover(subjectSlug) {
   return files;
 }
 
+// A topic can be described by several notes files (say a short summary plus a
+// later, more detailed one). Both the seeder and the UI surface only the most
+// detailed note for a topic, so measure that one. Anything thinner than this is
+// reported as a THIN note rather than silently passing.
+const MIN_NOTE_CHARS = 600;
+
 const requested = process.argv.slice(2);
 const slugs = requested.length ? requested : Object.keys(TOPICS);
 let grandGaps = 0;
@@ -47,19 +53,28 @@ for (const slug of slugs) {
   }
   const topics = TOPICS[slug] || [];
   const counts = topics.map((name) => {
-    const n = loaded.notes.filter(r => r.topic === name).length;
+    const topicNotes = loaded.notes.filter(r => r.topic === name);
+    const bestNote = topicNotes.reduce(
+      (best, note) => (best && (best.content || '').length >= (note.content || '').length ? best : note),
+      null
+    );
     const m = loaded.mcqs.filter(r => r.topic === name).length;
     const q = loaded.interview.filter(r => r.topic === name).length;
-    return { name, n, m, q };
+    return { name, n: topicNotes.length, bestChars: bestNote ? (bestNote.content || '').length : 0, m, q };
   });
   const gaps = counts.filter(c => c.n === 0 || c.m < 3 || c.q === 0);
-  grandGaps += gaps.length;
+  const thin = counts.filter(c => c.n > 0 && c.bestChars < MIN_NOTE_CHARS);
+  grandGaps += gaps.length + thin.length;
   console.log(`\n=== ${slug} === topics=${topics.length}`);
   console.log(`  files: notes=[${files.notes.join(', ')}] mcqs=[${files.mcqs.join(', ')}] interview=[${files.interview.join(', ')}]`);
   console.log(`  totals: notes=${loaded.notes.length} mcqs=${loaded.mcqs.length} interview=${loaded.interview.length}`);
   console.log(`  topics OK: ${topics.length - gaps.length}/${topics.length}`);
+  console.log(`  detailed notes (>=${MIN_NOTE_CHARS} chars): ${topics.length - thin.length}/${topics.length}`);
   for (const gap of gaps) {
     console.log(`  GAP ${gap.name} -> notes=${gap.n} mcqs=${gap.m} interview=${gap.q}`);
   }
+  for (const topic of thin) {
+    console.log(`  THIN ${topic.name} -> best note is only ${topic.bestChars} chars`);
+  }
 }
-console.log(`\nTotal topics with gaps: ${grandGaps}`);
+console.log(`\nTotal topics needing attention: ${grandGaps}`);
