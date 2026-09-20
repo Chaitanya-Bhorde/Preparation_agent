@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const Submission = require('../models/Submission');
 const User = require('../models/User');
 const Problem = require('../models/Problem');
+const SQLSubmission = require('../models/SQLSubmission');
+const SQLProblem = require('../models/SQLProblem');
+const InterviewSession = require('../models/InterviewSession');
+const { generateRecommendations } = require('../services/ml/recommendationEngine');
+const { buildHeatmap, computeMonthly, safeDiv } = require('../services/analyticsService');
 
 const CATEGORIES = ['dsa', 'sql', 'aptitude', 'overall'];
 
@@ -482,6 +487,292 @@ exports.getPlatformAnalytics = async (req, res) => {
         trendingTopics,
       },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+
+// @desc    SQL-specific analytics overview
+// @route   GET /api/analytics/sql/overview
+exports.getSQLAnalytics = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const subs = await SQLSubmission.find({ user: userId, type: 'submit' })
+      .select('status difficulty topics createdAt').lean();
+
+    const attempted = new Set();
+    const solved = new Set();
+    const difficultyStats = { easy: { attempted: 0, solved: 0, submissions: 0, accepted: 0 }, medium: { attempted: 0, solved: 0, submissions: 0, accepted: 0 }, hard: { attempted: 0, solved: 0, submissions: 0, accepted: 0 } };
+    const topicMap = {};
+
+    subs.forEach((sub) => {
+      if (sub.problem) attempted.add(sub.problem.toString());
+      const diff = sub.difficulty || 'easy';
+      difficultyStats[diff].submissions += 1;
+      if (sub.status === 'accepted') {
+        if (sub.problem) solved.add(sub.problem.toString());
+        difficultyStats[diff].solved += 1;
+        difficultyStats[diff].accepted += 1;
+      }
+      (sub.topics || ['general']).forEach((tag) => {
+        if (!topicMap[tag]) topicMap[tag] = { attempts: 0, accepted: 0, submissions: 0 };
+        topicMap[tag].attempts += 1;
+        topicMap[tag].submissions += 1;
+        if (sub.status === 'accepted') topicMap[tag].accepted += 1;
+      });
+    });
+
+    const acceptanceRate = subs.length > 0 ? Math.round((subs.filter(s => s.status === 'accepted').length / subs.length) * 100) : 0;
+    const finalTopicData = Object.entries(topicMap).map(([topic, data]) => ({
+      topic, attempts: data.attempts, solved: data.accepted, acceptanceRate: data.submissions > 0 ? Math.round((data.accepted / data.submissions) * 100) : 0,
+    })).sort((a, b) => b.attempts - a.attempts);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalSolved: solved.size,
+        totalAttempted: attempted.size,
+        totalSubmissions: subs.length,
+        acceptedSubmissions: subs.filter(s => s.status === 'accepted').length,
+        acceptanceRate,
+        difficulty: {
+          easy: { solved: difficultyStats.easy.solved, submissions: difficultyStats.easy.submissions, acceptanceRate: difficultyStats.easy.submissions > 0 ? Math.round((difficultyStats.easy.accepted / difficultyStats.easy.submissions) * 100) : 0 },
+          medium: { solved: difficultyStats.medium.solved, submissions: difficultyStats.medium.submissions, acceptanceRate: difficultyStats.medium.submissions > 0 ? Math.round((difficultyStats.medium.accepted / difficultyStats.medium.submissions) * 100) : 0 },
+          hard: { solved: difficultyStats.hard.solved, submissions: difficultyStats.hard.submissions, acceptanceRate: difficultyStats.hard.submissions > 0 ? Math.round((difficultyStats.hard.accepted / difficultyStats.hard.submissions) * 100) : 0 },
+        },
+        topics: finalTopicData,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+
+// @desc    SQL activity heatmap
+// @route   GET /api/analytics/sql/heatmap
+exports.getSQLHeatmap = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const subs = await SQLSubmission.find({ user: userId, status: 'accepted' })
+      .select('createdAt').lean();
+
+    const events = subs.map((s) => ({ date: s.createdAt, intensity: 1, accepted: true }));
+    const result = buildHeatmap(events, 365);
+    res.status(200).json({ success: true, data: { ...result, userId } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    SQL topic analysis
+// @route   GET /api/analytics/sql/topics
+exports.getSQLTopics = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    if (!assertOwnScope(userId, req.user)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const subs = await SQLSubmission.find({ user: userId, type: 'submit' })
+      .select('status topics').lean();
+
+    const topicMap = {};
+    subs.forEach((sub) => {
+      (sub.topics || ['general']).forEach((tag) => {
+        if (!topicMap[tag]) topicMap[tag] = { attempts: 0, accepted: 0, submissions: 0 };
+        topicMap[tag].attempts += 1;
+        topicMap[tag].submissions += 1;
+        if (sub.status === 'accepted') topicMap[tag].accepted += 1;
+      });
+    });
+
+    const topics = Object.entries(topicMap).map(([topic, data]) => ({
+      topic, total: data.attempts, solved: data.accepted,
+      acceptanceRate: data.submissions > 0 ? Math.round((data.accepted / data.submissions) * 100) : 0,
+    })).sort((a, b) => b.total - a.total);
+
+    res.status(200).json({ success: true, data: { topics } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+
+exports.getAptitudeHeatmap = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const aptSubs = await AptitudeSubmission.find({ userId }).select('correct totalQuestions createdAt').lean();
+    const events = [];
+    aptSubs.forEach((sub) => {
+      if (sub.totalQuestions > 0) {
+        events.push({ date: sub.createdAt, intensity: 1, accepted: sub.correct > 0 });
+      }
+    });
+    const result = await buildHeatmap(events, 365);
+    res.status(200).json({ success: true, data: { category: 'aptitude', userId, ...result } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getMockInterviewAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const interviews = await InterviewSession.find({ user: userId, status: 'completed' })
+      .select('-_id status score selectedTopics questions createdAt')
+      .lean();
+    const total = interviews.length;
+    const scores = interviews.map(i => i.score || 0);
+    const maxScores = interviews.map(i => (i.selectedQuestions || i.questions || []).length * 2);
+    const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const avgPct = scores.length && maxScores.length ? scores.reduce((a, i) => a + (i / maxScores[scores.indexOf(i)] * 100), 0) / scores.length : 0;
+    const highestScore = scores.length ? Math.max(...scores) : 0;
+    const lowestScore = scores.length ? Math.min(...scores) : 0;
+    const questionsAnswered = interviews.reduce((acc, i) => acc + (i.questions || 0), 0);
+
+    const topicPerf = {};
+    interviews.forEach((i) => {
+      const topics = i.selectedTopics || [];
+      const maxS = Math.max(...maxScores) || 1;
+      topics.forEach((t) => {
+        if (!topicPerf[t]) topicPerf[t] = { interviews: 0, totalScore: 0, count: 0 };
+        topicPerf[t].interviews += 1;
+        topicPerf[t].totalScore += (i.score || 0) / maxS * 100;
+        topicPerf[t].count += 1;
+      });
+    });
+
+    const strong = interviews.filter(i => (i.score || 0) / (Math.max(...maxScores) || 1) * 100 >= 70).length;
+    const medium = interviews.filter(i => { const pct = (i.score || 0) / (Math.max(...maxScores) || 1) * 100; return pct >= 40 && pct < 70; }).length;
+    const weak = interviews.filter(i => (i.score || 0) / (Math.max(...maxScores) || 1) * 100 < 40).length;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalInterviews: total,
+        averageScore: Math.round(avgScore * 10) / 10,
+        averagePercentage: Math.round(avgPct * 10) / 10,
+        highestScore,
+        lowestScore,
+        questionsAnswered,
+        performanceDistribution: { strong, medium, weak },
+        topicPerformance: Object.entries(topicPerf).map(([t, d]) => ({ topic: t, avgPerformance: Math.round(d.totalScore / d.count), interviews: d.interviews })).sort((a, b) => b.avgPerformance - a.avgPerformance),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+exports.getAptitudeHeatmap = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const aptSubs = await AptitudeSubmission.find({ userId }).select('correct totalQuestions createdAt').lean();
+    const events = [];
+    aptSubs.forEach((sub) => {
+      if (sub.totalQuestions > 0) {
+        events.push({ date: sub.createdAt, intensity: 1, accepted: sub.correct > 0 });
+      }
+    });
+    const result = await buildHeatmap(events, 365);
+    res.status(200).json({ success: true, data: { category: 'aptitude', userId, ...result } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getMockInterviewHeatmap = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const interviews = await InterviewSession.find({ user: userId, status: 'completed' }).select('createdAt').lean();
+    const events = interviews.map((i) => ({ date: i.createdAt, intensity: 1, accepted: true }));
+    const result = await buildHeatmap(events, 365);
+    res.status(200).json({ success: true, data: { category: 'mock-interview', userId, ...result } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getMonthlyAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { domain } = req.query;
+    const domains = domain ? [domain] : ['dsa', 'sql', 'aptitude', 'mock-interview'];
+    const monthly = {};
+    for (const d of domains) {
+      monthly[d] = await computeMonthly(userId, d);
+    }
+    res.status(200).json({ success: true, data: { monthly, userId } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getWeakAreas = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const features = await getDSAFeatures(userId);
+    const sqlFeatures = await getSQLFeatures(userId);
+    const aptFeatures = await getAptitudeFeatures(userId);
+    const interviewFeatures = await getMockInterviewFeatures(userId);
+    const all = [features, sqlFeatures, aptFeatures, interviewFeatures].filter(Boolean);
+    const weakAreas = [];
+    all.forEach((f, idx) => {
+      if (!f || !f.topics) return;
+      const domain = ['DSA', 'SQL', 'Aptitude', 'Mock Interview'][idx];
+      f.topics.forEach((t) => {
+        if (t.status === 'WEAK' || t.status === 'UNDER_PRACTICED') {
+          weakAreas.push({ domain, ...t });
+        }
+      });
+    });
+    weakAreas.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    res.status(200).json({ success: true, data: { weakAreas } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getRecommendations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const features = await getDSAFeatures(userId);
+    const sqlFeatures = await getSQLFeatures(userId);
+    const aptFeatures = await getAptitudeFeatures(userId);
+    const interviewFeatures = await getMockInterviewFeatures(userId);
+    const all = [features, sqlFeatures, aptFeatures, interviewFeatures].filter(Boolean);
+    const recs = [];
+    all.forEach((f, idx) => {
+      if (!f || !f.recommendations) return;
+      const domain = ['DSA', 'SQL', 'Aptitude', 'Mock Interview'][idx];
+      (f.recommendations || []).forEach((r) => {
+        recs.push({ domain, ...r });
+      });
+    });
+    recs.sort((a, b) => {
+      const order = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+      return (order[b.priority] || 0) - (order[a.priority] || 0);
+    });
+    res.status(200).json({ success: true, data: { recommendations: recs } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+exports.getMLFeatures = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const feat = {
+      dsa: await getDSAFeatures(userId),
+      sql: await getSQLFeatures(userId),
+      aptitude: await getAptitudeFeatures(userId),
+      mockInterviews: await getMockInterviewFeatures(userId),
+    };
+    res.status(200).json({ success: true, data: { features: feat, userId } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -109,6 +109,7 @@ app.use('/api/coding-problems', require('./routes/codingProblems'));
 app.use('/api/core-subjects', require('./routes/coreSubjects'));
 
 app.use('/api/dsa', require('./routes/dsa'));
+app.use('/api/sql', require('./routes/sql'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));

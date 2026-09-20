@@ -1,9 +1,10 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
+const SQLProblem = require('../models/SQLProblem');
 const User = require('../models/User');
 const UserStats = require('../models/UserStats');
 const { runCode, submitCode } = require('../utils/judge0');
-const { executeSQL } = require('../utils/sqlRunner');
+const { runSQL } = require('../utils/sqlRunner');
 const { updateStreak } = require('../utils/streak');
 
 // Helper to update user stats after submission (feeds global leaderboard aggregation)
@@ -306,80 +307,82 @@ exports.runSQL = async (req, res) => {
     if (!problemId || !code) {
       return res.status(400).json({ success: false, message: 'Please provide problemId and code' });
     }
-    const problem = await Problem.findById(problemId);
+    
+    const problem = await SQLProblem.findById(problemId);
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
-    const visibleCases = problem.testCases.filter(tc => !tc.isHidden);
-    const casesToRun = visibleCases.length > 0 ? visibleCases : problem.testCases.slice(0, 2);
+    
+    const sampleCases = problem.sampleTestCases || [];
+    const casesToRun = sampleCases.length > 0 ? sampleCases : [];
+    
     const results = [];
-    const schemaSetup = problem.schemaSetup || null;
+    const schemaSetup = problem.schemaSetupSQL || '';
+    
     for (const tc of casesToRun) {
-      const sqlResult = await executeSQL(code, schemaSetup);
+      const sqlResult = await runSQL({ 
+        query: code, 
+        schemaSetup,
+        timeoutMs: 5000 
+      });
+      
       if (!sqlResult.success) {
         results.push({
           passed: false,
-          input: tc.input || '',
-          expectedOutput: tc.expectedOutput || '',
+          input: tc.inputStateSQL || '',
+          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
           actualOutput: sqlResult.error,
           errorType: 'runtime_error',
           errorMessage: sqlResult.error,
           executionTime: 0,
           memoryUsed: 0,
-          isSample: tc.isSample,
+          isSample: true,
         });
       } else {
         const actualOutput = JSON.stringify(sqlResult.data.rows);
-        const passed = actualOutput === tc.expectedOutput;
+        const expectedOutput = JSON.stringify(tc.expectedOutputRows || []);
+        const passed = actualOutput === expectedOutput;
         results.push({
           passed,
-          input: tc.input || '',
-          expectedOutput: tc.expectedOutput || '',
+          input: tc.inputStateSQL || '',
+          expectedOutput,
           actualOutput,
           errorType: passed ? null : 'wrong_answer',
-          errorMessage: passed ? null : `Expected ${tc.expectedOutput} but got ${actualOutput}`,
-          executionTime: 0,
+          errorMessage: passed ? null : `Expected ${expectedOutput} but got ${actualOutput}`,
+          executionTime: sqlResult.executionTime || 0,
           memoryUsed: 0,
-          isSample: tc.isSample,
+          isSample: true,
         });
       }
     }
+    
     const passedCount = results.filter(r => r.passed).length;
-    const status = passedCount === casesToRun.length ? 'accepted' : 'wrong_answer';
-    const submission = await Submission.create({
+    const status = casesToRun.length > 0 ? (passedCount === casesToRun.length ? 'accepted' : 'wrong_answer') : 'accepted';
+    
+    const submission = await SQLSubmission.create({
       user: req.user.id,
       problem: problemId,
-      code,
-      language: 'sql',
+      query: code,
       status,
       type: 'run',
       passedTestCases: passedCount,
       totalTestCases: casesToRun.length,
-      testCaseResults: results.map(r => ({
-        passed: r.passed,
-        input: r.input,
-        expectedOutput: r.expectedOutput,
-        actualOutput: r.actualOutput,
-        errorType: r.errorType,
-        errorMessage: r.errorMessage,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
-      })),
-      score: Math.round((passedCount / casesToRun.length) * 100),
-      problemDifficulty: problem.difficulty,
-      problemTags: problem.tags,
+      runtimeMs: results.reduce((sum, r) => sum + (r.executionTime || 0), 0),
     });
-    if (status === 'accepted') {
-      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
-    }
-    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
-    const { createPracticeRecord } = require('./practiceHistoryController');
-    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
-    res.status(201).json({ success: true, data: submission });
+    
+    res.status(201).json({
+      success: true,
+      data: {
+        ...submission.toObject(),
+        testCaseResults: results,
+        mode: 'run',
+      }
+    });
   } catch (error) {
+    console.error('SQL run error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
-};
+};
 
 exports.submitSQL = async (req, res) => {
   try {
@@ -387,98 +390,111 @@ exports.submitSQL = async (req, res) => {
     if (!problemId || !code) {
       return res.status(400).json({ success: false, message: 'Please provide problemId and code' });
     }
-    const problem = await Problem.findById(problemId);
+
+    const SQLSubmission = require('../models/SQLSubmission');
+
+    const problem = await SQLProblem.findById(problemId);
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
+
+    const allCases = [...(problem.sampleTestCases || []), ...(problem.hiddenTestCases || [])];
     const results = [];
-    const schemaSetup2 = problem.schemaSetup || null;
-    for (const tc of problem.testCases) {
-      const sqlResult = await executeSQL(code, schemaSetup2);
+    const schemaSetup = problem.schemaSetupSQL || '';
+    let firstError = null;
+
+    for (const tc of allCases) {
+      const sqlResult = await runSQL({
+        query: code,
+        schemaSetup,
+        timeoutMs: 8000,
+      });
+
       if (!sqlResult.success) {
+        if (!firstError) firstError = sqlResult.error;
+        const msg = String(sqlResult.error || '');
+        const status = /syntax/i.test(msg) ? 'syntax_error' : /timed out|timeout/i.test(msg) ? 'time_limit' : 'runtime_error';
         results.push({
           passed: false,
-          input: tc.input || '',
-          expectedOutput: tc.expectedOutput || '',
+          input: tc.inputStateSQL || '',
+          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
           actualOutput: sqlResult.error,
-          errorType: 'runtime_error',
+          errorType: status,
           errorMessage: sqlResult.error,
           executionTime: 0,
           memoryUsed: 0,
-          isSample: tc.isSample,
+          isSample: false,
         });
       } else {
-        const actualOutput = JSON.stringify(sqlResult.data.rows);
-        const passed = actualOutput === tc.expectedOutput;
+        const norm = (rows) => (rows || []).map((r) => {
+          if (r && typeof r === 'object' && !Array.isArray(r)) {
+            const o = {};
+            Object.keys(r).sort().forEach((k) => { o[k.toLowerCase()] = r[k]; });
+            return o;
+          }
+          return r;
+        });
+        const actualRows = norm(sqlResult.data.rows);
+        const expectedRows = norm(tc.expectedOutputRows || []);
+        const passed = JSON.stringify(actualRows) === JSON.stringify(expectedRows);
         results.push({
           passed,
-          input: tc.isSample ? tc.input || '' : '',
-          expectedOutput: tc.isSample ? tc.expectedOutput : '',
-          actualOutput,
+          input: tc.inputStateSQL || '',
+          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
+          actualOutput: JSON.stringify(sqlResult.data.rows),
           errorType: passed ? null : 'wrong_answer',
-          errorMessage: passed ? null : `Expected ${tc.expectedOutput} but got ${actualOutput}`,
-          executionTime: 0,
+          errorMessage: passed ? null : 'Result did not match expected output',
+          executionTime: sqlResult.executionTime || 0,
           memoryUsed: 0,
-          isSample: tc.isSample,
+          isSample: false,
         });
       }
     }
-    const passedCount = results.filter(r => r.passed).length;
-    let status = passedCount === problem.testCases.length ? 'accepted' : 'wrong_answer';
-    const submission = await Submission.create({
+
+    const passedCount = results.filter((r) => r.passed).length;
+    let status = 'wrong_answer';
+    if (allCases.length === 0) status = 'accepted';
+    else if (passedCount === allCases.length) status = 'accepted';
+    else if (firstError) {
+      const msg = String(firstError || '');
+      status = /syntax/i.test(msg) ? 'syntax_error' : /timed out|timeout/i.test(msg) ? 'time_limit' : 'runtime_error';
+    }
+
+    const topics = [...new Set([...(problem.topics || []), ...(problem.tags || []), ...(problem.topic ? [problem.topic] : [])])];
+    const totalRuntime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0);
+
+    const submission = await SQLSubmission.create({
       user: req.user.id,
       problem: problemId,
-      code,
-      language: 'sql',
+      query: code,
       status,
       type: 'submit',
+      difficulty: problem.difficulty,
+      topics,
       passedTestCases: passedCount,
-      totalTestCases: problem.testCases.length,
-      testCaseResults: results.map(r => ({
-        passed: r.passed,
-        input: r.input,
-        expectedOutput: r.expectedOutput,
-        actualOutput: r.actualOutput,
-        errorType: r.errorType,
-        errorMessage: r.errorMessage,
-        executionTime: r.executionTime,
-        memoryUsed: r.memoryUsed,
-      })),
-      score: Math.round((passedCount / problem.testCases.length) * 100),
-      problemDifficulty: problem.difficulty,
-      problemTags: problem.tags,
+      totalTestCases: allCases.length,
+      runtimeMs: totalRuntime,
+      executionTime: totalRuntime,
+      errorMessage: status === 'accepted' ? null : (firstError || 'Wrong answer'),
     });
-    problem.totalSubmissions += 1;
-    if (status === 'accepted') problem.acceptedSubmissions += 1;
-    problem.acceptanceRate = Math.round((problem.acceptedSubmissions / problem.totalSubmissions) * 100);
-    await problem.save();
-    if (status === 'accepted') {
-      const existingAccepted = await Submission.findOne({
-        user: req.user.id,
-        problem: problemId,
-        status: 'accepted',
-        type: 'submit',
-        _id: { $ne: submission._id },
-      });
-      if (!existingAccepted) {
-        const solvedIncrement = problem.difficulty === 'easy' ? { 'stats.easySolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
-          : problem.difficulty === 'medium' ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
-          : { 'stats.hardSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 };
-        await User.findByIdAndUpdate(req.user.id, { $inc: solvedIncrement });
-      } else {
-        await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
-      }
-    } else {
-      await User.findByIdAndUpdate(req.user.id, { $inc: { 'stats.totalSubmissions': 1 } });
-    }
-    if (status === 'accepted') {
-      updateStreak(req.user.id).catch(err => console.error('Streak update failed:', err.message));
-    }
-    updateLeaderboardAfterSubmission(req.user.id).catch(err => console.error('Leaderboard update failed:', err.message));
-    const { createPracticeRecord } = require('./practiceHistoryController');
-    createPracticeRecord(submission).catch(err => console.error('Practice history creation failed:', err.message));
-    res.status(201).json({ success: true, data: submission });
+
+    problem.totalSubmissions = (problem.totalSubmissions || 0) + 1;
+    if (status === 'accepted') problem.acceptedSubmissions = (problem.acceptedSubmissions || 0) + 1;
+    problem.acceptanceRate = problem.totalSubmissions > 0
+      ? Math.round(((problem.acceptedSubmissions || 0) / problem.totalSubmissions) * 100)
+      : 0;
+    await problem.save().catch(() => {});
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...submission.toObject(),
+        testCaseResults: results,
+        mode: 'submit',
+      },
+    });
   } catch (error) {
+    console.error('SQL submit error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
