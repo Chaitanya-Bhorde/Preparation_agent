@@ -56,30 +56,42 @@ function compareSQLResults(actual, expected, mode = 'exact') {
   }
   
   if (mode === 'set') {
-    // Set match: same rows, any order
-    const actualSet = new Set(actualRows.map(r => JSON.stringify(Object.entries(r).sort())));
-    const expectedSet = new Set(expectedRows.map(r => JSON.stringify(Object.entries(r).sort())));
-    
-    if (actualSet.size !== expectedSet.size) {
+    // Multiset match: same rows, any order, duplicates respected
+    // (a plain Set would dedupe repeated rows and wrongly treat
+    //  [{id:1},{id:1}] as equal to [{id:1}])
+    const countRows = (rows) => {
+      const counts = new Map();
+      for (const r of rows) {
+        const key = JSON.stringify(Object.entries(r).sort());
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return counts;
+    };
+    const actualCounts = countRows(actualRows);
+    const expectedCounts = countRows(expectedRows);
+
+    if (actualCounts.size !== expectedCounts.size) {
       return {
         passed: false,
         actual: actualRows,
         expected: expectedRows,
-        message: `Row count mismatch (set mode): expected ${expectedSet.size}, got ${actualSet.size}`
+        message: `Row count mismatch (set mode): expected ${expectedRows.length} rows, got ${actualRows.length}`
       };
     }
-    
-    for (const item of expectedSet) {
-      if (!actualSet.has(item)) {
+
+    for (const [key, count] of expectedCounts) {
+      if (actualCounts.get(key) !== count) {
         return {
           passed: false,
           actual: actualRows,
           expected: expectedRows,
-          message: 'Result sets do not match'
+          message: actualCounts.has(key)
+            ? `Row frequency mismatch (set mode): a row appears ${actualCounts.get(key)} time(s) but expected ${count}`
+            : 'Result sets do not match'
         };
       }
     }
-    
+
     return { passed: true, actual: actualRows, expected: expectedRows, message: 'Results match (set mode)' };
   }
   

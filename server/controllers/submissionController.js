@@ -1,6 +1,7 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const SQLProblem = require('../models/SQLProblem');
+const SQLSubmission = require('../models/SQLSubmission');
 const User = require('../models/User');
 const UserStats = require('../models/UserStats');
 const { runCode, submitCode } = require('../utils/judge0');
@@ -390,8 +391,6 @@ exports.submitSQL = async (req, res) => {
     if (!problemId || !code) {
       return res.status(400).json({ success: false, message: 'Please provide problemId and code' });
     }
-
-    const SQLSubmission = require('../models/SQLSubmission');
 
     const problem = await SQLProblem.findById(problemId);
     if (!problem) {
