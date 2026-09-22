@@ -30,6 +30,8 @@ const MockInterviewReport = lazy(() => import('./pages/MockInterviewReport'));
 const PracticeHistory = lazy(() => import('./pages/PracticeHistory'));
 const InterviewExperiences = lazy(() => import('./pages/InterviewExperiences'));
 const DSAPractice = lazy(() => import('./pages/DSAPractice'));
+const SQLPractice = lazy(() => import('./pages/SQLPractice'));
+const SQLProblemDetail = lazy(() => import('./pages/SQLProblemDetail'));
 const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
 const AptitudeTopicPractice = lazy(() => import('./pages/AptitudeTopicPractice'));
 const AptitudeMockTest = lazy(() => import('./pages/AptitudeMockTest'));
@@ -67,6 +69,8 @@ function App() {
             <Route path="/coding-problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
             <Route path="/coding-problems/:slug" element={<PrivateRoute><CodingProblemDetail /></PrivateRoute>} />
             <Route path="/practice/dsa" element={<PrivateRoute><DSAPractice /></PrivateRoute>} />
+            <Route path="/practice/sql" element={<PrivateRoute><SQLPractice /></PrivateRoute>} />
+            <Route path="/practice/sql/:slug" element={<PrivateRoute><SQLProblemDetail /></PrivateRoute>} />
             <Route path="/practice/aptitude" element={<PrivateRoute><AptitudePractice /></PrivateRoute>} />
             <Route path="/practice/aptitude/topic/:topicId" element={<PrivateRoute><AptitudeTopicPractice /></PrivateRoute>} />
             <Route path="/practice/aptitude/mock/:mockTestId" element={<PrivateRoute><AptitudeMockTest /></PrivateRoute>} />
