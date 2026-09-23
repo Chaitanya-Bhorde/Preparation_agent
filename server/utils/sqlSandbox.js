@@ -130,14 +130,19 @@ async function executeSQL({ query, schemaSetup, testCases, expectedOutputs, time
   try {
     db = await createSandbox();
     
-    if (schemaSetup) {
+    // Execute schema setup first
+    if (schemaSetup && typeof schemaSetup === 'string' && schemaSetup.trim()) {
       const statements = schemaSetup.split(';').filter(s => s.trim());
       for (const stmt of statements) {
         const trimmed = stmt.trim();
         if (trimmed) {
           const upper = trimmed.toUpperCase();
           if (/DROP\s/i.test(upper)) throw new Error('DROP not allowed');
-          db.run(trimmed);
+          try {
+            db.run(trimmed);
+          } catch (setupError) {
+            throw new Error(`Schema setup failed: ${sanitizeError(setupError.message)}`);
+          }
         }
       }
     }
@@ -148,6 +153,43 @@ async function executeSQL({ query, schemaSetup, testCases, expectedOutputs, time
     try {
       result = db.exec(query);
     } catch (execError) {
+      throw new Error(sanitizeError(execError.message));
+    }
+    
+    const elapsed = Date.now() - startTime;
+    if (elapsed > timeoutMs) {
+      throw new Error('Query execution timed out. Please simplify your query.');
+    }
+    
+    const processed = processSQLResult(result, query);
+    
+    // Compare with expected outputs if provided
+    if (expectedOutputs && expectedOutputs.length > 0) {
+      const comparison = compareResults(processed.rows, expectedOutputs, 'set');
+      return {
+        success: comparison.passed,
+        data: processed,
+        expected: expectedOutputs,
+        error: comparison.passed ? null : comparison.message,
+        executionTime: elapsed,
+      };
+    }
+    
+    return {
+      success: true,
+      data: processed,
+      executionTime: elapsed,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message || 'Query execution failed',
+      executionTime: 0,
+    };
+  } finally {
+    if (db) closeSandbox(db);
+  }
+}
       return { success: false, error: sanitizeError(execError) };
     }
     const executionTime = Date.now() - startTime;

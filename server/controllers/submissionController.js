@@ -150,30 +150,43 @@ exports.submitSolution = async (req, res) => {
       type: 'submit',
       problemDifficulty: problem.difficulty,
       problemTags: problem.tags,
+      category: 'dsa',
     });
     const signature = problem.functionSignature ? problem.functionSignature[language] : null;
     if (!signature) {
       return res.status(400).json({ success: false, message: 'Function signature not found for selected language' });
     }
-    const results = await submitCode(code, language, problem.testCases, signature);
+    
+    // Execute test cases with timeout enforcement
+    const results = await submitCode(code, language, problem.testCases, signature, problem.timeLimit || 2000);
     const passedCount = results.filter((r) => r.passed).length;
     let status = 'accepted';
     let errorType = null;
     let errorMessage = null;
-    const hasError = results.some(r => r.errorType && r.errorType !== 'unknown');
-    if (hasError) {
-      const firstError = results.find(r => r.errorType);
-      status = firstError.errorType === 'compilation_error' ? 'compilation_error'
-        : firstError.errorType === 'time_limit_exceeded' ? 'time_limit_exceeded'
-        : firstError.errorType === 'runtime_error' ? 'runtime_error'
-        : 'wrong_answer';
-      errorType = firstError.errorType;
-      errorMessage = firstError.error;
-    } else if (passedCount === problem.testCases.length) {
-      status = 'accepted';
+    
+    // Check for TLE first - this takes priority
+    const tleResult = results.find(r => r.errorType === 'time_limit_exceeded');
+    if (tleResult) {
+      status = 'time_limit_exceeded';
+      errorType = 'time_limit_exceeded';
+      errorMessage = tleResult.error || `Execution time ${tleResult.executionTime}ms exceeded limit`;
     } else {
-      status = 'wrong_answer';
+      const hasError = results.some(r => r.errorType && r.errorType !== 'unknown');
+      if (hasError) {
+        const firstError = results.find(r => r.errorType);
+        status = firstError.errorType === 'compilation_error' ? 'compilation_error'
+          : firstError.errorType === 'time_limit_exceeded' ? 'time_limit_exceeded'
+          : firstError.errorType === 'runtime_error' ? 'runtime_error'
+          : 'wrong_answer';
+        errorType = firstError.errorType;
+        errorMessage = firstError.error;
+      } else if (passedCount === problem.testCases.length) {
+        status = 'accepted';
+      } else {
+        status = 'wrong_answer';
+      }
     }
+    
     submission.status = status;
     submission.testCaseResults = results.map((r, idx) => ({
       testCase: problem.testCases[idx]?._id || null,
@@ -190,13 +203,13 @@ exports.submitSolution = async (req, res) => {
     submission.passedTestCases = passedCount;
     submission.executionTime = Math.max(...results.map((r) => r.executionTime || 0));
     submission.memoryUsed = Math.max(...results.map((r) => r.memoryUsed || 0));
-    submission.score = Math.round((passedCount / problem.testCases.length) * 100);
+    submission.score = Math.round((passedCount / Math.max(problem.testCases.length, 1)) * 100);
     submission.errorType = errorType;
     submission.errorMessage = errorMessage;
     await submission.save();
     problem.totalSubmissions += 1;
     if (status === 'accepted') problem.acceptedSubmissions += 1;
-    problem.acceptanceRate = Math.round((problem.acceptedSubmissions / problem.totalSubmissions) * 100);
+    problem.acceptanceRate = Math.round((problem.acceptedSubmissions / Math.max(problem.totalSubmissions, 1)) * 100);
     await problem.save();
     if (status === 'accepted') {
       const existingAccepted = await Submission.findOne({
@@ -314,6 +327,7 @@ exports.runSQL = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
     
+    // Get sample test cases
     const sampleCases = problem.sampleTestCases || [];
     const casesToRun = sampleCases.length > 0 ? sampleCases : [];
     
@@ -321,9 +335,11 @@ exports.runSQL = async (req, res) => {
     const schemaSetup = problem.schemaSetupSQL || '';
     
     for (const tc of casesToRun) {
+      // Setup the schema for each test case
       const sqlResult = await runSQL({ 
         query: code, 
-        schemaSetup,
+        schemaSetup: problem.schemaSetupSQL,
+        expectedOutputs: tc.expectedOutputRows || [],
         timeoutMs: 5000 
       });
       
@@ -332,7 +348,7 @@ exports.runSQL = async (req, res) => {
           passed: false,
           input: tc.inputStateSQL || '',
           expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
-          actualOutput: sqlResult.error,
+          actualOutput: '',
           errorType: 'runtime_error',
           errorMessage: sqlResult.error,
           executionTime: 0,

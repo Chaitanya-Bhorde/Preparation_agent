@@ -192,7 +192,7 @@ const runCasesConcurrently = async (cases, fullCode, languageId, returnType) => 
   return results;
 };
 
-exports.runCode = async (sourceCode, language, testCases, signature) => {
+exports.runCode = async (sourceCode, language, testCases, signature, timeLimitMs = 2000) => {
   const languageId = LANGUAGE_IDS[language];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
@@ -201,17 +201,62 @@ exports.runCode = async (sourceCode, language, testCases, signature) => {
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
   const sampleCases = testCases.filter((tc) => !tc.isHidden);
   const casesToRun = sampleCases.length > 0 ? sampleCases : testCases.slice(0, 2);
-  return runCasesConcurrently(casesToRun, fullCode, languageId, returnType);
+  
+  // Execute each test case with individual timeout
+  const results = [];
+  for (const tc of casesToRun) {
+    const result = await executeSingleCaseWithTimeout(fullCode, languageId, tc.input, tc.expectedOutput, tc.isSample, returnType, timeLimitMs);
+    results.push(result);
+  }
+  return results;
 };
 
-exports.submitCode = async (sourceCode, language, testCases, signature) => {
+exports.submitCode = async (sourceCode, language, testCases, signature, timeLimitMs = 2000) => {
   const languageId = LANGUAGE_IDS[language];
   if (!languageId) {
     throw new Error(`Unsupported language: ${language}`);
   }
   const returnType = signature && signature.returnType ? signature.returnType : '';
   const fullCode = buildFullSubmissionCode(sourceCode, signature, testCases, language);
-  return runCasesConcurrently(testCases, fullCode, languageId, returnType);
+  
+  // Execute each test case with individual timeout
+  const results = [];
+  for (const tc of testCases) {
+    const result = await executeSingleCaseWithTimeout(fullCode, languageId, tc.input, tc.expectedOutput, tc.isSample, returnType, timeLimitMs);
+    results.push(result);
+  }
+  return results;
+};
+
+const executeSingleCaseWithTimeout = async (sourceCode, languageId, input, expectedOutput, isSample, returnType, timeLimitMs) => {
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('TIMEOUT')), timeLimitMs);
+  });
+  
+  try {
+    const result = await Promise.race([
+      executeSingleCase(sourceCode, languageId, input, expectedOutput, isSample, returnType),
+      timeoutPromise
+    ]);
+    return result;
+  } catch (err) {
+    if (err.message === 'TIMEOUT') {
+      return {
+        passed: false,
+        input: input || '',
+        output: '',
+        expectedOutput: expectedOutput || '',
+        error: `Time limit exceeded (${timeLimitMs}ms)`,
+        errorType: 'time_limit_exceeded',
+        status: 'Time Limit Exceeded',
+        status_id: 5,
+        executionTime: timeLimitMs,
+        memoryUsed: 0,
+        isSample,
+      };
+    }
+    throw err;
+  }
 };
 
 exports.LANGUAGE_IDS = LANGUAGE_IDS;
