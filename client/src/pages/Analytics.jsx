@@ -1,9 +1,10 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCategorySummary, getCategoryHeatmap, getCategoryTopics } from '../api';
-import CalendarHeatmap from '../components/CalendarHeatmap';
+import { getCategorySummary, getCategoryHeatmap, getCategoryTopics, getSQLHeatmap, getAptitudeHeatmap, getInterviewHeatmap, getSQLAnalytics, getAptitudeAnalytics, getMockInterviewAnalytics } from '../api';
+import ContributionHeatmap from '../components/ContributionHeatmap';
+import { toCountMap } from '../utils/heatmapDate';
 import AptitudeAnalyticsPanel from '../components/aptitude/AptitudeAnalyticsPanel';
-import { Loader2, TrendingUp, Code2, Database, Brain, CheckCircle2, Target, Gauge, Flame } from 'lucide-react';
+import { Loader2, TrendingUp, Code2, Database, Brain, CheckCircle2, Target, Gauge, Flame, Mic } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER, CARD_CLASSES } from '../utils/ui';
 
@@ -17,14 +18,7 @@ const TABS = [
 const DIFF_COLORS = { easy: 'text-green-400', medium: 'text-yellow-400', hard: 'text-red-400' };
 const DIFF_BARS = { easy: 'bg-green-500', medium: 'bg-yellow-500', hard: 'bg-red-500' };
 
-function toCountMap(heatmap) {
-  if (!heatmap) return {};
-  const out = {};
-  Object.entries(heatmap).forEach(([date, val]) => {
-    out[date] = typeof val === 'object' && val !== null ? val.count : val;
-  });
-  return out;
-}
+
 
 function SummaryCard({ label, value, icon: Icon, accent }) {
   return (
@@ -50,6 +44,16 @@ export default function Analytics() {
   const [heatmap, setHeatmap] = useState(null);
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [domain, setDomain] = useState({ 
+    sql: null, 
+    aptitude: null, 
+    interview: null, 
+    dsa: null,
+    sqlHeat: null, 
+    aptHeat: null, 
+    ivHeat: null,
+    dsaHeat: null,
+  });
 
   useEffect(() => {
     if (!userId || authLoading) return;
@@ -67,6 +71,21 @@ export default function Analytics() {
       setSummary(s.data.data);
       setHeatmap(h.data.data);
       setTopics(t.data.data.topics || []);
+      if (category === 'overall') {
+        try {
+          const [sq, ap, iv, sqH, apH, ivH, dsa, dsaH] = await Promise.all([
+            getSQLAnalytics(), getAptitudeAnalytics(), getMockInterviewAnalytics(),
+            getSQLHeatmap(), getAptitudeHeatmap(), getInterviewHeatmap(),
+            getCategorySummary("dsa", userId), getCategoryHeatmap("dsa", userId),
+          ]);
+          setDomain({
+            sql: sq.data.data, aptitude: ap.data.data, interview: iv.data.data,
+            dsa: dsa.data.data,
+            sqlHeat: sqH.data.data, aptHeat: apH.data.data, ivHeat: ivH.data.data,
+            dsaHeat: dsaH.data.data,
+          });
+        } catch (e) { console.error('Failed to load domain analytics:', e?.response?.status || e?.message); }
+      }
     } catch (error) {
       console.error('Failed to load analytics:', error);
       setSummary(null); setHeatmap(null); setTopics([]);
@@ -149,8 +168,33 @@ export default function Analytics() {
                 <span className="text-purple-400 flex items-center gap-1"><Flame className="w-4 h-4" /> {heatmap?.maxStreak || 0} max</span>
               </div>
             </div>
-            <CalendarHeatmap data={toCountMap(heatmap?.heatmap)} />
+            <ContributionHeatmap title={activeTab === 'overall' ? 'Overall activity' : activeTab.toUpperCase()} activity={toCountMap(heatmap?.heatmap)} unit={activeTab === 'aptitude' ? 'attempt' : activeTab === 'overall' ? 'activity' : 'submission'} />
           </div>
+
+          {/* Four-domain heatmaps — one canonical calendar grid each */}
+          {activeTab === 'overall' && (
+            <div className={CARD_CLASSES}>
+              <h3 className="text-lg font-semibold text-white mb-4">Activity Heatmaps</h3>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div className="rounded-xl border border-gray-800 p-4">
+                  <p className="text-sm font-semibold text-white mb-3">DSA</p>
+                  <ContributionHeatmap title="DSA" activity={toCountMap(domain.dsaHeat?.heatmap)} unit="submission" />
+                </div>
+                <div className="rounded-xl border border-gray-800 p-4">
+                  <p className="text-sm font-semibold text-white mb-3">SQL</p>
+                  <ContributionHeatmap title="SQL" activity={toCountMap(domain.sqlHeat?.heatmap)} unit="submission" />
+                </div>
+                <div className="rounded-xl border border-gray-800 p-4">
+                  <p className="text-sm font-semibold text-white mb-3">Aptitude</p>
+                  <ContributionHeatmap title="Aptitude" activity={toCountMap(domain.aptHeat?.heatmap)} unit="attempt" />
+                </div>
+                <div className="rounded-xl border border-gray-800 p-4">
+                  <p className="text-sm font-semibold text-white mb-3">Mock Interviews</p>
+                  <ContributionHeatmap title="Mock Interviews" activity={toCountMap(domain.ivHeat?.heatmap)} unit="interview" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Topic breakdown */}
           <div className={CARD_CLASSES}>
