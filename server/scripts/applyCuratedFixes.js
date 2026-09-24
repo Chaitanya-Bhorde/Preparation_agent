@@ -78,4 +78,8 @@ async function run() {
   console.log('\nDONE');
 }
 
-run().catch((e) => { console.error('ERROR', e); process.exit(1); });
+// require.main guard: only write when executed directly (requiring this module
+// for its helpers must never mutate the live collection).
+if (require.main === module) {
+  run().catch((e) => { console.error('ERROR', e); process.exit(1); });
+}

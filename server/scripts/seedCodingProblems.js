@@ -734,4 +734,8 @@ const seedCodingProblems = async () => {
   }
 };
 
-seedCodingProblems();
+// require.main guard: only seed when executed directly (see
+// seedCodingProblemsExpanded.js — requiring a seeder must never write).
+if (require.main === module) {
+  seedCodingProblems();
+}

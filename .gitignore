@@ -28,3 +28,9 @@ server/scripts/_*.txt
 server/scripts/_*.js
 server/scripts/seedInterviewPrep.topics.*
 
+# Incident/investigation artifacts (local only; see DSA_RESEED_INCIDENT_SUMMARY.md)
+server/_*.txt
+server/_*.js
+server/_*.json
+!server/_acceptance_report.json
+

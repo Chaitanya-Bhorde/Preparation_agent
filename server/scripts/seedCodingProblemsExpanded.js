@@ -554,4 +554,10 @@ const seedCodingProblems = async () => {
   }
 };
 
-seedCodingProblems();
+// require.main guard: running this file directly still seeds, but REQUIRING it
+// from another module must never trigger a live deleteMany()+reseed.
+// (2026-09-24 incident: the unguarded module-level call wiped the canonical
+// bank when the module was merely required during read-only reconnaissance.)
+if (require.main === module) {
+  seedCodingProblems();
+}
