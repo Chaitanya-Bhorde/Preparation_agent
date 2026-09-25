@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  client:
+    name: client (test, lint, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Root install first: client vitest runs resolve `happy-dom`
+      # via node_modules hoisting (same layout as local dev).
+      - name: Install root deps
+        run: npm install --no-audit --no-fund
+      - name: Install client deps
+        working-directory: client
+        run: npm install --no-audit --no-fund
+      - name: Test
+        working-directory: client
+        run: npm test
+      - name: Lint (0 errors; pre-existing debt is warn-only)
+        working-directory: client
+        run: npm run lint
+      - name: Build
+        working-directory: client
+        run: npm run build
+
+  server:
+    name: server (jest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install server deps
+        working-directory: server
+        run: npm install --no-audit --no-fund
+      - name: Test
+        working-directory: server
+        run: npm test

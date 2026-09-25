@@ -4,6 +4,27 @@ const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const SQLProblem = require('../models/SQLProblem');
 
+// ---------------------------------------------------------------------------
+// PLACEHOLDER FIXTURE CONTRACT
+// ---------------------------------------------------------------------------
+// This seeder only defines problem METADATA (title, topic, difficulty, tags).
+// It intentionally has NO authored SQL schema / dataset / query, so the
+// execution-fixture fields it writes are placeholders.
+//
+// The placeholder values live in utils/placeholderFixtures.js so that this
+// seeder, backfillSQLProblemStructure.js and full_audit.js all use the exact
+// same fingerprints. Placeholder content is therefore reported as a CONTENT
+// GAP instead of being mistaken for working problem content.
+const {
+  PLACEHOLDER_SCHEMA_SETUP,
+  PLACEHOLDER_REFERENCE_SQL,
+  PLACEHOLDER_SAMPLE_ROWS,
+  PLACEHOLDER_HIDDEN_INPUT,
+  PLACEHOLDER_HIDDEN_ROWS,
+} = require('../utils/placeholderFixtures');
+const placeholderFixtureTitles = [];
+
+
 const COMPANY_TAG_MAP = {
   Google: { sql: ['joins','window-functions','cte','query-optimization'], difficulty: ['medium','hard'] },
   Amazon: { sql: ['joins','subqueries','aggregation','indexing'], difficulty: ['medium','hard'] },
@@ -140,31 +161,32 @@ async function seed() {
       const sampleTestCases = [
         {
           inputStateSQL: '',
-          expectedOutputRows: [
-            { id: 1, name: 'Sample', value: 100 },
-          ],
+          expectedOutputRows: PLACEHOLDER_SAMPLE_ROWS,
         },
       ];
       
       const hiddenTestCases = [
         {
-          inputStateSQL: `INSERT INTO test_table VALUES (2, 'Test', 200);`,
-          expectedOutputRows: [
-            { id: 1, name: 'Sample', value: 100 },
-            { id: 2, name: 'Test', value: 200 },
-          ],
+          inputStateSQL: PLACEHOLDER_HIDDEN_INPUT,
+          expectedOutputRows: PLACEHOLDER_HIDDEN_ROWS,
         },
       ];
       
       const sqlCompanies = getSQLCompanies(problem.topic, problem.tags, problem.difficulty);
+      // NOTE: this seeder only carries problem METADATA (title/topic/difficulty/tags).
+      // It has no authored schema, dataset or query for any title, so the fixture
+      // fields below are PLACEHOLDERS. They are deliberately obvious so that
+      // full_audit.js flags them instead of letting them look like real content.
+      // Every one of these problems still needs authored: description,
+      // schemaSetupSQL, sampleTestCases, hiddenTestCases, referenceSolutionSQL.
+      placeholderFixtureTitles.push(problem.title);
       return {
         ...problem,
-        description: `Solve the ${problem.title} SQL problem.`,
-        schemaSetupSQL: `CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);
-INSERT INTO test_table VALUES (1, 'Sample', 100);`,
+        description: `Solve the ${problem.title} SQL problem. (Fixture not yet authored)`,
+        schemaSetupSQL: PLACEHOLDER_SCHEMA_SETUP,
         sampleTestCases,
         hiddenTestCases,
-        referenceSolutionSQL: 'SELECT * FROM test_table;',
+        referenceSolutionSQL: PLACEHOLDER_REFERENCE_SQL,
         companies: sqlCompanies,
       };
     });
@@ -177,6 +199,17 @@ INSERT INTO test_table VALUES (1, 'Sample', 100);`,
     
     const created = await SQLProblem.insertMany(deduped, { ordered: false });
     console.log(`Seeded ${created.length} SQL problems`);
+
+    if (placeholderFixtureTitles.length > 0) {
+      console.warn('');
+      console.warn('='.repeat(78));
+      console.warn(`[WARNING] ${placeholderFixtureTitles.length}/${created.length} SQL problem(s) were seeded with PLACEHOLDER fixtures.`);
+      console.warn('  They have NO authored schema, dataset, expected rows or reference query,');
+      console.warn('  so none of them can execute. This is a CONTENT gap, not a code bug.');
+      console.warn('  Run  node full_audit.js  to list them, and see SQL_CONTENT_GAP.md');
+      console.warn('  for the table/column contract each problem needs.');
+      console.warn('='.repeat(78));
+    }
     process.exit(0);
   } catch (error) {
     console.error('Seed failed:', error.message);

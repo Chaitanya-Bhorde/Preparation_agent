@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+
 const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const SQLProblem = require('../models/SQLProblem');
@@ -317,7 +318,6 @@ INSERT INTO employees VALUES (6, 'Frank', 'Engineering', 90000);`,
         inputStateSQL: '',
         expectedOutputRows: [
           { department: 'Engineering', avg_salary: 106666.67 },
-          { department: 'Marketing', avg_salary: 100000.00 },
         ],
       },
     ],
@@ -325,6 +325,7 @@ INSERT INTO employees VALUES (6, 'Frank', 'Engineering', 90000);`,
       {
         inputStateSQL: `UPDATE employees SET salary = 70000 WHERE name = 'Frank';`,
         expectedOutputRows: [
+          { department: 'Engineering', avg_salary: 100000.00 },
           { department: 'Marketing', avg_salary: 100000.00 },
         ],
       },
@@ -488,10 +489,10 @@ INSERT INTO employees VALUES (4, 'Diana', 90000, 2);
 INSERT INTO employees VALUES (5, 'Eve', 100000, 2);`,
     sampleTestCases: [
       {
+        // Ground truth: no employee earns more than their manager in the base
+        // dataset (Charlie 120000 < Alice 150000), so the correct answer is [].
         inputStateSQL: '',
-        expectedOutputRows: [
-          { employee: 'Charlie', employee_salary: 120000, manager: 'Alice', manager_salary: 150000 },
-        ],
+        expectedOutputRows: [],
       },
     ],
     hiddenTestCases: [
@@ -499,7 +500,6 @@ INSERT INTO employees VALUES (5, 'Eve', 100000, 2);`,
         inputStateSQL: `UPDATE employees SET salary = 160000 WHERE name = 'Bob';`,
         expectedOutputRows: [
           { employee: 'Bob', employee_salary: 160000, manager: 'Alice', manager_salary: 150000 },
-          { employee: 'Charlie', employee_salary: 120000, manager: 'Alice', manager_salary: 150000 },
         ],
       },
     ],
@@ -694,7 +694,10 @@ INSERT INTO orders VALUES (5, 1, '2024-04-01');`,
 
 async function seed() {
   try {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent');
+    if (!process.env.MONGO_URI) {
+      throw new Error('MONGO_URI is required; refusing to fall back to localhost MongoDB');
+    }
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to MongoDB');
     await SQLProblem.deleteMany({});
     
@@ -713,4 +716,8 @@ async function seed() {
   }
 }
 
-seed();
+module.exports = problems;
+
+if (require.main === module) {
+  seed();
+}

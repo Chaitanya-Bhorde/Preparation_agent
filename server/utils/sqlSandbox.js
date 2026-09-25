@@ -190,47 +190,6 @@ async function executeSQL({ query, schemaSetup, testCases, expectedOutputs, time
     if (db) closeSandbox(db);
   }
 }
-      return { success: false, error: sanitizeError(execError) };
-    }
-    const executionTime = Date.now() - startTime;
-    if (executionTime > timeoutMs) {
-      return { success: false, error: 'Query execution timed out' };
-    }
-    
-    const processedResults = processSQLResult(result, query);
-    
-    const comparisonResults = [];
-    if (testCases && expectedOutputs && processedResults.rows.length > 0) {
-      for (let i = 0; i < Math.min(testCases.length, expectedOutputs.length); i++) {
-        const comparison = compareResults(
-          processedResults.rows,
-          expectedOutputs[i],
-          testCases[i]?.comparisonMode || 'exact'
-        );
-        comparisonResults.push({
-          testCaseIndex: i,
-          passed: comparison.passed,
-          expected: expectedOutputs[i],
-          actual: comparison.actual,
-          message: comparison.message,
-        });
-      }
-    }
-    
-    return {
-      success: true,
-      data: processedResults,
-      comparisonResults,
-      passedCount: comparisonResults.filter(r => r.passed).length,
-      totalCount: comparisonResults.length,
-      executionTime,
-    };
-  } catch (error) {
-    return { success: false, error: sanitizeError(error) };
-  } finally {
-    if (db) closeSandbox(db);
-  }
-}
 
 async function getSandboxHealth() {
   try {

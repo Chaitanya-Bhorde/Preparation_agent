@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getPracticeRecent } from '../../api';
 import { CARD_CLASSES, DIFFICULTY_COLORS } from '../../utils/ui';

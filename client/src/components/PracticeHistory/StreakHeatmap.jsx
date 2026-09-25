@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Flame, Calendar } from 'lucide-react';
-import CalendarHeatmap from '../CalendarHeatmap';
+import ContributionHeatmap from '../ContributionHeatmap';
+import { toCountMap } from '../../utils/heatmapDate';
 import { getPracticeStreak } from '../../api';
 import { CARD_CLASSES } from '../../utils/ui';
 
@@ -62,7 +63,7 @@ export default function StreakHeatmap({ userId }) {
           </div>
         </div>
       </div>
-      <CalendarHeatmap data={heatmap} />
+      <ContributionHeatmap title="Activity" activity={toCountMap(heatmap)} unit="activity" />
     </div>
   );
 }

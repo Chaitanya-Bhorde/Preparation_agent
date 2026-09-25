@@ -5,7 +5,7 @@ const SQLSubmission = require('../models/SQLSubmission');
 const User = require('../models/User');
 const UserStats = require('../models/UserStats');
 const { runCode, submitCode } = require('../utils/judge0');
-const { runSQL } = require('../utils/sqlRunner');
+const { evaluateSqlCase, summarizeSqlResults, shapeSqlResults } = require('../utils/sqlCaseRunner');
 const { updateStreak } = require('../utils/streak');
 
 // Helper to update user stats after submission (feeds global leaderboard aggregation)
@@ -327,54 +327,31 @@ exports.runSQL = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
     
-    // Get sample test cases
+    // Sample cases only — evaluated through the shared comparator path
+    // (utils/sqlCaseRunner.evaluateSqlCase) so each case's stored
+    // inputStateSQL is applied to a fresh sandbox before comparison.
     const sampleCases = problem.sampleTestCases || [];
     const casesToRun = sampleCases.length > 0 ? sampleCases : [];
-    
+
     const results = [];
     const schemaSetup = problem.schemaSetupSQL || '';
-    
+
     for (const tc of casesToRun) {
-      // Setup the schema for each test case
-      const sqlResult = await runSQL({ 
-        query: code, 
-        schemaSetup: problem.schemaSetupSQL,
-        expectedOutputs: tc.expectedOutputRows || [],
-        timeoutMs: 5000 
-      });
-      
-      if (!sqlResult.success) {
-        results.push({
-          passed: false,
-          input: tc.inputStateSQL || '',
-          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
-          actualOutput: '',
-          errorType: 'runtime_error',
-          errorMessage: sqlResult.error,
-          executionTime: 0,
-          memoryUsed: 0,
-          isSample: true,
-        });
-      } else {
-        const actualOutput = JSON.stringify(sqlResult.data.rows);
-        const expectedOutput = JSON.stringify(tc.expectedOutputRows || []);
-        const passed = actualOutput === expectedOutput;
-        results.push({
-          passed,
-          input: tc.inputStateSQL || '',
-          expectedOutput,
-          actualOutput,
-          errorType: passed ? null : 'wrong_answer',
-          errorMessage: passed ? null : `Expected ${expectedOutput} but got ${actualOutput}`,
-          executionTime: sqlResult.executionTime || 0,
-          memoryUsed: 0,
-          isSample: true,
-        });
-      }
+      results.push(await evaluateSqlCase({
+        query: code,
+        schemaSetup,
+        testCase: tc,
+        isSample: true,
+        timeoutMs: 5000,
+      }));
     }
-    
-    const passedCount = results.filter(r => r.passed).length;
-    const status = casesToRun.length > 0 ? (passedCount === casesToRun.length ? 'accepted' : 'wrong_answer') : 'accepted';
+
+    const passedCount = results.filter((r) => r.passed).length;
+    const firstFailure = results.find((r) => !r.passed);
+    let status = 'wrong_answer';
+    if (casesToRun.length === 0) status = 'accepted';
+    else if (passedCount === casesToRun.length) status = 'accepted';
+    else if (firstFailure && firstFailure.errorType) status = firstFailure.errorType;
     
     const submission = await SQLSubmission.create({
       user: req.user.id,
@@ -413,67 +390,26 @@ exports.submitSQL = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
 
-    const allCases = [...(problem.sampleTestCases || []), ...(problem.hiddenTestCases || [])];
+    const sampleCases = problem.sampleTestCases || [];
+    const allCases = [...sampleCases, ...(problem.hiddenTestCases || [])];
     const results = [];
     const schemaSetup = problem.schemaSetupSQL || '';
-    let firstError = null;
 
-    for (const tc of allCases) {
-      const sqlResult = await runSQL({
+    // Shared comparator path: every case (sample AND hidden) applies its own
+    // stored inputStateSQL mutation to a fresh sandbox before comparison.
+    for (let i = 0; i < allCases.length; i++) {
+      results.push(await evaluateSqlCase({
         query: code,
         schemaSetup,
+        testCase: allCases[i],
+        isSample: i < sampleCases.length,
         timeoutMs: 8000,
-      });
-
-      if (!sqlResult.success) {
-        if (!firstError) firstError = sqlResult.error;
-        const msg = String(sqlResult.error || '');
-        const status = /syntax/i.test(msg) ? 'syntax_error' : /timed out|timeout/i.test(msg) ? 'time_limit' : 'runtime_error';
-        results.push({
-          passed: false,
-          input: tc.inputStateSQL || '',
-          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
-          actualOutput: sqlResult.error,
-          errorType: status,
-          errorMessage: sqlResult.error,
-          executionTime: 0,
-          memoryUsed: 0,
-          isSample: false,
-        });
-      } else {
-        const norm = (rows) => (rows || []).map((r) => {
-          if (r && typeof r === 'object' && !Array.isArray(r)) {
-            const o = {};
-            Object.keys(r).sort().forEach((k) => { o[k.toLowerCase()] = r[k]; });
-            return o;
-          }
-          return r;
-        });
-        const actualRows = norm(sqlResult.data.rows);
-        const expectedRows = norm(tc.expectedOutputRows || []);
-        const passed = JSON.stringify(actualRows) === JSON.stringify(expectedRows);
-        results.push({
-          passed,
-          input: tc.inputStateSQL || '',
-          expectedOutput: JSON.stringify(tc.expectedOutputRows || []),
-          actualOutput: JSON.stringify(sqlResult.data.rows),
-          errorType: passed ? null : 'wrong_answer',
-          errorMessage: passed ? null : 'Result did not match expected output',
-          executionTime: sqlResult.executionTime || 0,
-          memoryUsed: 0,
-          isSample: false,
-        });
-      }
+      }));
     }
 
     const passedCount = results.filter((r) => r.passed).length;
-    let status = 'wrong_answer';
-    if (allCases.length === 0) status = 'accepted';
-    else if (passedCount === allCases.length) status = 'accepted';
-    else if (firstError) {
-      const msg = String(firstError || '');
-      status = /syntax/i.test(msg) ? 'syntax_error' : /timed out|timeout/i.test(msg) ? 'time_limit' : 'runtime_error';
-    }
+    // Shared-path contract: zero executable cases must never be accepted.
+    const { status, firstError } = summarizeSqlResults(results);
 
     const topics = [...new Set([...(problem.topics || []), ...(problem.tags || []), ...(problem.topic ? [problem.topic] : [])])];
     const totalRuntime = results.reduce((sum, r) => sum + (r.executionTime || 0), 0);
@@ -504,7 +440,7 @@ exports.submitSQL = async (req, res) => {
       success: true,
       data: {
         ...submission.toObject(),
-        testCaseResults: results,
+        testCaseResults: shapeSqlResults(results, sampleCases.length),
         mode: 'submit',
       },
     });

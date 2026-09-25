@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildMonthGrid,
-  dayKeyUTC,
-  weekdayUTC,
-  daysInMonthUTC,
   formatMonthTitle,
   shiftMonth,
   toCountMap,

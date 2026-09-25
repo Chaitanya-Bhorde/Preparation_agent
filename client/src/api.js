@@ -65,6 +65,17 @@ export const getAdminAnalytics = () => API.get('/analytics/admin');
 export const getCategorySummary = (category, userId) => API.get(`/analytics/${category}/summary/${userId}`);
 export const getCategoryHeatmap = (category, userId) => API.get(`/analytics/${category}/heatmap/${userId}`);
 export const getCategoryTopics = (category, userId) => API.get(`/analytics/${category}/topics/${userId}`);
+// Dedicated domain heatmaps (user-scoped; req.user is the source of truth).
+// DSA stays on the generic category heatmap; these power the Analytics
+// Heatmaps section: one canonical calendar grid per domain.
+export const getSQLHeatmap = () => API.get('/analytics/sql/heatmap');
+export const getAptitudeHeatmap = () => API.get('/analytics/aptitude/heatmap');
+export const getInterviewHeatmap = () => API.get('/analytics/interview/heatmap');
+// Dedicated domain summaries for the Heatmaps section cards.
+export const getSQLAnalytics = () => API.get('/analytics/sql/overview');
+export const getAptitudeAnalytics = () => API.get('/analytics/aptitude/overview');
+export const getMockInterviewAnalytics = () => API.get('/analytics/interview/overview');
+export const getMonthlyTrends = (domain) => API.get('/analytics/monthly', { params: domain ? { domain } : {} });
 // Platform-wide (admin-only) insights across all users
 export const getPlatformAnalyticsAllUsers = () => API.get('/analytics/overall/allusers');
 export const getTopicProgress = () => API.get('/topics/progress');

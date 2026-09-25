@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCodingSubmissions } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 import {
   Loader2, CheckCircle, XCircle, AlertTriangle, Terminal, Clock,
   ChevronLeft, ChevronRight, RotateCcw, X,
@@ -37,7 +38,7 @@ export default function SubmissionHistory({
   const [languageFilter, setLanguageFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  const user = useAuth().user;
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchSubmissions();
@@ -129,7 +130,7 @@ export default function SubmissionHistory({
             <button
               key={filter}
               onClick={() => handleStatusChange(filter)}
-              className{
+              className={
                 filter === statusFilter
                   ? 'px-2 py-1 rounded text-blue-600 bg-blue-900/20 text-blue-300'
                   : 'px-2 py-1 rounded text-gray-400 hover:bg-gray-700 hover:text-white'
@@ -150,7 +151,7 @@ export default function SubmissionHistory({
             <button
               key={lang}
               onClick={() => handleLanguageChange(lang)}
-              className{
+              className={
                 lang === languageFilter
                   ? 'px-2 py-1 rounded text-blue-600 bg-blue-900/20 text-blue-300'
                   : 'px-2 py-1 rounded text-gray-400 hover:bg-gray-700 hover:text-white'

@@ -74,7 +74,7 @@ export default function Navbar() {
                 type="button"
                 aria-haspopup="true"
                 aria-expanded={practiceOpen}
-                onClick={() => { setPracticeOpen(!practiceOpen); setCompanyOpen(false); }}
+                onClick={() => setPracticeOpen(!practiceOpen)}
                 className={`text-sm font-medium pb-1 transition-colors flex items-center gap-1 ${
                   location.pathname.startsWith('/practice') ? 'text-white border-b-2 border-blue-400' : 'text-gray-300 hover:text-white'
                 }`}

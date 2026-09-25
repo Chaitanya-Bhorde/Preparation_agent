@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Search, CheckCircle, Clock, BarChart2, TrendingUp, User, Calendar, PieChart, Globe, Heart } from 'lucide-react';
+import { Search, CheckCircle, Clock, BarChart2, TrendingUp, User, Calendar, PieChart, Globe, Heart, Loader2 } from 'lucide-react';
 import { DIFFICULTY_COLORS, BUTTON_CLASSES, SELECT_CLASSES } from '../utils/ui';
 import { useDebounce } from '../hooks/useDebounce';
 import { LOADING_SPINNER, LOADING_BAR } from '../utils/ui';
+import ContributionHeatmap from '../components/ContributionHeatmap';
+import { toCountMap } from '../utils/heatmapDate';
 
 const STATS_TIMEOUT = 10000;
 
@@ -152,7 +154,6 @@ export default function Stats() {
           </div>
         </div>
       </div>
-    </div>
 
     {/* Card 3: Category Breakdown */}
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-4">
@@ -188,7 +189,6 @@ export default function Stats() {
         </div>
       </div>
     </div>
-  </div>
 
   {/* Card 4: Company-wise */}
   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-4">
@@ -241,39 +241,11 @@ export default function Stats() {
     </div>
   </div>
 
-  {/* Card 6: Heatmap */}
+  {/* Card 6: Heatmap — canonical month-grid (real activity only) */}
   <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-4">
     <h3 className="text-white text-sm font-medium uppercase tracking-wider mb-3">Activity Heatmap</h3>
-    <CalendarHeatmap data={stats.heatmapData || []} />
+    <ContributionHeatmap title="Activity" activity={toCountMap(stats.heatmapData || stats.heatmap || {})} unit="submission" />
   </div>
-}
-
-const CalendarHeatmap = ({ data }) => {
-  const heatmapData = data.map((day) => ({
-    date: new Date(day.date),
-    count: day.count || 0,
-  }));
-
-  return (
-    <div className="grid grid-cols-7 gap-1 grid-rows-6 bg-gray-800 p-1">
-      <div className="text-xs text-gray-400">Sun</div>
-      <div className="text-xs text-gray-400">Mon</div>
-      <div className="text-xs text-gray-400">Tue</div>
-      <div className="text-xs text-gray-400">Wed</div>
-      <div className="text-xs text-gray-400">Thu</div>
-      <div className="text-xs text-gray-400">Fri</div>
-      <div className="text-xs text-gray-400">Sat</div>
-      {heatmapData.map((day) => {
-        const maxCount = Math.max(...heatmapData.map((d) => d.count), 1);
-        const intensity = Math.min((day.count / maxCount) * 4, 4);
-        const colors = ['text-gray-300', 'text-green-300', 'text-green-500', 'text-green-700'];
-        return (
-          <div
-            key={day.date}
-            className={`h-2 bg-gray-800 rounded ${colors[intensity]}`
-          } style={{ height: `${intensity * 10 + 4}px` }} />
-        );
-      })}
     </div>
   );
-};
+}
