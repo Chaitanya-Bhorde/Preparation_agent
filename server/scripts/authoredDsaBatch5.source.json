@@ -1,0 +1,325 @@
+{
+ "provenance": {
+  "source": "server/scripts/seedDSA100.js.backup",
+  "sourceRef": "git edbc6db: server/scripts/seedDSA100.js.backup (REVIEWED section, before the \"// ===== ADDITIONAL PROBLEMS =====\" corrupt tail)",
+  "extractedBy": "server/_b5_extract.js",
+  "extractionMethod": "the seed file is evaluated in a vm sandbox so the sig()/starter() helpers expand into real typed per-language objects; the corrupt tail is never parsed"
+ },
+ "problemId": "STACK-001",
+ "title": "Min Stack",
+ "description": "Design a stack that supports push, pop, top, and retrieving the minimum element in constant time.",
+ "difficulty": "medium",
+ "topic": "Stack",
+ "tags": [
+  "stack",
+  "design"
+ ],
+ "companies": [
+  "Amazon",
+  "Microsoft",
+  "Google"
+ ],
+ "constraints": [
+  "O(1) for each operation"
+ ],
+ "inputFormat": [
+  {
+   "paramName": "ops",
+   "type": "string[]",
+   "constraints": "operations sequence"
+  }
+ ],
+ "outputFormat": {
+  "type": "string[]",
+  "description": "Results of getMin operations (null for others)"
+ },
+ "functionSignature": {
+  "javascript": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "string[]"
+    }
+   ],
+   "returnType": "string[]"
+  },
+  "python": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "List[str]"
+    }
+   ],
+   "returnType": "List[str]"
+  },
+  "java": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "String[]"
+    }
+   ],
+   "returnType": "String[]"
+  },
+  "cpp": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "vector<string>"
+    }
+   ],
+   "returnType": "vector<string>"
+  },
+  "c": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "string[]"
+    }
+   ],
+   "returnType": "string[]"
+  },
+  "csharp": {
+   "name": "MinStack",
+   "params": [
+    {
+     "name": "ops",
+     "type": "string[]"
+    }
+   ],
+   "returnType": "string[]"
+  }
+ },
+ "starterCode": {
+  "javascript": "function MinStack(ops) {\\n    \\n}",
+  "python": "def MinStack(ops):\\n    pass",
+  "java": "class Solution {\\n    public String[] MinStack(String[] ops) {\\n        \\n    }\\n}",
+  "cpp": "class Solution {\\npublic:\\n    vector<string> MinStack(vector<string> ops) {\\n        \\n    }\\n}\\n",
+  "c": "#include <stdio.h>\\n#include <stdlib.h>\\n\\nstring[] MinStack(int ops) {\\n    \\n}\\n",
+  "csharp": "class Solution {\\n    public string[] MinStack(object ops) {\\n        \\n    }\\n}\\n"
+ },
+ "sampleTests": [
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"pop\",\"top\",\"getMin\"]\n[[],[-2],[0],[-3],[],[],[],[]]",
+   "output": "[null,null,null,null,-3,null,0,-2]",
+   "explanation": "Standard Min Stack"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\"]\n[[],[2],[1],[]]",
+   "output": "[null,null,null,1]",
+   "explanation": "Min is 1"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"pop\",\"getMin\"]\n[[],[0],[1],[],[]]",
+   "output": "[null,null,null,0]",
+   "explanation": "After pop, min is 0"
+  }
+ ],
+ "hiddenTests": [
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[0],[1],\"\",\"\"]",
+   "output": "[null,null,null,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[1],[2],\"\",\"\"]",
+   "output": "[null,null,null,1,1]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[2],[3],\"\",\"\"]",
+   "output": "[null,null,null,2,2]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[3],[4],\"\",\"\"]",
+   "output": "[null,null,null,3,3]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[4],[5],\"\",\"\"]",
+   "output": "[null,null,null,4,4]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[5],[6],\"\",\"\"]",
+   "output": "[null,null,null,5,5]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"getMin\"]\n[[],[6],[7],\"\",\"\"]",
+   "output": "[null,null,null,6,6]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[7],[8],[9],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,7,7,7]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[8],[9],[10],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,8,8,8]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[9],[10],[11],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,9,9,9]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[10],[11],[12],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,10,10,10]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[11],[12],[13],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,11,11,11]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[12],[13],[14],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,12,12,12]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[13],[14],[0],\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[14],[0],[1],[2],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[0],[1],[2],[3],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[1],[2],[3],[4],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,1,1,1,1]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[2],[3],[4],[5],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,2,2,2,2]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[3],[4],[5],[6],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,3,3,3,3]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[4],[5],[6],[7],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,4,4,4,4]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[5],[6],[7],[8],\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,5,5,5,5]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[6],[7],[8],[9],[10],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,6,6,6,6,6]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[7],[8],[9],[10],[11],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,7,7,7,7,7]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[8],[9],[10],[11],[12],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,8,8,8,8,8]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[9],[10],[11],[12],[13],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,9,9,9,9,9]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[10],[11],[12],[13],[14],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,10,10,10,10,10]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[11],[12],[13],[14],[0],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[12],[13],[14],[0],[1],\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[13],[14],[0],[1],[2],[3],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[14],[0],[1],[2],[3],[4],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[0],[1],[2],[3],[4],[5],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[1],[2],[3],[4],[5],[6],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,1,1,1,1,1,1]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[2],[3],[4],[5],[6],[7],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,2,2,2,2,2,2]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[3],[4],[5],[6],[7],[8],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,3,3,3,3,3,3]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[4],[5],[6],[7],[8],[9],\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,4,4,4,4,4,4]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[5],[6],[7],[8],[9],[10],[11],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,5,5,5,5,5,5,5]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[6],[7],[8],[9],[10],[11],[12],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,6,6,6,6,6,6,6]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[7],[8],[9],[10],[11],[12],[13],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,7,7,7,7,7,7,7]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[8],[9],[10],[11],[12],[13],[14],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,8,8,8,8,8,8,8]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[9],[10],[11],[12],[13],[14],[0],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[10],[11],[12],[13],[14],[0],[1],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[11],[12],[13],[14],[0],[1],[2],\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[12],[13],[14],[0],[1],[2],[3],[4],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,0,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[13],[14],[0],[1],[2],[3],[4],[5],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,0,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[14],[0],[1],[2],[3],[4],[5],[6],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,0,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[0],[1],[2],[3],[4],[5],[6],[7],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,0,0,0,0,0,0,0,0]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[1],[2],[3],[4],[5],[6],[7],[8],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,1,1,1,1,1,1,1,1]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[2],[3],[4],[5],[6],[7],[8],[9],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,2,2,2,2,2,2,2,2]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[3],[4],[5],[6],[7],[8],[9],[10],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,3,3,3,3,3,3,3,3]"
+  },
+  {
+   "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"push\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\",\"getMin\"]\n[[],[4],[5],[6],[7],[8],[9],[10],[11],[12],\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"]",
+   "output": "[null,null,null,null,null,null,null,null,null,null,4,4,4,4,4,4,4,4,4]"
+  }
+ ]
+}
