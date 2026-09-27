@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 const User = require('../models/User');
 const Problem = require('../models/Problem');
 const PracticeHistory = require('../models/PracticeHistory');
@@ -6,9 +7,17 @@ const PracticeHistory = require('../models/PracticeHistory');
 describe('Practice History Endpoints', () => {
   let testUser;
   let problems = [];
+  let mongoServer;
 
+  // Hermetic: spin up an ephemeral in-memory MongoDB instead of connecting to
+  // a developer's local mongod. Previously this suite connected to
+  // mongodb://localhost:27017, so it only passed where a local MongoDB happened
+  // to be running and failed everywhere else (CI has no MongoDB service) with
+  // "Exceeded timeout of 5000 ms for a hook" while mongoose waited on server
+  // selection. Same pattern as tests/interview.behavioral.test.js.
   beforeAll(async () => {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/prepagent-test');
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri());
   });
 
   afterEach(async () => {
@@ -18,7 +27,8 @@ describe('Practice History Endpoints', () => {
   });
 
   afterAll(async () => {
-    await mongoose.connection.close();
+    await mongoose.disconnect();
+    if (mongoServer) await mongoServer.stop();
   });
 
   beforeEach(async () => {
