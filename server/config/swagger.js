@@ -766,7 +766,7 @@ const options = {
             },
           },
           responses: {
-            200: { description: 'Run completed', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { status: { type: 'string' }, testCaseResults: { type: 'array', items: { type: 'object', properties: { input: { type: 'string' }, expectedOutput: { type: 'string' }, actualOutput: { type: 'string' }, passed: { type: 'boolean' }, executionTime: { type: 'number' }, memoryUsed: { type: 'number' }, error: { type: 'string' }, errorType: { type: 'string' } } } } } } } } } },
+            200: { description: 'Run completed', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'object', properties: { status: { type: 'string' }, testCaseResults: { type: 'array', items: { type: 'object', properties: { input: { type: 'string' }, expectedOutput: { type: 'string' }, actualOutput: { type: 'string' }, passed: { type: 'boolean' }, executionTime: { type: 'number' }, memoryUsed: { type: 'number' }, error: { type: 'string' }, errorType: { type: 'string' } } } } } } } } } }},
           },
         },
       },
