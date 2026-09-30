@@ -286,3 +286,100 @@ describe('P4/Security — solved state and hidden tests', () => {
   });
 });
 
+// ===========================================================================
+// REGRESSION: an Accepted submission must actually PERSIST.
+//
+// The hidden-case redaction stores `input: ''` / `expected: ''` for hidden
+// cases. Those paths were declared `required: true`, so every submission
+// containing a hidden test case failed Mongoose validation and the route
+// returned HTTP 500. No Accepted verdict was ever saved, so the problem card
+// could never turn green — while every service-level unit test still passed,
+// because none of them persisted a real submission.
+describe('P4 — an Accepted submission persists and turns the card green', () => {
+  it('stores a submission whose hidden cases are redacted to empty strings', async () => {
+    const u = await mkUser('Green', 'green@example.com');
+    const p = await mkProblem();
+
+    // Exactly the shape persistSubmissionRecords builds: visible cases carry
+    // content, hidden cases are blanked.
+    const saved = await CodeSubmission.create({
+      user: u._id,
+      problem: p._id,
+      language: 'javascript',
+      code: 'function f(){return 1;}',
+      verdict: 'Accepted',
+      category: 'dsa',
+      passedTestCases: 5,
+      totalTestCases: 5,
+      testCaseResults: [
+        { input: 'VISIBLE_IN', expected: 'VISIBLE_OUT', actualOutput: 'VISIBLE_OUT', passed: true, isSample: true },
+        { input: '', expected: '', actualOutput: '', passed: true, isSample: false },
+        { input: '', expected: '', actualOutput: '', passed: true, isSample: false },
+      ],
+    });
+
+    const found = await CodeSubmission.findById(saved._id).lean();
+    expect(found).not.toBeNull();
+    expect(found.verdict).toBe('Accepted');
+    expect(found.testCaseResults).toHaveLength(3);
+    expect(found.testCaseResults[0].input).toBe('VISIBLE_IN');
+    expect(found.testCaseResults[1].input).toBe('');
+    expect(found.testCaseResults[1].expected).toBe('');
+  });
+
+  it('the schema does not require input/expected on a stored case', () => {
+    const caseSchema = CodeSubmission.schema.path('testCaseResults').schema;
+    // Mongoose reports isRequired as undefined when no validator is attached,
+    // so assert "not required" rather than a strict false.
+    expect(caseSchema.path('input').isRequired).toBeFalsy();
+    expect(caseSchema.path('expected').isRequired).toBeFalsy();
+  });
+
+  it('a full submit cycle leaves the problem solvable: card green, count 1', async () => {
+    const u = await mkUser('Cycle', 'cycle@example.com');
+    const p = await mkProblem();
+
+    // A wrong attempt first, then two accepted ones.
+    for (const verdict of ['WrongAnswer', 'Accepted', 'Accepted']) {
+      await CodeSubmission.create({
+        user: u._id, problem: p._id, language: 'javascript', code: 'function f(){}',
+        verdict, category: 'dsa', passedTestCases: verdict === 'Accepted' ? 5 : 0, totalTestCases: 5,
+        testCaseResults: [
+          { input: 'in', expected: 'out', actualOutput: 'out', passed: true, isSample: true },
+          { input: '', expected: '', actualOutput: '', passed: true, isSample: false },
+        ],
+      });
+    }
+
+    const res = { statusCode: 200, payload: null };
+    res.status = (c) => { res.statusCode = c; return res; };
+    res.json = (b) => { res.payload = b; return res; };
+    await codingProblemController.getCodingProblemStats({ user: { id: u._id.toString() } }, res);
+    expect(res.payload.data.solved).toBe(1);
+    expect(res.payload.data.attempted).toBe(0);
+    expect(res.payload.data.unsolved).toBe(res.payload.data.total - 1);
+
+    const { computeDsaProgress } = require('../services/dsaProgressService');
+    const progress = await computeDsaProgress(u._id);
+    expect(progress.totalSubmissions).toBe(3);
+    expect(progress.totalSolved).toBe(1);
+  });
+
+  it('a WRONG answer leaves the card unsolved even with redacted hidden cases', async () => {
+    const u = await mkUser('NotGreen', 'notgreen@example.com');
+    const p = await mkProblem();
+    await CodeSubmission.create({
+      user: u._id, problem: p._id, language: 'javascript', code: 'function f(){}',
+      verdict: 'WrongAnswer', category: 'dsa', passedTestCases: 0, totalTestCases: 5,
+      testCaseResults: [
+        { input: 'in', expected: 'out', actualOutput: 'wrong', passed: false, isSample: true },
+        { input: '', expected: '', actualOutput: '', passed: false, isSample: false },
+      ],
+    });
+    const { computeDsaProgress } = require('../services/dsaProgressService');
+    const progress = await computeDsaProgress(u._id);
+    expect(progress.totalSolved).toBe(0);
+    expect(progress.totalSubmissions).toBe(1);
+  });
+});
+

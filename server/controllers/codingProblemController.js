@@ -233,7 +233,11 @@ exports.getCodingProblems = async (req, res) => {
     // all matching problems, derive status from submissions, filter, then paginate.
     if (status && status !== 'all') {
       const allMatching = await CodingProblem.find(query)
-        .select('-sampleTests -hiddenTests -solution')
+        // `-hiddenTests` only: sample tests are PUBLIC (they are shown on the
+        // problem page and in the Run panel), so they must survive the select.
+        // Excluding them here made mapProblemForResponse emit an empty
+        // `visibleTestCases` for every card.
+        .select('-hiddenTests -referenceSolution -solution')
         .sort(sortObj);
 
       const allIds = allMatching.map(p => p._id);
@@ -280,7 +284,9 @@ exports.getCodingProblems = async (req, res) => {
     // --- No status filter: efficient paginated query ---
     const total = await CodingProblem.countDocuments(query);
     let problems = await CodingProblem.find(query)
-      .select('-sampleTests -hiddenTests -solution')
+      // Sample tests are public and are mapped to `visibleTestCases` below.
+      // Only hidden tests and the reference solution are withheld.
+      .select('-hiddenTests -referenceSolution -solution')
       .sort(sortObj)
       .skip((curPage - 1) * pageSize)
       .limit(pageSize);

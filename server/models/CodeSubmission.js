@@ -1,14 +1,28 @@
 const mongoose = require('mongoose');
 
+/**
+ * Per-case result.
+ *
+ * `input` and `expected` are NOT `required`. A hidden test case is stored with
+ * its content blanked out (empty string) so that a user cannot read the answer
+ * key back out of their own submission record — see sanitizeSubmission() in
+ * routes/coding.js. Declaring these paths as `required` made every submission
+ * containing a hidden case fail Mongoose validation and return HTTP 500, so an
+ * Accepted verdict could never be persisted and the problem never turned green.
+ *
+ * `isSample: true` means the case content is present; `isSample: false` means it
+ * was deliberately withheld. Pass/fail counts and timings are always stored.
+ */
 const TestCaseResultSchema = new mongoose.Schema({
-  input: { type: String, required: true },
-  expected: { type: String, required: true },
+  input: { type: String, default: '' },
+  expected: { type: String, default: '' },
   actualOutput: { type: String, default: '' },
   passed: { type: Boolean, required: true },
   executionTime: { type: Number, default: 0 },
   memoryUsed: { type: Number, default: 0 },
   errorType: { type: String, default: null },
   errorMessage: { type: String, default: null },
+  isSample: { type: Boolean, default: false },
 }, { _id: false });
 
 const CodeSubmissionSchema = new mongoose.Schema(
