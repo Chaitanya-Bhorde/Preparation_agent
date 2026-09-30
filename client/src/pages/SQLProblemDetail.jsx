@@ -243,11 +243,21 @@ export default function SQLProblemDetail() {
                   <div key={t.tableName} className="border border-gray-800 rounded-lg overflow-hidden">
                     <div className="bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-200">{t.tableName}</div>
                     <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-900 text-gray-500">
+                          <th className="px-3 py-1 text-left font-medium">Column</th>
+                          <th className="px-3 py-1 text-left font-medium">Type</th>
+                          <th className="px-3 py-1 text-left font-medium">Notes</th>
+                        </tr>
+                      </thead>
                       <tbody>
-                        {t.columns.map((c) => (
-                          <tr key={c.name} className="border-t border-gray-800">
+                        {t.columns.map((c, i) => (
+                          <tr key={`${t.tableName}-${c.name}-${i}`} className="border-t border-gray-800">
                             <td className="px-3 py-1.5 text-gray-300">{c.name}</td>
                             <td className="px-3 py-1.5 text-gray-500 font-mono">{c.type}</td>
+                            <td className="px-3 py-1.5 text-gray-500">
+                              {c.notes || <span className="text-gray-700">—</span>}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -256,6 +266,22 @@ export default function SQLProblemDetail() {
                   </div>
                 ))}
               </div>
+              <p className="text-[11px] text-gray-600 mt-2">
+                The Run button executes your query against this schema in an isolated sandbox.
+                Submit additionally runs the hidden test suite, which is never shown.
+              </p>
+            </div>
+          )}
+
+          {(!Array.isArray(problem.schemaTables) || problem.schemaTables.length === 0) && (
+            <div className={CARD_CLASSES}>
+              <h2 className="text-sm font-semibold text-white mb-2 flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-gray-500" /> Database Schema
+              </h2>
+              <p className="text-xs text-gray-500">
+                A column-level schema has not been recorded for this problem. The sandbox still
+                creates the tables described in the problem statement.
+              </p>
             </div>
           )}
 

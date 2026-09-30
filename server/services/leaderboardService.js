@@ -1,25 +1,28 @@
 const { UserStats, Leaderboard, User, UserFriends } = require('../models');
+const { rankingTierFor } = require('./dsaProgressService');
 
 async function computeGlobalLeaderboard() {
   try {
-    const rankings = await UserStats.aggregate([
-      { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'userDoc' } },
-      { $unwind: '$userDoc' },
-      { $sort: { totalProblems: -1, acceptanceRate: -1 } },
-      { $project: {
-        userId: 1, username: '$userDoc.name', email: '$userDoc.email',
-        totalProblems: 1, acceptanceRate: 1, rankingTier: 1,
-        easyCount: 1, mediumCount: 1, hardCount: 1, currentStreak: 1, _id: 0
-      } }
-    ]);
+    // Rankings come from the REAL submission records via the shared DSA
+    // pipeline, so the snapshot can never drift from actual activity and
+    // automated test accounts are excluded at the source.
+    const { dsaRankingPipeline } = require('./dsaLeaderboardService');
+    const CodeSubmission = require('../models/CodeSubmission');
+    const rankings = await CodeSubmission.aggregate(dsaRankingPipeline());
 
     await Leaderboard.deleteMany({ leaderboardType: 'Global' });
 
     const leaderboardDocs = rankings.map((user, index) => ({
-      userId: user.userId, username: user.username, email: user.email,
-      rank: index + 1, totalProblems: user.totalProblems, acceptanceRate: user.acceptanceRate,
-      rankingTier: user.rankingTier, easyCount: user.easyCount, mediumCount: user.mediumCount,
-      hardCount: user.hardCount, currentStreak: user.currentStreak,
+      userId: user.userId, username: user.username,
+      rank: index + 1,
+      // `solvedCount` is the UNIQUE solved-problem count produced by the
+      // shared pipeline; `acceptedOnSolved` is the raw accepted-submission
+      // count and is kept only for transparency.
+      totalProblems: user.solvedCount,
+      totalSubmissions: user.acceptedOnSolved,
+      rankingTier: rankingTierFor(user.solvedCount),
+      easyCount: user.easyCount, mediumCount: user.mediumCount,
+      hardCount: user.hardCount,
       leaderboardType: 'Global', snapshotDate: new Date()
     }));
 

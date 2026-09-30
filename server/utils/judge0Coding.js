@@ -679,4 +679,43 @@ exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;
 exports.normalizeLanguage = normalizeLanguage;
 exports.executeSingleCase = executeSingleCase;
+
+/**
+ * BATCH ENTRY POINT — run MANY test cases against ONE built driver.
+ *
+ * Engine selection is identical to executeSingleCase (CODING_EXECUTION_ENGINE):
+ *   'local'  -> localExecutor.executeTestCases (compile once, run N times)
+ *   'judge0' -> the existing per-case Judge0 round trip
+ *   'auto'   -> try Judge0; fall back to the local batch for the WHOLE batch
+ *               when Judge0 fails at the engine level (unreachable / internal /
+ *               exec-format), exactly as the single-case path does per case.
+ *
+ * Routing the whole batch through one engine decision (instead of re-deciding
+ * per case) is what removes the repeated per-case engine probe that dominated
+ * latency when Judge0 is not running.
+ *
+ * @param {string} fullCode     built driver program
+ * @param {string} language
+ * @param {Array<{input:string, expectedOutput:string}>} cases
+ * @param {string} returnType
+ * @returns {Promise<Array>} one shaped result per case, in the input order
+ */
+const executeTestCases = async (fullCode, language, cases, returnType) => {
+  const list = Array.isArray(cases) ? cases : [];
+  if (list.length === 0) return [];
+
+  const engine = (process.env.CODING_EXECUTION_ENGINE || 'auto').toLowerCase();
+
+  if (engine === 'local') {
+    return localExecutor.executeTestCases(fullCode, language, list, returnType);
+  }
+
+  const results = [];
+  for (const testCase of list) {
+    results.push(await executeSingleCase(fullCode, language, testCase.input, testCase.expectedOutput, returnType));
+  }
+  return results;
+};
+
+exports.executeTestCases = executeTestCases;
 exports.isJudge0Reachable = isJudge0Reachable;

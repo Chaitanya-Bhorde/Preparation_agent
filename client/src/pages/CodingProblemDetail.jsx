@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { getCodingProblem, runCode, submitCode, getCodingSubmissions, getCodingSubmission, getDraft, saveDraft, likeCodingProblem } from '../api';
+import { getCodingProblem, runCode, submitCode, getCodingSubmissions, getDraft, saveDraft, likeCodingProblem } from '../api';
+import SubmissionHistory from '../components/DSA/SubmissionHistory';
 import { useAuth } from '../context/AuthContext';
 import { Play, CheckCircle, XCircle, Loader2, ArrowLeft, AlertTriangle, Clock, Terminal, BookOpen, History, Lightbulb, Plus, Trash2, ThumbsUp, ThumbsDown, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -49,8 +50,6 @@ export default function CodingProblemDetail() {
   const [visibleTestcases, setVisibleTestcases] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [selectedSubmissionLoading, setSelectedSubmissionLoading] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [draftFound, setDraftFound] = useState(false);
   const [codeDirty, setCodeDirty] = useState(false);
@@ -59,6 +58,10 @@ export default function CodingProblemDetail() {
   const [userLiked, setUserLiked] = useState(false);
   const [userDisliked, setUserDisliked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+  // Solved state is seeded from the backend (`problem.userStatus`) and then
+  // replaced by the authoritative `solved` flag the submit endpoint returns,
+  // so the card reflects the database rather than optimistic client state.
+  const [isSolved, setIsSolved] = useState(false);
 
   useEffect(() => { loadProblem(); }, [slug]);
 
@@ -100,6 +103,7 @@ export default function CodingProblemDetail() {
       const { data } = await getCodingProblem(slug);
       const prob = data.data;
       setProblem(prob);
+      setIsSolved(prob.userStatus === 'solved');
       setLikes(prob.likes ?? 0);
       setDislikes(prob.dislikes ?? 0);
       setUserLiked(!!prob.userLiked);
@@ -124,28 +128,16 @@ export default function CodingProblemDetail() {
   const loadSubmissions = async () => {
     if (!problem) return;
     setSubmissionsLoading(true);
-    setSelectedSubmission(null);
     try {
       const { data } = await getCodingSubmissions({ problemId: problem._id, limit: 20 });
-      setSubmissions(data.data || []);
+      // The endpoint returns the same array under `data` and `submissions`;
+      // accept either so a response-shape change cannot silently empty the list.
+      setSubmissions(data.data || data.submissions || []);
     } catch (error) {
       console.error('Failed to load submissions:', error);
+      setSubmissions([]);
     } finally {
       setSubmissionsLoading(false);
-    }
-  };
-
-  const viewSubmission = async (submissionId) => {
-    setSelectedSubmissionLoading(true);
-    try {
-      const { data } = await getCodingSubmission(submissionId);
-      if (data.success) {
-        setSelectedSubmission(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to load submission:', error);
-    } finally {
-      setSelectedSubmissionLoading(false);
     }
   };
 
@@ -215,6 +207,13 @@ export default function CodingProblemDetail() {
       const { data } = await submitCode({ problemId: problem._id, code, language });
       const submitResult = { ...data.data, mode: 'submit' };
       setResult(submitResult);
+      // The endpoint returns `solved`, computed from the database as "does this
+      // user have ANY Accepted submission on this problem". Trusting it — rather
+      // than inferring from this submission's verdict — keeps the green state
+      // correct for WA-after-AC and for a repeated AC.
+      if (typeof data.data.solved === 'boolean') setIsSolved(data.data.solved);
+      // Refresh the history so the new attempt appears without a manual reload.
+      loadSubmissions();
       if (data.data.verdict === 'Accepted') {
         toast.success('All test cases passed!');
         try {
@@ -347,6 +346,11 @@ export default function CodingProblemDetail() {
         <div className="flex items-center gap-4 min-w-0">
           <Link to="/coding-problems" className="text-gray-400 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></Link>
           <h1 className="text-white font-semibold truncate">{problem.title}</h1>
+          {isSolved && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 border border-green-500/40 shrink-0">
+              <CheckCircle className="w-3 h-3" /> Solved
+            </span>
+          )}
           <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${difficultyColor(problem.difficulty)}`}>{problem.difficulty}</span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 shrink-0">{problem.topic}</span>
           <div className="hidden md:flex gap-1 text-xs text-gray-500">
@@ -433,7 +437,24 @@ export default function CodingProblemDetail() {
                     ))}
                   </div>
                 )}
-                {problem.constraints && problem.constraints.length > 0 && (
+                {/* Honest empty state: some bank entries have no authored sample
+                    cases. Saying so is better than rendering an empty section or
+                    "undefined" text. Run: samples 0. Submit: samples + hidden. */}
+                {examples.length === 0 && (
+                  <div className="mt-6 bg-gray-900 rounded-lg p-4 border border-amber-700/40">
+                    <p className="text-amber-300 text-sm font-medium">No sample test cases available for this problem</p>
+                    <p className="text-gray-400 text-xs mt-1">
+                      Run and Submit execute the full hidden test suite for this problem instead.
+                      Sample cases for this entry have not been authored yet.
+                    </p>
+                  </div>
+                )}
+                {!problem.constraints || problem.constraints.length === 0 ? (
+                  <div className="mt-6">
+                    <h3 className="text-white font-semibold mb-2">Constraints</h3>
+                    <p className="text-gray-500 text-sm">Constraints have not been recorded for this problem.</p>
+                  </div>
+                ) : (
                   <div className="mt-6">
                     <h3 className="text-white font-semibold mb-2">Constraints</h3>
                     <ul className="list-disc list-inside text-gray-300 text-sm space-y-1">
@@ -445,57 +466,11 @@ export default function CodingProblemDetail() {
             )}
             {activeTab === 'submissions' && (
               <div>
-                {submissionsLoading ? (
-                  <div className="text-gray-400 text-center py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
-                ) : submissions.length === 0 ? (
-                  <div className="text-gray-400 text-center py-8">
-                    <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No submissions yet. Write some code and hit Submit!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {submissions.map((sub) => {
-                      const cfg = getStatusConfig(sub.verdict);
-                      const Icon = cfg.icon;
-                      const isSelected = selectedSubmission && selectedSubmission._id === sub._id;
-                      return (
-                        <div key={sub._id}
-                          onClick={() => viewSubmission(sub._id)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-900/20' : `${cfg.bg} border-gray-800 hover:border-gray-700`}`}>
-                          <div className="flex items-center gap-2">
-                            <Icon className={`w-4 h-4 ${cfg.color}`} />
-                            <span className={`text-sm ${cfg.color}`}>{cfg.label}</span>
-                            <span className="text-gray-500 text-xs ml-auto">{new Date(sub.createdAt).toLocaleString()}</span>
-                          </div>
-                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                            <span>{sub.passedTestCases}/{sub.totalTestCases} passed</span>
-                            <span>{sub.runtimeMs || 0}ms</span>
-                            <span>{sub.memoryKb || 0}KB</span>
-                            <span className="capitalize">{sub.language}</span>
-                          </div>
-                          {isSelected && (
-                            <div className="mt-3 pt-3 border-t border-gray-700">
-                              {selectedSubmissionLoading ? (
-                                <div className="text-gray-400 text-center py-2"><Loader2 className="w-4 h-4 animate-spin mx-auto" /></div>
-                              ) : selectedSubmission && selectedSubmission.code && (
-                                <div>
-                                  <pre className="bg-gray-950 p-3 rounded text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-800">
-                                    {selectedSubmission.code}
-                                  </pre>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); restoreSubmission(selectedSubmission.code); }}
-                                    className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded flex items-center gap-1.5">
-                                    Restore to editor
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <SubmissionHistory
+                  open
+                  problemId={problem._id}
+                  onResubmit={restoreSubmission}
+                />
               </div>
             )}
             {activeTab === 'solutions' && (

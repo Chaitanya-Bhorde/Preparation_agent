@@ -5,6 +5,7 @@ const SQLProblem = require('../models/SQLProblem');
 const SQLSubmission = require('../models/SQLSubmission');
 const { protect } = require('../middleware/auth');
 const { runSQL, submitSQL } = require('../controllers/submissionController');
+const { projectSqlProblem } = require('../utils/sqlSchemaProjection');
 
 // Compute solved/attempted status for the authenticated user across problem ids.
 // A problem is 'solved' if ANY accepted submit exists, else 'attempted' if any
@@ -55,10 +56,14 @@ router.get('/problems', protect, async (req, res) => {
         req.user.id,
         problems.map((p) => p._id)
       );
-      problems.forEach((p) => {
-        const pid = String(p._id);
-        p.userStatus = solved.has(pid) ? 'solved' : attempted.has(pid) ? 'attempted' : null;
-      });
+      // Project the displayable schema + worked example from data that is
+      // already stored (schemaSetupSQL / sampleTestCases) so the list card can
+      // show what the problem is about. Hidden cases are never read here.
+      for (let i = 0; i < problems.length; i++) {
+        const pid = String(problems[i]._id);
+        problems[i] = projectSqlProblem(problems[i]);
+        problems[i].userStatus = solved.has(pid) ? 'solved' : attempted.has(pid) ? 'attempted' : null;
+      }
     }
 
     res.status(200).json({
@@ -90,13 +95,15 @@ router.get('/problems/:slug', protect, async (req, res) => {
 
     const { solved, attempted } = await getUserStatusSets(req.user.id, [problem._id]);
     const pid = String(problem._id);
-    problem.userStatus = solved.has(pid) ? 'solved' : attempted.has(pid) ? 'attempted' : null;
+    // Build the display shape from stored content, then apply the same redaction
+    // rules: no hidden cases, and no reference solution until the user has an
+    // accepted submission.
+    const projected = projectSqlProblem(problem);
+    delete projected.schemaSetupSQL;
+    delete projected.referenceSolutionSQL;
+    projected.userStatus = solved.has(pid) ? 'solved' : attempted.has(pid) ? 'attempted' : null;
 
-    if (!solved.has(pid)) {
-      delete problem.referenceSolutionSQL;
-    }
-
-    res.status(200).json({ success: true, data: problem });
+    res.status(200).json({ success: true, data: projected });
   } catch (error) {
     console.error('Error fetching SQL problem:', error);
     res.status(500).json({ success: false, message: error.message });

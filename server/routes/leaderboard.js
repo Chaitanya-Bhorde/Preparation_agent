@@ -140,7 +140,8 @@ router.get('/aptitude', async (req, res) => {
           avgScore: { $avg: '$score' },
         } },
       { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
-      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $unwind: '$u' },
+      { $match: { 'u.isTestAccount': { $ne: true } } },
       { $project: {
           userId: '$_id',
           username: { $ifNull: ['$u.name', 'Unknown'] },
@@ -156,7 +157,13 @@ router.get('/aptitude', async (req, res) => {
       { $skip: (page - 1) * limit },
       { $limit: limit },
     ]);
-    const totalAgg = await AptitudeSubmission.aggregate([{ $group: { _id: '$userId' } }, { $count: 'n' }]);
+    const totalAgg = await AptitudeSubmission.aggregate([
+      { $group: { _id: '$userId' } },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+      { $unwind: '$u' },
+      { $match: { 'u.isTestAccount': { $ne: true } } },
+      { $count: 'n' },
+    ]);
     const total = totalAgg[0] ? totalAgg[0].n : 0;
     res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
   } catch (err) {
@@ -183,14 +190,28 @@ router.get('/sql', async (req, res) => {
         } },
       { $addFields: { solvedCount: { $size: '$problemsSolved' } } },
       { $project: { userId: '$_id', acceptedSubmissions: 1, totalSubmissions: 1, solvedCount: 1, acceptanceRate: { $round: [{ $multiply: [{ $divide: ['$acceptedSubmissions', { $max: ['$totalSubmissions', 1] }] }, 100] }, 0] } } },
+      // Attach the real account and drop automated test accounts so they can
+      // never appear on a public ranking (see utils/testAccount.js). `$unwind`
+      // without preserveNull also drops rows whose user no longer exists.
       { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'u' } },
-      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $unwind: '$u' },
+      // Qualified path: `$unwind` keeps the looked-up document under `u`, and
+      // `{ $ne: true }` would otherwise match the MISSING top-level field and
+      // let every test account back onto the board.
+      { $match: { 'u.isTestAccount': { $ne: true } } },
       { $project: { userId: 1, username: { $ifNull: ['$u.name', ''] }, avatar: '$u.avatar', acceptedSubmissions: 1, totalSubmissions: 1, solvedCount: 1, acceptanceRate: 1 } },
       { $sort: { solvedCount: -1, acceptanceRate: -1 } },
       { $skip: (page - 1) * limit },
       { $limit: limit },
     ]);
-    const totalAgg = await Submission.aggregate([{ $match: { user: { $exists: true }, category: 'sql' } }, { $group: { _id: '$user' } }, { $count: 'n' }]);
+    const totalAgg = await Submission.aggregate([
+      { $match: { user: { $exists: true }, category: 'sql' } },
+      { $group: { _id: '$user' } },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'u' } },
+      { $unwind: '$u' },
+      { $match: { 'u.isTestAccount': { $ne: true } } },
+      { $count: 'n' },
+    ]);
     const total = totalAgg[0] ? totalAgg[0].n : 0;
     res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
   } catch (err) {
@@ -200,38 +221,33 @@ router.get('/sql', async (req, res) => {
 
 /**
  * GET /api/leaderboard/dsa
- * DSA rankings from UserStats (kept consistent with the global leaderboard).
+ * DSA rankings computed directly from real Accepted submissions.
+ *
+ * It previously read the `userstats` collection, which the DSA submit path never
+ * wrote (only the legacy SQL path does, and that collection held 0 documents
+ * here), so the tab silently fell back to a stale snapshot and real users such
+ * as "manan" never appeared. See services/dsaLeaderboardService.
  */
 router.get('/dsa', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const UserStats = require('../models/UserStats');
-    const rows = await UserStats.aggregate([
-      { $lookup: { from: 'users', localField: 'userId', foreignField: '_id', as: 'u' } },
-      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
-      { $project: { userId: 1, username: { $ifNull: ['$u.name', ''] }, totalProblems: 1, acceptanceRate: 1, easyCount: 1, mediumCount: 1, hardCount: 1, streak: '$currentStreak' } },
-      { $sort: { totalProblems: -1, acceptanceRate: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit },
-    ]);
-    let total = await UserStats.countDocuments({});
-    if (rows.length === 0 && total === 0) {
-      // Fallback: reuse the persisted Global snapshot so the tab is never empty.
-      const leaderboardService = require('../services/leaderboardService');
-      const snap = await leaderboardService.getLeaderboard('Global', { limit, page });
-      const mapped = (snap.leaderboard || []).map(r => ({
+    const { getDsaLeaderboard } = require('../services/dsaLeaderboardService');
+    const { leaderboard, pagination } = await getDsaLeaderboard({ limit, page });
+    // The client renders the DSA tab with the global-leaderboard column names,
+    // so `totalProblems` carries the UNIQUE solved-problem count.
+    res.json({
+      leaderboard: leaderboard.map((r) => ({
         userId: r.userId,
         username: r.username || '',
-        totalProblems: r.totalProblems || 0,
-        acceptanceRate: r.acceptanceRate || 0,
-        easyCount: r.easyCount || 0,
-        mediumCount: r.mediumCount || 0,
-        hardCount: r.hardCount || 0,
-      }));
-      return res.json({ leaderboard: mapped, pagination: snap.pagination });
-    }
-    res.json({ leaderboard: rows, pagination: { page, limit, total, pages: Math.max(Math.ceil(total / limit), 1) } });
+        totalProblems: r.solvedCount,
+        totalSubmissions: r.acceptedOnSolved,
+        easyCount: r.easyCount,
+        mediumCount: r.mediumCount,
+        hardCount: r.hardCount,
+      })),
+      pagination,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

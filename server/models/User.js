@@ -29,6 +29,14 @@ const UserSchema = new mongoose.Schema(
       enum: ['student', 'admin'],
       default: 'student',
     },
+    // Set automatically at registration for automated test addresses (see
+    // utils/testAccount.js) and by scripts/flagTestAccounts.js for historical
+    // ones. Accounts flagged here are excluded from every public leaderboard.
+    // Defaults to false, so a genuine user is never hidden.
+    isTestAccount: {
+      type: Boolean,
+      default: false,
+    },
     profile: {
       resumeUrl: String,
       profilePicture: String,

@@ -1,5 +1,6 @@
 const CodingProblem = require('../models/CodingProblem');
 const CodeSubmission = require('../models/CodeSubmission');
+const mongoose = require('mongoose');
 const { generateStarterCode } = require('../utils/codeGenerator');
 
 const SUPPORTED_LANGS = ['javascript', 'python', 'java', 'cpp', 'c', 'csharp'];
@@ -50,7 +51,8 @@ function withUserFields(pObj, userId) {
 
 // Map new schema fields to legacy API response fields for backward compatibility
 function mapProblemForResponse(problem) {
-  const pObj = typeof problem.toObject === "function" ? problem.toObject() : problem;
+  if (!problem) return problem;
+  const pObj = typeof problem.toObject === "function" ? problem.toObject() : { ...problem };
   // Prefer the new schema's sampleTests; fall back to legacy visibleTestCases if present in DB
   const samples = pObj.sampleTests || pObj.visibleTestCases || [];
   const normalize = (tc) => ({
@@ -66,15 +68,27 @@ function mapProblemForResponse(problem) {
     explanation: tc.explanation,
     expectedOutput: tc.output ?? tc.expectedOutput ?? '',
   }));
-  pObj.hiddenTestCases = pObj.hiddenTests || pObj.hiddenTestCases || [];
-  // Remove internal field names from response
+  // SECURITY: hidden test cases must never reach the client. The stored field is
+  // `hiddenTests`; the old code re-published it under the legacy name
+  // `hiddenTestCases`, which shipped every hidden input AND its expected output
+  // to any authenticated user who called this endpoint. The field is now
+  // deleted below along with the rest of the internal names.
   delete pObj.sampleTests;
   delete pObj.hiddenTests;
+  delete pObj.hiddenTestCases;
+  // Never expose the metadata-driven reference solver either: it is the
+  // answer key used to compute expected outputs for cases that lack one.
+  delete pObj.referenceSolution;
   // Never expose the likedBy/dislikedBy arrays to clients (privacy)
   delete pObj.likedBy;
   delete pObj.dislikedBy;
   return pObj;
 }
+
+// Exported for unit tests: the public problem-response projection is where the
+// hidden-test-case leak lived, so it is asserted directly rather than only
+// through the HTTP layer.
+exports.mapProblemForResponse = mapProblemForResponse;
 
 // GET /api/coding-problems/stats
 // Returns the user's aggregate problem stats: total, solved, attempted, unsolved
@@ -82,22 +96,29 @@ exports.getCodingProblemStats = async (req, res) => {
   try {
     const total = await CodingProblem.countDocuments({ isActive: true });
 
-    const submissions = await CodeSubmission.find({
-      user: req.user.id,
-      category: 'dsa',
-    }).select('problem verdict').lean();
+    // One aggregation produces both sets:
+    //   $group by problem collapses duplicate submissions, so three Accepted
+    //   submissions of the same problem still count as ONE solved problem.
+    //   $unwind (no preserveNull) drops submissions whose problem document no
+    //   longer exists, so a dangling reference can never inflate "attempted"
+    //   and push "unsolved" negative.
+    //   A problem is ATTEMPTED when it has at least one submission of any
+    //   verdict, so a problem that was wrong first and then accepted is in both
+    //   the solved and the attempted set — which is correct, and is why
+    //   "attempted but not solved" is derived by subtraction rather than by only
+    //   collecting non-Accepted rows.
+    const rows = await CodeSubmission.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(req.user.id), category: 'dsa' } },
+      { $lookup: { from: 'codingproblems', localField: 'problem', foreignField: '_id', as: 'p' } },
+      { $unwind: '$p' },
+      { $match: { 'p.isActive': { $ne: false } } },
+      { $group: { _id: '$problem', solved: { $max: { $cond: [{ $eq: ['$verdict', 'Accepted'] }, 1, 0] } } } },
+      { $group: { _id: null, solved: { $sum: '$solved' }, attempted: { $sum: 1 } } },
+    ]);
 
-    const solved = new Set();
-    const attempted = new Set();
-    submissions.forEach((sub) => {
-      const pid = sub.problem ? sub.problem.toString() : null;
-      if (!pid) return;
-      if (sub.verdict === 'Accepted') solved.add(pid);
-      else attempted.add(pid);
-    });
-
-    const solvedCount = solved.size;
-    const attemptedOnly = attempted.size - solvedCount; // attempted but not solved
+    const solvedCount = rows[0] ? rows[0].solved : 0;
+    const attemptedTotal = rows[0] ? rows[0].attempted : 0;
+    const attemptedOnly = attemptedTotal - solvedCount; // attempted but never accepted
 
     res.status(200).json({
       success: true,

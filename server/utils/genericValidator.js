@@ -352,7 +352,7 @@ function resolveExecutor(problem, userCode, language, opts) {
  *
  * @returns {{ testCaseId, input, expected, actual, passed, error, time }}
  */
-async function validateSingleTestCase(problem, userCode, language, testCase, opts) {
+async function validateSingleTestCase(problem, userCode, language, testCase, opts, preparedTask) {
   const o = opts || {};
   const runner = resolveExecutor(problem, userCode, language, o);
     const result = {
@@ -374,7 +374,9 @@ async function validateSingleTestCase(problem, userCode, language, testCase, opt
 
     const signature = (problem.functionSignature && problem.functionSignature[language]) || null;
 
-    const exec = await runner({
+    const exec = preparedTask
+      ? preparedTask
+      : await runner({
       code: userCode,
       language,
       args: detail.args,
@@ -422,9 +424,57 @@ async function validateUserCode(problemOrId, userCode, language, opts) {
   const onlySample = o.onlySample !== false;
   const casesToRun = onlySample ? testCases.filter((tc) => !tc.isHidden) : testCases;
 
+  // Build the per-case execution DESCRIPTORS first (cheap, pure metadata work:
+  // parse the stored input, resolve the expected output, pick the signature).
+  // They are then handed to the engine in ONE call when the engine exposes a
+  // batch capability, so the driver is built once and the program compiled once
+  // instead of once per test case. Results are identical either way — only the
+  // number of engine round trips changes.
+  const signature = (problem.functionSignature && problem.functionSignature[language]) || null;
+  const returnType = problem.outputFormat && problem.outputFormat.type;
+
+  const pending = casesToRun.map((tc) => {
+    const detail = parseTestCaseInput(problem, tc.input);
+    let expected = '';
+    if (tc.expectedOutput != null && String(tc.expectedOutput).trim() !== '') {
+      expected = String(tc.expectedOutput).trim();
+    } else {
+      try {
+        expected = computeExpectedFromReference(problem, tc.input);
+      } catch (e) {
+        expected = '';
+      }
+    }
+    return {
+      code: userCode,
+      language,
+      args: detail.args,
+      stdin: detail.stdin,
+      format: detail.format,
+      signature,
+      expected,
+      returnType,
+      testCaseId: (tc && (tc._id || tc.testCaseId || tc.id)) || null,
+    };
+  });
+
+  let execResults = null;
+  const runner = resolveExecutor(problem, userCode, language, o);
+  if (typeof runner.batch === 'function' && pending.length > 0) {
+    try {
+      execResults = await runner.batch(pending);
+    } catch (_) {
+      // A batch-capable engine that cannot honour the batch (e.g. an engine
+      // misconfiguration) must not fail the submission: fall through to the
+      // one-case-at-a-time path, which is always available.
+      execResults = null;
+    }
+  }
+
   const results = [];
-  for (const tc of casesToRun) {
-    const r = await validateSingleTestCase(problem, userCode, language, tc, o);
+  for (let i = 0; i < casesToRun.length; i++) {
+    const tc = casesToRun[i];
+    const r = await validateSingleTestCase(problem, userCode, language, tc, o, execResults ? execResults[i] : null);
     r.isSample = !tc.isHidden;
     r.isHidden = !!tc.isHidden;
     results.push(r);
@@ -581,7 +631,14 @@ function createSandboxExecutor(deps) {
   if (typeof buildDriver !== 'function' || typeof execute !== 'function') {
     throw new Error('genericValidator.createSandboxExecutor: buildDriverFromSignature and executeSingleCase are required');
   }
-  return async (task) => {
+  // OPTIONAL batch capability. When the engine can compile once and run many
+  // inputs against the same artifact (see utils/localExecutor.executeTestCases),
+  // supplying `executeBatch` lets validateUserCode avoid rebuilding the driver
+  // and re-invoking the compiler for every test case. When it is absent the
+  // engine behaves exactly as before, one case at a time.
+  const executeBatch = deps && typeof deps.executeBatch === 'function' ? deps.executeBatch : null;
+
+  const executor = async (task) => {
     const fullCode = buildDriver(task.code, task.language, task.signature || null);
     const raw = await execute(
       fullCode,
@@ -598,6 +655,32 @@ function createSandboxExecutor(deps) {
       statusId: raw.status_id || null,
     };
   };
+
+  /**
+   * Run a whole set of test-case TASKS in one engine call.
+   * @returns {Promise<Array>|null} null when the engine has no batch capability
+   */
+  executor.batch = executeBatch
+    ? async (tasks) => {
+        if (!tasks || tasks.length === 0) return [];
+        const fullCode = buildDriver(tasks[0].code, tasks[0].language, tasks[0].signature || null);
+        const raw = await executeBatch(
+          fullCode,
+          tasks[0].language,
+          tasks.map((t) => ({ input: t.stdin != null ? t.stdin : '', expectedOutput: t.expected || '' })),
+          tasks[0].returnType || ''
+        );
+        return (raw || []).map((r) => ({
+          output: r.output || '',
+          error: r.error || null,
+          errorType: r.errorType || null,
+          executionTime: r.executionTime || 0,
+          statusId: r.status_id || null,
+        }));
+      }
+    : null;
+
+  return executor;
 }
 
 // Optional OOP facade over the functional API.

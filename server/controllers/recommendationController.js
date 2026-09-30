@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Problem = require('../models/Problem');
 const Submission = require('../models/Submission');
+const { generateRecommendations } = require('../services/recommendationService');
 
 const REVISION_INTERVALS = [1, 3, 7, 14, 30];
 
@@ -17,133 +18,64 @@ const calculateNextReview = (currentIntervalIndex, passed) => {
 exports.getRecommendations = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    const weakTopics = user.weakTopics || [];
-
-    const allSubmissions = await Submission.find({ user: req.user.id }).sort({ createdAt: -1 });
-    const tagStats = {};
-    const tagLastAttempt = {};
-    allSubmissions.forEach((sub) => {
-      const tags = sub.problemTags && sub.problemTags.length > 0 ? sub.problemTags : [];
-      tags.forEach((tag) => {
-        if (!tagStats[tag]) tagStats[tag] = { total: 0, accepted: 0, lastAttempt: sub.createdAt };
-        tagStats[tag].total += 1;
-        if (sub.status === 'accepted') tagStats[tag].accepted += 1;
-        if (!tagLastAttempt[tag] || new Date(sub.createdAt) > new Date(tagLastAttempt[tag])) {
-          tagLastAttempt[tag] = sub.createdAt;
-        }
-      });
-    });
-    const tagSuccessRates = Object.entries(tagStats).map(([tag, stats]) => ({
-      tag,
-      successRate: stats.total > 0 ? stats.accepted / stats.total : 0,
-      totalAttempts: stats.total,
-    }));
-    const lowPerformanceTags = tagSuccessRates
-      .filter((t) => t.successRate < 0.5 && t.totalAttempts >= 2)
-      .map((t) => t.tag);
-    const spacedRepetitionTags = tagSuccessRates
-      .filter((t) => t.successRate < 0.7 && t.totalAttempts >= 1)
-      .filter((t) => {
-        const last = tagLastAttempt[t.tag];
-        if (!last) return true;
-        const days = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
-        return days >= 5;
-      })
-      .map((t) => t.tag);
-    const allWeakTopics = [...new Set([...weakTopics, ...lowPerformanceTags, ...spacedRepetitionTags])];
-
-    const solvedProblemIds = await Submission.find({
-      user: req.user.id,
-      status: 'accepted',
-      type: 'submit',
-    }).distinct('problem');
-
-    let recommendations = [];
-    if (allWeakTopics.length > 0) {
-      const weakProblems = await Problem.find({
-        tags: { $in: allWeakTopics },
-        _id: { $nin: solvedProblemIds },
-        isActive: true,
-      })
-        .select('-testCases -solution')
-        .limit(8)
-        .sort({ acceptanceRate: 1 });
-      recommendations.push(...weakProblems);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const lastN = allSubmissions.slice(0, 5);
-    const recentSuccessRate = lastN.length > 0 ? lastN.filter((s) => s.status === 'accepted').length / lastN.length : 0;
-    const adaptiveByRecent = allSubmissions.slice(0, 5);
-    const diffStats = { easy: { total: 0, accepted: 0 }, medium: { total: 0, accepted: 0 }, hard: { total: 0, accepted: 0 } };
-    adaptiveByRecent.forEach((s) => {
-      const d = s.problemDifficulty || 'easy';
-      diffStats[d].total += 1;
-      if (s.status === 'accepted') diffStats[d].accepted += 1;
-    });
-    const easyRate = diffStats.easy.total > 0 ? diffStats.easy.accepted / diffStats.easy.total : 0;
-    const mediumRate = diffStats.medium.total > 0 ? diffStats.medium.accepted / diffStats.medium.total : 0;
-    const hardRate = diffStats.hard.total > 0 ? diffStats.hard.accepted / diffStats.hard.total : 0;
-    let targetDifficulty = 'easy';
-    if (mediumRate > 0.5 && hardRate > 0.4) targetDifficulty = 'hard';
-    else if (easyRate > 0.5 || mediumRate > 0.4) targetDifficulty = 'medium';
+    // The real, performance-driven pipeline lives in
+    // services/recommendationService.js. It reads the user's ACTUAL submission
+    // history (DSA + SQL + aptitude + core subjects), detects weak topics with a
+    // Bayesian-smoothed accuracy, and ranks unsolved problems with a published
+    // weighted scorer. When the data is thin it returns an explicit empty state
+    // instead of padding the list with arbitrary problems.
+    const payload = await generateRecommendations(user._id);
 
-    const remainingCount = 10 - recommendations.length;
-    if (remainingCount > 0) {
-      const adaptiveProblems = await Problem.find({
-        difficulty: targetDifficulty,
-        _id: { $nin: [...solvedProblemIds, ...recommendations.map((r) => r._id)] },
-        isActive: true,
-      })
-        .select('-testCases -solution')
-        .limit(remainingCount)
-        .sort({ acceptanceRate: -1 });
-      recommendations.push(...adaptiveProblems);
-    }
-
-    const now = new Date();
-    const dueRevisionEntries = (user.revisionQueue || []).filter((entry) => {
-      if (!entry.dueDate) return true;
-      return new Date(entry.dueDate) <= now;
-    });
-    const revisionProblemIds = dueRevisionEntries.map((r) => r.problem);
-    const revisionProblems = await Problem.find({
-      _id: { $in: revisionProblemIds },
-    }).select('-testCases -solution');
-
-    // Core subjects performance integration
-    const CoreSubjectSubmission = require('../models/CoreSubjectSubmission');
-    const Subject = require('../models/Subject');
-    const coreSubmissions = await CoreSubjectSubmission.find({ userId: req.user.id });
-    const coreSubjectWeakTopics = [];
-    if (coreSubmissions.length > 0) {
-      const subjectIds = [...new Set(coreSubmissions.map(s => s.subject.toString()))];
-      for (const subjId of subjectIds) {
-        const subjSubs = coreSubmissions.filter(s => s.subject.toString() === subjId);
-        const mcqSubs = subjSubs.filter(s => s.questionType === 'mcq');
-        const correct = mcqSubs.filter(s => s.isCorrect).length;
-        const total = mcqSubs.length;
-        const accuracy = total > 0 ? (correct / total) * 100 : 0;
-        if (total >= 3 && accuracy < 60) {
-          const subj = await Subject.findById(subjId).select('name slug');
-          if (subj) coreSubjectWeakTopics.push({ subject: subj.name, slug: subj.slug, accuracy: Math.round(accuracy), total });
-        }
-      }
-    }
+    // Preserve the existing response contract so current clients keep working,
+    // while adding the new, explainable fields.
+    const weakTopics = [
+      ...(user.weakTopics || []),
+      ...payload.weakTopics.map((w) => w.topic),
+    ];
+    const uniqueWeakTopics = [...new Set(weakTopics)];
 
     res.status(200).json({
       success: true,
       data: {
-        recommendations,
-        revisionQueue: revisionProblems,
-        weakTopics: allWeakTopics,
-        tagPerformance: tagSuccessRates,
-        targetDifficulty,
-        recentSuccessRate: Math.round(recentSuccessRate * 100),
-        coreSubjectWeakTopics,
+        recommendations: payload.recommendations,
+        revisionQueue: payload.recommendations.slice(0, 5),
+        weakTopics: uniqueWeakTopics,
+        weakTopicStats: payload.weakTopics,
+        strongTopics: payload.strongTopics,
+        tagPerformance: payload.weakTopics.map((w) => ({
+          tag: w.topic,
+          successRate: w.accuracy / 100,
+          totalAttempts: w.attempts,
+          solved: w.solved,
+          daysSinceLastAttempt: w.daysSinceLastAttempt,
+        })),
+        targetDifficulty: payload.targetDifficulty,
+        recentSuccessRate: payload.features.totalAttempts > 0
+          ? Math.round((payload.features.uniqueSolved / payload.features.totalAttempts) * 100)
+          : 0,
+        coreSubjectWeakTopics: payload.crossDomain.coreSubjects
+          ? payload.crossDomain.coreSubjects.weakSubjects.map((s) => ({
+              subject: s.subject,
+              slug: undefined,
+              accuracy: s.accuracy,
+              total: s.attempts,
+            }))
+          : [],
+        // --- new, documented fields ---
+        hasEnoughData: payload.hasEnoughData,
+        message: payload.message,
+        model: payload.model,
+        features: payload.features,
+        crossDomain: payload.crossDomain,
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('getRecommendations failed:', error);
+    res.status(500).json({ success: false, message: 'Could not build recommendations' });
   }
 };
 

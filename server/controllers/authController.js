@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
+const { isTestEmail } = require('../utils/testAccount');
 const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
   const isProduction = process.env.NODE_ENV === 'production';
@@ -35,6 +36,10 @@ exports.register = async (req, res) => {
       email,
       password,
       role: 'student',
+      // Stamp automated test addresses at creation so E2E traffic can never
+      // reach a public leaderboard in the first place. Default is false, so a
+      // genuine student's account is untouched.
+      isTestAccount: isTestEmail(email),
     });
     sendTokenResponse(user, 201, res);
   } catch (error) {

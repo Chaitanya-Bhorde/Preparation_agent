@@ -1,10 +1,11 @@
 const express = require('express');
-const { runCode, buildDriverFromSignature, executeSingleCase } = require('../utils/judge0Coding');
+const { runCode, buildDriverFromSignature, executeSingleCase, executeTestCases } = require('../utils/judge0Coding');
 const genericValidator = require('../utils/genericValidator');
 const CodeSubmission = require('../models/CodeSubmission');
 const CodingProblem = require('../models/CodingProblem');
 const { protect } = require('../middleware/auth');
 const { updateStreak } = require('../utils/streak');
+const { recomputeUserProgress } = require('../services/dsaProgressService');
 
 const router = express.Router();
 
@@ -27,6 +28,11 @@ function getGenericSandboxExecutor() {
         buildDriverFromSignature(code, language, signature),
       executeSingleCase: (fullCode, language, input, expectedOutput, returnType) =>
         executeSingleCase(fullCode, language, input, expectedOutput, returnType),
+      // Batches every test case of a submission into ONE engine call, so the
+      // driver is built once and the program is compiled once (the previous
+      // behaviour rebuilt and recompiled it for each of the 50+ hidden cases).
+      executeBatch: (fullCode, language, cases, returnType) =>
+        executeTestCases(fullCode, language, cases, returnType),
     });
   }
   return genericSandboxExecutor;
@@ -193,7 +199,16 @@ router.post('/submit', protect, async (req, res) => {
     const { submission, firstFailedIdx } = await persistSubmissionRecords(
       req, problem, code, language, verdict, results, passedTestCases, totalTestCases
     );
-    await sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx });
+    // Read the solved flag back from the DATABASE instead of deriving it from
+    // this one submission's verdict. That makes the client render the exact
+    // state the server holds, so "AC then WA" correctly reports solved=true and
+    // a repeat AC does not create a second solved problem.
+    const solved = !!(await CodeSubmission.exists({
+      user: req.user.id,
+      problem: problem._id,
+      verdict: 'Accepted',
+    }));
+    await sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx, solved });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -205,6 +220,41 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
   const userId = req.user.id;
   const firstFailedIdx = results.findIndex((r) => !r.passed);
   const firstFailed = firstFailedIdx >= 0 ? results[firstFailedIdx] : null;
+  // How many leading cases are user-visible samples. Everything after this
+  // index is a hidden case whose content must never be persisted in a form the
+  // client can read back.
+  const visibleCount = (problem.sampleTests || []).length;
+
+  /** Persist one case, blanking any hidden content. `idx` is its position. */
+  const persistCase = (r, idx) => {
+    const isSample = idx < visibleCount;
+    if (isSample) {
+      return {
+        input: r.input,
+        expected: r.expected,
+        actualOutput: r.actual,
+        passed: r.passed,
+        executionTime: r.time || 0,
+        memoryUsed: 0,
+        errorType: r.errorType,
+        errorMessage: r.error || null,
+        isSample: true,
+      };
+    }
+    return {
+      input: '',
+      expected: '',
+      actualOutput: '',
+      passed: r.passed,
+      executionTime: r.time || 0,
+      memoryUsed: 0,
+      errorType: r.errorType,
+      errorMessage: null,
+      isSample: false,
+    };
+  };
+
+  const firstFailedIsHidden = firstFailedIdx >= visibleCount && firstFailedIdx !== -1;
 
   const submission = await CodeSubmission.create({
     user: userId,
@@ -216,20 +266,10 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
     totalTestCases,
         runtimeMs: Math.max(...results.map((r) => r.time || 0), 0),
     memoryKb: Math.max(...results.map((r) => r.memoryUsed || 0), 0),
-    testCaseResults: results.map((r) => ({
-      input: r.input,
-      expected: r.expected,
-      actualOutput: r.actual,
-      passed: r.passed,
-      executionTime: r.time || 0,
-      memoryUsed: 0,
-      errorType: r.errorType,
-      errorMessage: r.error || null,
-      isSample: r.isSample || false,
-    })),
-    firstFailedInput: firstFailed ? firstFailed.input : null,
-    firstFailedExpected: firstFailed ? firstFailed.expected : null,
-    firstFailedActual: firstFailed ? firstFailed.actual : null,
+    testCaseResults: results.map(persistCase),
+    firstFailedInput: firstFailedIsHidden ? null : (firstFailed ? firstFailed.input : null),
+    firstFailedExpected: firstFailedIsHidden ? null : (firstFailed ? firstFailed.expected : null),
+    firstFailedActual: firstFailedIsHidden ? null : (firstFailed ? firstFailed.actual : null),
   });
 
   await CodingProblem.findByIdAndUpdate(problem._id, {
@@ -253,61 +293,42 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
     problemDifficulty: problem.difficulty,
     problemTags: problem.tags,
     category: 'dsa',
-        testCaseResults: results.map((r) => ({
-      testCase: null,
-      passed: r.passed,
-      input: r.input,
-      expectedOutput: r.expected,
-      actualOutput: r.actual,
-      executionTime: r.time || 0,
-      memoryUsed: 0,
-      errorType: r.errorType,
-      errorMessage: r.error || null,
-      isSample: false,
-    })),
+        // The legacy `submissions` ledger is read back by
+        // GET /api/submissions/:id, so it gets the SAME hidden-content
+        // redaction as CodeSubmission — never store a hidden expected output.
+        testCaseResults: results.map(persistCase),
         score: totalTestCases > 0 ? Math.round((passedTestCases / totalTestCases) * 100) : 0,
   });
 
   if (status === 'accepted') {
-    const existingAccepted = await Submission.findOne({ user: userId, problem: problem._id, status: 'accepted', type: 'submit' });
-    if (!existingAccepted) {
-      const solvedIncrement = problem.difficulty === 'easy'
-        ? { 'stats.easySolved': 1, 'stats.totalSolved': 1 }
-        : problem.difficulty === 'medium'
-        ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1 }
-        : { 'stats.hardSolved': 1, 'stats.totalSolved': 1 };
-      await User.findByIdAndUpdate(userId, { $inc: solvedIncrement });
-    }
+    // Solved counts are RECOMPUTED from the user's real submission records
+    // rather than incremented. That makes them idempotent (a second Accepted
+    // on an already-solved problem cannot inflate the count) and repairs
+    // counters that historical data left wrong. See services/dsaProgressService.
+    const progress = await recomputeUserProgress(userId);
+    const user = await User.findById(userId);
+    await Leaderboard.findOneAndUpdate(
+      { userId: userId },
+      {
+        totalSolved: progress.totalSolved,
+        easySolved: progress.easySolved,
+        mediumSolved: progress.mediumSolved,
+        hardSolved: progress.hardSolved,
+        totalSubmissions: user ? user.stats.totalSubmissions : progress.totalSubmissions,
+        acceptanceRate: progress.acceptanceRate,
+        atsScore: (user && user.profile && user.profile.atsScore) || 0,
+        streak: (user && user.stats && user.stats.streak) || 0,
+        // UNIQUE problems solved in the window, not the number of Accepted
+        // submissions inside it.
+        weeklySolved: progress.weeklySolved,
+        monthlySolved: progress.monthlySolved,
+        lastUpdated: Date.now(),
+      },
+      { upsert: true, new: true }
+    );
     updateStreak(userId).catch((err) => console.error('Streak update failed:', err.message));
   }
   await User.findByIdAndUpdate(userId, { $inc: { 'stats.totalSubmissions': 1 } });
-
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const weeklySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneWeekAgo }, type: 'submit', status: 'accepted' });
-  const monthlySolved = await Submission.countDocuments({ user: userId, createdAt: { $gte: oneMonthAgo }, type: 'submit', status: 'accepted' });
-  const totalSubs = await Submission.countDocuments({ user: userId, type: 'submit' });
-  const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' });
-  const user = await User.findById(userId);
-  const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
-
-    await Leaderboard.findOneAndUpdate(
-    { userId: userId },
-    {
-      totalSolved: user.stats.totalSolved,
-      easySolved: user.stats.easySolved,
-      mediumSolved: user.stats.mediumSolved,
-      hardSolved: user.stats.hardSolved,
-      totalSubmissions: user.stats.totalSubmissions,
-      acceptanceRate,
-      atsScore: user.profile.atsScore || 0,
-      streak: user.stats.streak || 0,
-      weeklySolved,
-      monthlySolved,
-      lastUpdated: Date.now(),
-    },
-    { upsert: true, new: true }
-  );
 
   return { submission, firstFailedIdx };
 }
@@ -315,7 +336,7 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
 /** Shape + send the /submit response, enforcing hidden-test-content isolation:
  *  sample cases carry full detail, hidden cases carry counts only (input /
  *  expected / actual nulled), and a hidden first-failure is not leaked. */
-async function sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx }) {
+async function sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx, solved }) {
   const visibleCount = (problem.sampleTests || []).length;
   const firstFailedIsHidden = firstFailedIdx >= visibleCount && firstFailedIdx !== -1;
   const firstFailed = firstFailedIdx >= 0 ? results[firstFailedIdx] : null;
@@ -360,31 +381,93 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
       firstFailedInput: firstFailedIsHidden ? null : (firstFailed ? firstFailed.input : null),
             firstFailedExpected: firstFailedIsHidden ? null : (firstFailed ? firstFailed.expected : null),
       firstFailedActual: firstFailedIsHidden ? null : (firstFailed ? firstFailed.actual : null),
+      // Authoritative solved state for this (user, problem) pair, derived from
+      // the database rather than guessed by the client, so the UI can turn the
+      // card green and a refresh / re-login reproduces the exact same state.
+      solved: Boolean(solved),
       mode: 'submit',
       testCaseResults: shapedResults,
     },
   });
 }
 
+/**
+ * Strip HIDDEN test-case content from a stored submission before it is sent to
+ * the client.
+ *
+ * WHY: `persistSubmissionRecords` saves every case's expected output, including
+ * the hidden ones, so a user could call GET /api/coding/submissions, read the
+ * expected output of every hidden test for that problem and hard-code the
+ * answers. The submit RESPONSE already nulled hidden content; the stored record
+ * did not, and the history endpoints returned it verbatim. Both are now
+ * sanitised at the edge. The owner still sees their own code, language, verdict
+ * and timestamp — which is the whole point of the history view.
+ */
+function sanitizeSubmission(doc) {
+  const plain = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  const visibleCount = plain.visibleTestCaseCount != null ? plain.visibleTestCaseCount : undefined;
+
+  if (Array.isArray(plain.testCaseResults)) {
+    plain.testCaseResults = plain.testCaseResults.map((r, idx) => {
+      if (r && r.isSample) return r;
+      // Any case not explicitly marked as a visible sample is treated as
+      // hidden, so a missing flag can never leak content.
+      const knownVisible = visibleCount != null && idx < visibleCount;
+      if (knownVisible) return r;
+      return {
+        ...r,
+        input: null,
+        expected: r && r.expected !== undefined ? null : r.expected,
+        expectedOutput: r && r.expectedOutput !== undefined ? null : r.expectedOutput,
+        actualOutput: null,
+        errorMessage: null,
+        isSample: false,
+      };
+    });
+  }
+
+  if (plain.firstFailedInput) {
+    const firstFailedHidden = plain.testCaseResults
+      && plain.firstFailedInput !== null
+      && Array.isArray(plain.testCaseResults)
+      && plain.testCaseResults.findIndex((r) => r && r.input === plain.firstFailedInput) === -1;
+    if (firstFailedHidden) {
+      plain.firstFailedInput = null;
+      plain.firstFailedExpected = null;
+      plain.firstFailedActual = null;
+    }
+  }
+
+  return plain;
+}
+
 router.get('/submissions', protect, async (req, res) => {
   try {
-    const { problemId, page = 1, limit = 20 } = req.query;
+    const { problemId, page = 1, limit = 20, status, language } = req.query;
     const query = { user: req.user.id };
     if (problemId) query.problem = problemId;
+    // Optional filters so the history view can narrow by verdict and language.
+    if (status) query.verdict = status;
+    if (language) query.language = language;
 
+    const perPage = Math.min(parseInt(limit) || 20, 100);
     const total = await CodeSubmission.countDocuments(query);
     const submissions = await CodeSubmission.find(query)
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .lean();
 
     res.status(200).json({
       success: true,
       count: submissions.length,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / perPage),
       currentPage: parseInt(page),
-      data: submissions,
+      // `data` is kept for the existing client; `submissions` is an alias so
+      // both response shapes in use across the app keep working.
+      data: submissions.map(sanitizeSubmission),
+      submissions: submissions.map(sanitizeSubmission),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -393,9 +476,9 @@ router.get('/submissions', protect, async (req, res) => {
 
 router.get('/submissions/:id', protect, async (req, res) => {
   try {
-    const submission = await CodeSubmission.findOne({ _id: req.params.id, user: req.user.id });
-    if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
-    res.status(200).json({ success: true, data: submission });
+  const found = await CodeSubmission.findOne({ _id: req.params.id, user: req.user.id }).lean();
+    if (!found) return res.status(404).json({ success: false, message: 'Submission not found' });
+    res.status(200).json({ success: true, data: sanitizeSubmission(found) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
