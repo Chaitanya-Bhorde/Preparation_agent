@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const connectDB = require('./config/db');
+const errorHandler = require('./middleware/errorHandler');
 const { isJudge0Reachable } = require('./utils/judge0Coding');
 let swaggerSpec = null;
 try {
@@ -124,14 +125,7 @@ if (swaggerSpec) {
     customSiteTitle: 'PrepAgent API Docs',
   }));
 }
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-  });
-});
+app.use(errorHandler);
 const PORT = Number(process.env.PORT || 5000);
 
 const startServer = (port) => {

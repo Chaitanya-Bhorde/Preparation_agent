@@ -56,4 +56,20 @@ const CodeSubmissionSchema = new mongoose.Schema(
   }
 );
 
+// Indexes are derived from this codebase's actual query patterns rather than
+// copied from a sibling model:
+//   { user, createdAt } - GET /api/coding/submissions and the merged history in
+//                         submissionController filter on `user` (optionally plus
+//                         `problem`) and sort createdAt desc with skip/limit.
+//   { user, problem }    - the solved/attempted lookups
+//                         (findOne { user, problem [, verdict] }) and the
+//                         `problem: { $in: [...] }` batches in
+//                         codingProblemController.
+// No standalone user/problem index is declared: both are the leading field of
+// these compounds, so a separate one would be redundant. `category` is
+// deliberately not indexed (3 distinct values, always queried together with
+// `user`, so the user prefix already narrows the scan).
+CodeSubmissionSchema.index({ user: 1, createdAt: -1 });
+CodeSubmissionSchema.index({ user: 1, problem: 1 });
+
 module.exports = mongoose.model('CodeSubmission', CodeSubmissionSchema);

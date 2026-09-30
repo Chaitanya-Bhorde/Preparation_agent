@@ -37,7 +37,17 @@ router.get('/questions/:topicId', async (req, res) => {
     const { difficulty } = req.query;
     const validDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : null;
     const query = validDiff ? { topicId, difficulty: validDiff } : { topicId };
-    const questions = await AptitudeQuestion.find(query).select('-explanation -solutionSteps').limit(50);
+    // Hide the answer key and worked solution from unauthenticated callers.
+    // `correctAnswer` MUST be excluded here: without it this public endpoint
+    // leaks the full answer key (43 topics x 50 questions).
+    // `options.isCorrect` must be excluded as well - it is a second encoding of
+    // the same key, so excluding `correctAnswer` alone would leave the answer
+    // trivially derivable by the client (the UI only ever needs label + text;
+    // it reads scoring feedback from POST /submit-answer instead).
+    const questions = await AptitudeQuestion.find(query)
+      .select('-explanation -solutionSteps -correctAnswer -options.isCorrect')
+      .limit(50);
+
     if (!questions.length) return res.status(404).json({ error: 'No questions found' });
     const counts = {};
     for (const d of ['easy', 'medium', 'hard']) {
@@ -350,11 +360,15 @@ router.get('/mock/:mockTestId/questions', async (req, res) => {
         _id: s.questionId,
         questionText: s.questionText,
         difficulty: s.difficulty,
-        options: s.options,
+        // Rebuild each option from label/text only: the stored snapshot carries
+        // `isCorrect`, which would re-expose the answer key for generated papers.
+        options: (s.options || []).map(o => ({ label: o.label, text: o.text })),
       }));
     } else {
+      // Same answer-key projection as GET /questions/:topicId - including
+      // options.isCorrect, which would otherwise re-expose the key.
       questions = await AptitudeQuestion.find({ _id: { $in: mockTest.questionIds } })
-        .select('-explanation -solutionSteps -correctAnswer')
+        .select('-explanation -solutionSteps -correctAnswer -options.isCorrect')
         .lean();
     }
     const mock = { name: mockTest.name, description: mockTest.description, duration: mockTest.duration, totalQuestions: mockTest.totalQuestions, passingScore: mockTest.passingScore, category: mockTest.category };
