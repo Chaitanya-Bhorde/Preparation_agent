@@ -14,6 +14,9 @@ const STATUS_CONFIG = {
   CompileError: { icon: Terminal, color: 'text-orange-400', bg: 'bg-orange-900/20', label: 'Compilation Error' },
   RuntimeError: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Runtime Error' },
   TLE: { icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Time Limit Exceeded' },
+  // No test cases exist for this problem, so nothing was verified. Shown
+  // distinctly from WrongAnswer because nothing was actually checked.
+  Untested: { icon: AlertTriangle, color: 'text-gray-400', bg: 'bg-gray-800/60', label: 'Not verifiable (no test cases)' },
 };
 
 const LANGUAGES = [

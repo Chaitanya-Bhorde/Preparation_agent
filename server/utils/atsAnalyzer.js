@@ -32,15 +32,17 @@ const logDebug = (...args) => {
   }
 };
 
-// Log which PDF libraries are available and their versions
-const PDF_LIBRARY_INFO = {
-  'pdfjs-dist': (() => { try { return require('pdfjs-dist/package.json').version; } catch { return 'unknown'; } })(),
-  'pdf-parse': (() => { try { return require('pdf-parse/package.json').version; } catch { return 'unknown'; } })(),
-  'pdf2pic': (() => { try { return require('pdf2pic/package.json').version; } catch { return 'unknown'; } })(),
-  'tesseract.js': (() => { try { return require('tesseract.js/package.json').version; } catch { return 'unknown'; } })(),
-};
-
-console.log('[PDF-LIBRARY] Available PDF libraries and versions:', PDF_LIBRARY_INFO);
+// Which PDF libraries are available, logged only under DEBUG_PDF_EXTRACTION so
+// a normal boot does not print a version manifest nobody reads.
+if (DEBUG_PDF) {
+  const PDF_LIBRARY_INFO = {
+    'pdfjs-dist': (() => { try { return require('pdfjs-dist/package.json').version; } catch { return 'unknown'; } })(),
+    'pdf-parse': (() => { try { return require('pdf-parse/package.json').version; } catch { return 'unknown'; } })(),
+    'pdf2pic': (() => { try { return require('pdf2pic/package.json').version; } catch { return 'unknown'; } })(),
+    'tesseract.js': (() => { try { return require('tesseract.js/package.json').version; } catch { return 'unknown'; } })(),
+  };
+  console.log('[PDF-LIBRARY] Available PDF libraries and versions:', PDF_LIBRARY_INFO);
+}
 
 // Minimum text length threshold for valid extraction (reduced from 100 to handle short but valid resumes)
 const MIN_TEXT_LENGTH = 50;

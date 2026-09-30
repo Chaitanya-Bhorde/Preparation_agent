@@ -220,4 +220,9 @@ async function seed() {
   }
 }
 
-seed();
+// require.main guard: running this file directly still seeds, but REQUIRING it
+// from another module must never trigger a live deleteMany()+reseed. This seeder
+// wipes and rebuilds the whole SQL bank, so a stray import is a data-loss event.
+if (require.main === module) {
+  seed();
+}

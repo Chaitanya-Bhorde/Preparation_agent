@@ -199,4 +199,7 @@ async function seed() {
     process.exit(1);
   }
 }
-seed();
+// require.main guard: REQUIRING this module must never wipe subjects/topics/notes.
+if (require.main === module) {
+  seed();
+}

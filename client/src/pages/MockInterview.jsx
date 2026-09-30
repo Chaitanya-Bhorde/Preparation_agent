@@ -639,19 +639,14 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [conversation.length, submitted]);
 
-  // Log question changes for debugging - tracks AI vs fallback and question progression
+  // One concise line per question so a session can be traced in devtools
+  // without dumping the full question payload.
   useEffect(() => {
     if (question?.id) {
-      console.log('[Interview] Question changed:', {
-        sessionId,
-        questionId: question.id,
-        questionNumber: currentIndex,
-        totalQuestions,
-        source: question.source,
-        isFollowUp: question.isFollowUp,
-        text: question.text?.slice(0, 100),
-        mode,
-      });
+      console.log(
+        `[Interview] q${currentIndex + 1}/${totalQuestions} id=${question.id} ` +
+        `source=${question.source} followUp=${!!question.isFollowUp} mode=${mode}`
+      );
     }
   }, [question?.id, currentIndex, mode, sessionId, totalQuestions, question?.source, question?.isFollowUp, question?.text]);
 

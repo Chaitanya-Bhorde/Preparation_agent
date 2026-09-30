@@ -126,4 +126,33 @@ const log = (...a) => console.log(...a);
   const hist = await call('/api/coding/submissions', { headers: auth });
   log('   total submissions =', hist.body.total,
       '| verdicts =', (hist.body.submissions || []).map((s) => s.verdict).join(','));
+  log('11. TEST a problem with NO test cases at all (the common case in this bank)');
+  // Reuse the problem list already fetched in step 2 instead of opening a
+  // second database connection, and pick the sample-free problem off it.
+  const empty = probs.find((p) => (p.visibleTestCases || []).length === 0);
+  if (!empty) {
+    log('    no sample-free problem on the returned page - skipped');
+  } else {
+    log('    sample problem:', empty.title);
+    const r = await call('/api/coding/submit', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({
+        problemId: String(empty._id),
+        language: 'javascript',
+        code: empty.referenceSolution && empty.referenceSolution.code
+          ? empty.referenceSolution.code
+          : 'function solve(){return 0;}',
+      }),
+    });
+    log('    submit status =', r.status);
+    log('    verdict =', r.body.data && r.body.data.verdict,
+        '| passed', r.body.data && r.body.data.passedTestCases,
+        '/', r.body.data && r.body.data.totalTestCases,
+        '| solved =', r.body.data && r.body.data.solved);
+    log('    >>> With zero test cases this can NEVER be Accepted, so the card can never green.');
+  }
+
+  process.exit(0);
 })().catch((e) => { console.error('E2E ERROR:', e.message); process.exit(1); });
+

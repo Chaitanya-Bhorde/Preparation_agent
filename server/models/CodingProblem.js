@@ -133,11 +133,12 @@ const CodingProblemSchema = new mongoose.Schema(
   }
 );
 
+// `title` and `problemId` are already indexed by their `unique: true` field
+// declaration, so they must not be repeated here or Mongoose warns about a
+// duplicate schema index on every boot.
 CodingProblemSchema.index({ topic: 1 });
 CodingProblemSchema.index({ difficulty: 1 });
-CodingProblemSchema.index({ title: 1 });
 CodingProblemSchema.index({ topic: 1, difficulty: 1 });
-CodingProblemSchema.index({ problemId: 1 });
 
 CodingProblemSchema.pre('save', function () {
   this.slug = this.title

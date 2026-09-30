@@ -25,9 +25,7 @@ const checkJudge0 = async () => {
 
 // Start Judge0
 const startJudge0 = () => {
-  return new Promise((resolve, reject) => {
-    console.log('🚀 Starting Judge0...');
-    
+  return new Promise((resolve) => {
     // Try docker compose (new syntax)
     const compose = spawn('docker', ['compose', '-f', 'docker-compose.yml', 'up', '-d'], {
       cwd: JUDGE0_DIR,
@@ -46,24 +44,22 @@ const startJudge0 = () => {
 
     compose.on('close', (code) => {
       if (code === 0 || output.includes('is up-to-date') || output.includes('Running')) {
-        console.log('✅ Judge0 started');
+        console.log('✓ Judge0 started');
         resolve();
       } else {
-        console.log('⚠️  Judge0 auto-start failed. Please start Docker Desktop manually.');
-        console.log('   Then run: cd judge0-server && docker compose up -d');
+        console.warn('⚠️  Judge0 auto-start failed — start Docker Desktop, then `cd judge0-server && docker compose up -d`');
         resolve(); // Don't reject, let server start anyway
       }
     });
 
-    compose.on('error', (err) => {
-      console.log('⚠️  Could not auto-start Judge0. Please start Docker Desktop manually.');
+    compose.on('error', () => {
+      console.warn('⚠️  Could not auto-start Judge0 — start Docker Desktop, then `cd judge0-server && docker compose up -d`');
       resolve(); // Don't reject
     });
   });
 };
 
 const autoStart = async () => {
-  console.log('🔍 Checking Docker...');
   const dockerRunning = await checkDocker();
 
   if (!dockerRunning) {
@@ -71,15 +67,11 @@ const autoStart = async () => {
     // server. Previously this killed the whole backend right after startup,
     // which made every /api/coding/run and /api/coding/submit fail. When
     // CODING_EXECUTION_ENGINE=local the app does not even need Judge0.
-    console.log('❌ Docker is not running — skipping Judge0 auto-start.');
-    console.log('   The server continues without Judge0. To enable Judge0:');
-    console.log('   1. Start Docker Desktop');
-    console.log('   2. cd judge0-server && docker compose up -d');
-    console.log('   (or keep CODING_EXECUTION_ENGINE=local to run code on this machine)');
+    console.warn('⚠️  Docker not running — Judge0 auto-start skipped.');
+    console.warn('   For multi-language execution: start Docker Desktop, then `cd judge0-server && docker compose up -d`');
+    console.warn('   (CODING_EXECUTION_ENGINE=local runs code on this machine without Docker.)');
     return false;
   }
-
-  console.log('✅ Docker is running');
 
   const judge0Running = await checkJudge0();
 
@@ -87,8 +79,6 @@ const autoStart = async () => {
     await startJudge0();
     // Wait for Judge0 to fully start
     await new Promise(resolve => setTimeout(resolve, 5000));
-  } else {
-    console.log('✅ Judge0 already running');
   }
   return true;
 };

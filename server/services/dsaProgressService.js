@@ -30,6 +30,7 @@
  */
 
 const CodeSubmission = require('../models/CodeSubmission');
+const CodingProblem = require('../models/CodingProblem');
 const Submission = require('../models/Submission');
 const User = require('../models/User');
 const UserStats = require('../models/UserStats');
@@ -48,6 +49,28 @@ function perProblemPipeline(userId) {
         firstAcceptedAt: { $min: { $cond: [{ $eq: ['$verdict', 'Accepted'] }, '$createdAt', null] } },
       },
     },
+  ];
+}
+
+/**
+ * Mark each per-problem rollup with the LIVE problem's difficulty, and drop the
+ * rows whose problem document no longer exists.
+ *
+ * A `$lookup` into `codingproblems` resolves in two ways:
+ *   - `problemDoc` is populated -> the problem still exists, `difficulty` is
+ *     read from the live document and `exists` is true.
+ *   - `problemDoc` is an empty array -> the submission points at a problem that
+ *     was deleted or replaced by a reseed (the historical dangling references).
+ *     `{ 'problemDoc.0': { $exists: true } }` matches only the populated case.
+ *
+ * The same rule is applied to the legacy collection so both sources agree.
+ */
+function annotateWithLiveProblem() {
+  return [
+    { $lookup: { from: 'codingproblems', localField: '_id', foreignField: '_id', as: 'problemDoc' } },
+    { $match: { 'problemDoc.0': { $exists: true } } },
+    { $addFields: { difficulty: { $ifNull: [{ $first: '$problemDoc.difficulty' }, null] } } },
+    { $project: { attempts: 1, accepted: 1, firstAcceptedAt: 1, difficulty: 1 } },
   ];
 }
 
@@ -76,7 +99,6 @@ function mergeRollups(...rollups) {
 }
 
 /**
-/**
  * Compute the authoritative DSA progress for a user from real submission data.
  *
  * Two collections are read and merged:
@@ -86,16 +108,21 @@ function mergeRollups(...rollups) {
  *     older problem API; difficulty is denormalised on the row itself.
  * Merging keeps every genuine historical solve counted without double counting,
  * because the merge key is the problem id.
+ *
+ * ONLY PROBLEMS THAT STILL EXIST COUNT towards solved / attempted. A submission
+ * whose problem document is gone is a real submission and still counts towards
+ * `totalSubmissions` and `acceptanceRate` (both describe submission efficiency,
+ * not the catalogue), but it can never manufacture a solved problem. This
+ * matches GET /api/coding-problems/stats, which already $unwinds the same
+ * lookup, and keeps the three views of "solved" from disagreeing.
  */
 async function computeDsaProgress(userId) {
   const id = userId && userId._id ? userId._id : userId;
 
-  const [codeRollup, legacyRollup] = await Promise.all([
+  const [codeRollup, legacyRollup, codeSubs, legacySubs, codeAccepted, legacyAccepted, totalProblems] = await Promise.all([
     CodeSubmission.aggregate([
       ...perProblemPipeline(id),
-      { $lookup: { from: 'codingproblems', localField: '_id', foreignField: '_id', as: 'problemDoc' } },
-      { $addFields: { difficulty: { $ifNull: [{ $first: '$problemDoc.difficulty' }, null] } } },
-      { $project: { attempts: 1, accepted: 1, firstAcceptedAt: 1, difficulty: 1 } },
+      ...annotateWithLiveProblem(),
     ]),
     Submission.aggregate([
       { $match: { user: id, type: 'submit', category: 'dsa' } },
@@ -105,11 +132,17 @@ async function computeDsaProgress(userId) {
           attempts: { $sum: 1 },
           accepted: { $sum: { $cond: [{ $eq: ['$status', 'accepted'] }, 1, 0] } },
           firstAcceptedAt: { $min: { $cond: [{ $eq: ['$status', 'accepted'] }, '$createdAt', null] } },
-          difficulty: { $first: '$problemDifficulty' },
         },
       },
-      { $project: { attempts: 1, accepted: 1, firstAcceptedAt: 1, difficulty: 1 } },
+      ...annotateWithLiveProblem(),
     ]),
+    // Submission VOLUME is a property of the user, not of the catalogue, so it
+    // deliberately includes submissions against problems that no longer exist.
+    CodeSubmission.countDocuments({ user: id }),
+    Submission.countDocuments({ user: id, type: 'submit', category: 'dsa' }),
+    CodeSubmission.countDocuments({ user: id, verdict: 'Accepted' }),
+    Submission.countDocuments({ user: id, type: 'submit', category: 'dsa', status: 'accepted' }),
+    CodingProblem.countDocuments({ isActive: true }),
   ]);
 
   const byProblem = mergeRollups(codeRollup, legacyRollup);
@@ -119,21 +152,19 @@ async function computeDsaProgress(userId) {
     easySolved: 0,
     mediumSolved: 0,
     hardSolved: 0,
-    totalSubmissions: 0,
-    acceptedSubmissions: 0,
+    totalAttempts: 0,
+    totalSubmissions: codeSubs + legacySubs,
+    acceptedSubmissions: codeAccepted + legacyAccepted,
+    totalProblems,
     solvedProblemIds: [],
     solvedWithDate: [],
   };
 
   for (const [problemId, row] of byProblem) {
-    progress.totalSubmissions += row.attempts;
-    progress.acceptedSubmissions += row.accepted;
+    progress.totalAttempts += 1;
     if (row.accepted <= 0) continue;
 
     progress.totalSolved += 1;
-    // A submission whose problem document is gone (the 23 legacy dangling
-    // references) still counts as solved, but has no difficulty bucket to fall
-    // into. They are deliberately preserved rather than dropped.
     if (row.difficulty === 'easy') progress.easySolved += 1;
     else if (row.difficulty === 'medium') progress.mediumSolved += 1;
     else if (row.difficulty === 'hard') progress.hardSolved += 1;
@@ -141,6 +172,13 @@ async function computeDsaProgress(userId) {
     progress.solvedProblemIds.push(problemId);
     if (row.firstAcceptedAt) progress.solvedWithDate.push({ problemId, at: row.firstAcceptedAt });
   }
+
+  // A user cannot attempt more existing problems than the catalogue holds, and
+  // cannot have solved more either; both clamps keep the derived numbers sane
+  // even if a submission references a problem that was retired mid-session.
+  progress.totalAttempts = Math.min(progress.totalAttempts, totalProblems);
+  progress.totalSolved = Math.min(progress.totalSolved, totalProblems);
+  progress.unsolved = Math.max(0, totalProblems - progress.totalSolved);
 
   const now = Date.now();
   progress.weeklySolved = progress.solvedWithDate.filter((s) => now - new Date(s.at).getTime() <= 7 * DAY_MS).length;

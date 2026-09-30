@@ -73,4 +73,7 @@ const seed = async () => {
   }
 };
 
-seed();
+// require.main guard: REQUIRING this module must never wipe interviewexperiences.
+if (require.main === module) {
+  seed();
+}

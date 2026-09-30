@@ -162,6 +162,39 @@ describe('P6 — test-account isolation', () => {
     const { leaderboard } = await getDsaLeaderboard({});
     expect(leaderboard.map((r) => r.username)).toContain('Unflagged');
   });
+
+  it('a solve against a deleted problem does not put the user on the board', async () => {
+    const u = await mkUser('Dangler', 'dangler@example.com');
+    const ghost = new mongoose.Types.ObjectId();
+    await CodeSubmission.create({
+      user: u._id, problem: ghost, language: 'javascript',
+      code: 'function f(){return 1;}', verdict: 'Accepted', category: 'dsa',
+      passedTestCases: 3, totalTestCases: 3,
+    });
+
+    const rows = await CodeSubmission.aggregate(dsaRankingPipeline());
+    expect(rows).toHaveLength(0);
+    const { leaderboard, pagination } = await getDsaLeaderboard({});
+    expect(leaderboard).toHaveLength(0);
+    expect(pagination.total).toBe(0);
+  });
+
+  it('a dangling solve is ignored while a genuine solve on the same account still counts', async () => {
+    const u = await mkUser('Mixed', 'mixed-lb@example.com');
+    const real = await mkProblem({ difficulty: 'medium' });
+    await ac(u, real);
+    await CodeSubmission.create({
+      user: u._id, problem: new mongoose.Types.ObjectId(), language: 'javascript',
+      code: 'function f(){return 1;}', verdict: 'Accepted', category: 'dsa',
+      passedTestCases: 3, totalTestCases: 3,
+    });
+
+    const { leaderboard, pagination } = await getDsaLeaderboard({});
+    expect(leaderboard).toHaveLength(1);
+    expect(leaderboard[0].solvedCount).toBe(1);
+    expect(leaderboard[0].mediumCount).toBe(1);
+    expect(pagination.total).toBe(1);
+  });
 });
 
 // ===========================================================================
@@ -190,6 +223,25 @@ describe('P6 — test-account classifier', () => {
     expect(testAccountReason({ email: 'a@example.com' })).toMatch(/RFC 2606/);
     expect(testAccountReason({ email: 'a@prepagent.test' })).toMatch(/RFC 6761/);
     expect(testAccountReason({ email: 'a@gmail.com' })).toBeNull();
+  });
+
+  it('reports each individually verified automation account with its evidence', () => {
+    [
+      'verify1786552358055@x.com',
+      'v1786556132890@x.com',
+      'apt_1136327@prepagent.com',
+      'finalcheck2@prep.com',
+      'admin@prepagent.io',
+    ].forEach((email) => {
+      expect(testAccountReason({ email })).toMatch(/^verified automation account: /);
+    });
+  });
+
+  it('never widens a verified address into a rule about its whole domain', () => {
+    // The four domains the verified accounts live on are not automation
+    // domains: only those exact addresses are flagged.
+    ['a@prepagent.com', 'a@prepagent.io', 'a@x.com', 'a@prep.com']
+      .forEach((email) => expect(testAccountReason({ email })).toBeNull());
   });
 });
 

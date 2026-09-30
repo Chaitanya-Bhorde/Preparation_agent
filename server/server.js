@@ -15,8 +15,7 @@ try {
 } catch (swaggerError) {
   console.error('Swagger load failed:', swaggerError.message);
 }
-dotenv.config({ path: path.resolve(__dirname, '.env') });
-connectDB();
+dotenv.config({ path: path.resolve(__dirname, '.env'), quiet: true });
 
 // Auto-start Judge0 if not running (development only)
 const { autoStart } = require('./utils/autoStartJudge0');
@@ -130,17 +129,24 @@ const PORT = Number(process.env.PORT || 5000);
 
 const startServer = (port) => {
   const server = app.listen(port, () => {
-    console.log(`PrepAgent server running on port ${port}`);
+    console.log(`✓ Server running on port ${port}`);
   });
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.log(`Port ${port} is in use, trying ${port + 1}...`);
+      console.warn(`⚠️  Port ${port} is in use, trying ${port + 1}...`);
       startServer(port + 1);
     } else {
       console.error('Server error:', err);
     }
   });
 };
+
+connectDB()
+  .then((host) => console.log(`✓ MongoDB connected (${host})`))
+  .catch((error) => {
+    console.error(`MongoDB connection failed: ${error.message}`);
+    process.exit(1);
+  });
 
 startServer(PORT);
 
@@ -150,12 +156,12 @@ if (process.env.JUDGE0_API_URL) {
   isJudge0Reachable()
     .then((ok) => {
       if (ok) {
-        console.log(`✅ Judge0 connected at ${process.env.JUDGE0_API_URL}`);
+        console.log(`✓ Judge0 connected at ${process.env.JUDGE0_API_URL}`);
       } else {
         console.warn(
-          `⚠️  Judge0 not reachable at ${process.env.JUDGE0_API_URL} — ` +
-          'code execution will fail until Docker Desktop is started ' +
-          '(run: docker compose up -d in judge0-server/) or JUDGE0_API_KEY is set for hosted mode'
+          `⚠️  Judge0 not reachable at ${process.env.JUDGE0_API_URL} — code execution will fail ` +
+          'until Docker Desktop is started (docker compose up -d in judge0-server/) ' +
+          'or JUDGE0_API_KEY is set for hosted mode'
         );
       }
     })
@@ -163,7 +169,7 @@ if (process.env.JUDGE0_API_URL) {
       console.warn(
         `⚠️  Judge0 health check errored for ${process.env.JUDGE0_API_URL} — ` +
         'code execution will fail until Docker Desktop is started ' +
-        '(run: docker compose up -d in judge0-server/) or JUDGE0_API_KEY is set for hosted mode'
+        '(docker compose up -d in judge0-server/) or JUDGE0_API_KEY is set for hosted mode'
       );
     });
 }

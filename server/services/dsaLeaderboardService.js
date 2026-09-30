@@ -47,6 +47,12 @@ function dsaRankingPipeline(opts = {}) {
     // 2. Keep only problems that were actually solved at least once.
     { $match: { accepted: { $gt: 0 } } },
     { $lookup: { from: 'codingproblems', localField: '_id.problem', foreignField: '_id', as: 'problemDoc' } },
+    // A submission whose problem document no longer exists (deleted or replaced
+    // by a reseed) must not manufacture a solved problem. `$lookup` yields an
+    // empty array in that case, so matching on a populated first element drops
+    // exactly those rows and leaves every genuine solve untouched. This is the
+    // same rule GET /api/coding-problems/stats and computeDsaProgress apply.
+    { $match: { 'problemDoc.0': { $exists: true } } },
     { $addFields: { difficulty: { $ifNull: [{ $first: '$problemDoc.difficulty' }, null] } } },
     // 3. Roll the solved problems up per user.
     {
@@ -78,8 +84,12 @@ function dsaRankingPipeline(opts = {}) {
 /** Count how many real users have at least one solved DSA problem. */
 async function countRankedUsers() {
   const rows = await CodeSubmission.aggregate([
-    { $match: { category: 'dsa', verdict: 'Accepted' } },
-    { $group: { _id: '$user' } },
+    { $match: { category: 'dsa' } },
+    { $group: { _id: { user: '$user', problem: '$problem' }, accepted: { $sum: { $cond: [{ $eq: ['$verdict', 'Accepted'] }, 1, 0] } } } },
+    { $match: { accepted: { $gt: 0 } } },
+    { $lookup: { from: 'codingproblems', localField: '_id.problem', foreignField: '_id', as: 'problemDoc' } },
+    { $match: { 'problemDoc.0': { $exists: true } } },
+    { $group: { _id: '$_id.user' } },
     { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'userDoc' } },
     { $unwind: '$userDoc' },
     { $match: PUBLIC_USER_MATCH },

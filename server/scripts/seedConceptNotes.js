@@ -330,4 +330,7 @@ async function seed() {
   }
 }
 
-seed();
+// require.main guard: REQUIRING this module must never wipe the conceptnotes bank.
+if (require.main === module) {
+  seed();
+}

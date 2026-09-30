@@ -48,7 +48,11 @@ const CodeSubmissionSchema = new mongoose.Schema(
     },
     verdict: {
       type: String,
-      enum: ['Accepted', 'WrongAnswer', 'TLE', 'RuntimeError', 'CompileError'],
+      // `Untested` means the problem has no test cases configured, so the
+      // submission could not be verified. It is deliberately NOT `Accepted`:
+      // an unverifiable solution must not mark a problem as solved. 185 of the
+      // 266 bank entries currently fall in this category.
+      enum: ['Accepted', 'WrongAnswer', 'TLE', 'RuntimeError', 'CompileError', 'Untested'],
       required: true,
     },
     category: {

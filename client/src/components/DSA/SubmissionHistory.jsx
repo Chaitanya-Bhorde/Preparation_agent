@@ -11,14 +11,17 @@ const VERDICT_STYLES = {
   CompileError: { icon: Terminal, cls: 'text-orange-400' },
   RuntimeError: { icon: AlertTriangle, cls: 'text-red-400' },
   TLE: { icon: Clock, cls: 'text-yellow-400' },
+  // The problem has no test cases, so nothing was verified.
+  Untested: { icon: AlertTriangle, cls: 'text-gray-400' },
 };
 
 const VERDICT_LABELS = {
   Accepted: 'Accepted', WrongAnswer: 'Wrong Answer', CompileError: 'Compilation Error',
   RuntimeError: 'Runtime Error', TLE: 'Time Limit Exceeded',
+  Untested: 'No test cases',
 };
 
-const STATUS_FILTERS = ['', 'Accepted', 'WrongAnswer', 'CompileError', 'RuntimeError', 'TLE'];
+const STATUS_FILTERS = ['', 'Accepted', 'WrongAnswer', 'CompileError', 'RuntimeError', 'TLE', 'Untested'];
 const LANG_FILTERS = ['', 'javascript', 'python', 'java', 'cpp', 'c', 'csharp'];
 
 const PAGE_SIZE = 10;

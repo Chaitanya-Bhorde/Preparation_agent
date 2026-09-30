@@ -9,9 +9,6 @@ const path = require('path');
 
 exports.analyzeResumeFile = async (req, res) => {
   try {
-    console.log('[ATS_ANALYZE] Resume analysis started');
-    console.log('[ATS_ANALYZE] User:', req.user?.id);
-
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please upload a resume file' });
     }
@@ -28,11 +25,9 @@ exports.analyzeResumeFile = async (req, res) => {
         const arrayBuffer = await response.arrayBuffer();
         fileBuffer = Buffer.from(arrayBuffer);
         fileName = req.file.originalname;
-        console.log('[ATS_ANALYZE] Cloudinary fetch succeeded, buffer size:', fileBuffer.length);
       } else {
         fileBuffer = fs.readFileSync(req.file.path);
         fileName = req.file.originalname;
-        console.log('[ATS_ANALYZE] Local file read succeeded, buffer size:', fileBuffer.length);
       }
     } catch (fileError) {
       console.error('[ATS_ANALYZE] FILE LOAD FAILED:', fileError.message);
@@ -41,14 +36,11 @@ exports.analyzeResumeFile = async (req, res) => {
         message: `Failed to load uploaded file: ${fileError.message}`,
       });
     }
-    console.log('[ATS_ANALYZE] File loaded, size:', fileBuffer.length, 'bytes');
 
     // --- Step 2: Extract text ---
     let text;
     try {
       text = await extractResumeText(fileBuffer, req.file.mimetype, fileName);
-      console.log('[ATS_ANALYZE] Text extracted, length:', text.length, 'chars');
-      console.log('[ATS_ANALYZE] First 300 chars:', JSON.stringify(text.slice(0, 300)));
       if (!text || text.trim().length < 50) {
         return res.status(400).json({
           success: false,
@@ -77,7 +69,6 @@ exports.analyzeResumeFile = async (req, res) => {
 
     // --- Step 3: Find role requirements ---
     const roleName = req.body.role || null;
-    console.log('[ATS_ANALYZE] Role selection:', roleName ? 'provided' : 'none');
 
     let roleRequirements = null;
     if (roleName) {
@@ -87,26 +78,21 @@ exports.analyzeResumeFile = async (req, res) => {
 
         // If not found, try case-insensitive match
         if (!roleRequirements) {
-          console.log('[ATS_ANALYZE] Exact role match not found, trying case-insensitive');
           const allRoles = await RoleRequirements.find({ isActive: true }).select('role');
           for (const r of allRoles) {
             if (r.role.toLowerCase() === roleName.toLowerCase()) {
               roleRequirements = await RoleRequirements.findById(r._id);
-              console.log('[ATS_ANALYZE] Found case-insensitive match');
               break;
             }
           }
         }
 
         if (!roleRequirements) {
-          console.log('[ATS_ANALYZE] WARNING: No role requirements found');
-        } else {
-          console.log('[ATS_ANALYZE] Role requirements found, keywords count:', roleRequirements.keywords?.length, 'requiredSkills count:', roleRequirements.requiredSkills?.length);
+          console.warn(`[ATS_ANALYZE] No role requirements found for role "${roleName}"; scoring without them.`);
         }
       } catch (roleError) {
         console.error('[ATS_ANALYZE] ROLE FETCH FAILED:', roleError.message);
         // Continue without role requirements - non-fatal
-        console.log('[ATS_ANALYZE] Continuing without role requirements');
       }
     }
 
@@ -116,13 +102,10 @@ exports.analyzeResumeFile = async (req, res) => {
     let result;
     try {
       if (useStrict) {
-        console.log('[ATS_ANALYZE] Using strict evaluator');
         result = evaluateResume(text, roleName || undefined);
       } else {
         result = analyzeResume(text, roleRequirements);
       }
-      console.log('[ATS_ANALYZE] Analysis complete, total_score:', result.total_score);
-      console.log('[ATS_ANALYZE] Category scores:', JSON.stringify(result.category_scores));
     } catch (analyzeError) {
       console.error('[ATS_ANALYZE] RESUME ANALYSIS FAILED:', analyzeError.message);
       throw analyzeError;
@@ -136,7 +119,6 @@ exports.analyzeResumeFile = async (req, res) => {
       } else {
         rewriteSuggestions = generateRewriteSuggestions(text, result);
       }
-      console.log('[ATS_ANALYZE] Rewrite suggestions generated, count:', rewriteSuggestions?.length || 0);
     } catch (rewriteError) {
       console.error('[ATS_ANALYZE] REWRITE GENERATION FAILED:', rewriteError.message);
       rewriteSuggestions = [];
@@ -149,7 +131,7 @@ exports.analyzeResumeFile = async (req, res) => {
         'profile.atsScore': result.total_score,
         'profile.resumeUrl': fileUrl,
       });
-      console.log('[ATS_ANALYZE] User profile updated');
+      console.log(`[ATS_ANALYZE] analyzed for user ${req.user.id}: score=${result.total_score} suggestions=${rewriteSuggestions?.length || 0}`);
       res.status(200).json({
         success: true,
         data: { ...result, fileUrl, rewriteSuggestions },

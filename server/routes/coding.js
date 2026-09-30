@@ -61,7 +61,11 @@ function getGenericSandboxExecutor() {
 
 /** Derive a fine-grained verdict mirroring computeVerdict() from the legacy path. */
 function verdictFromResults(results, passed, total) {
-  if (total === 0) return 'WrongAnswer';
+  // A problem with no test cases cannot be verified at all. Reporting
+  // "WrongAnswer" there is a lie: nothing was checked, and the bank's own
+  // reference solution would fail too. `Untested` is the honest verdict — it is
+  // NOT Accepted, so it correctly does not turn the card green.
+  if (total === 0) return 'Untested';
   if (passed === total) return 'Accepted';
   const firstFailed = results.find((r) => !r.passed);
   const et = firstFailed && firstFailed.errorType;
@@ -385,6 +389,13 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
       // the database rather than guessed by the client, so the UI can turn the
       // card green and a refresh / re-login reproduces the exact same state.
       solved: Boolean(solved),
+      // When the problem ships no test cases the submission could not be
+      // verified. Say so plainly instead of leaving the user thinking their
+      // code was wrong.
+      verified: totalTestCases > 0,
+      message: totalTestCases > 0
+        ? null
+        : 'This problem has no test cases configured yet, so your solution could not be checked. It is not counted as solved.',
       mode: 'submit',
       testCaseResults: shapedResults,
     },

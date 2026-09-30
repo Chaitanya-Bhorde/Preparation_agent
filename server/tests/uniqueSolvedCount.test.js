@@ -142,16 +142,36 @@ describe('P3 — unique solved count', () => {
     expect(progress.hardSolved).toBe(1);
   });
 
-  it('a solve whose problem document is gone is still counted (dangling refs preserved)', async () => {
+  it('a solve whose problem document is gone is NOT counted as solved', async () => {
     const u = await mkUser('A', 'a6@example.com');
     const p = await mkProblem();
     await sub(u, p, 'Accepted');
-    const row = await CodeSubmission.findOne({ user: u._id });
     await CodingProblem.deleteMany({});
 
+    // The submission itself is historical fact and still counts towards
+    // submission volume, but a problem that no longer exists in the catalogue
+    // must not inflate the solved count. GET /api/coding-problems/stats and the
+    // DSA leaderboard both apply this same rule, so all three agree.
     const progress = await computeDsaProgress(u._id);
-    expect(progress.totalSolved).toBe(1);
-    expect(String(progress.solvedProblemIds[0])).toBe(String(row.problem));
+    expect(progress.totalSolved).toBe(0);
+    expect(progress.solvedProblemIds).toHaveLength(0);
+    expect(progress.totalAttempts).toBe(0);
+    expect(progress.totalSubmissions).toBe(1);
+    expect(progress.acceptedSubmissions).toBe(1);
+  });
+
+  it('a dangling reference does not distort unsolved or make it negative', async () => {
+    const u = await mkUser('A', 'a10@example.com');
+    await mkProblem();
+    await mkProblem();
+    await sub(u, null, 'Accepted');   // points at a problem that never existed
+    await sub(u, null, 'Accepted');
+
+    const progress = await computeDsaProgress(u._id);
+    expect(progress.totalProblems).toBe(2);
+    expect(progress.totalSolved).toBe(0);
+    expect(progress.unsolved).toBe(2);
+    expect(progress.unsolved).toBeGreaterThanOrEqual(0);
   });
 
   it('mergeRollups deduplicates a problem seen in both submission collections', () => {
@@ -204,6 +224,104 @@ describe('P3 — unique solved count', () => {
     const stats = await UserStats.findOne({ userId: u._id });
     expect(stats).not.toBeNull();
     expect(stats.totalProblems).toBe(1);
+  });
+});
+
+// ===========================================================================
+// The full edge-case matrix the progress contract has to satisfy:
+//   zero submissions / only WrongAnswer / WA then AC / several AC /
+//   submissions against missing problems / valid mixed with dangling.
+describe('P3 — progress edge cases', () => {
+  it('a user with zero submissions has zeros, not undefined or negatives', async () => {
+    const u = await mkUser('Fresh', 'fresh@example.com');
+    await mkProblem();
+    await mkProblem();
+
+    const p = await computeDsaProgress(u._id);
+    expect(p.totalSolved).toBe(0);
+    expect(p.totalAttempts).toBe(0);
+    expect(p.totalSubmissions).toBe(0);
+    expect(p.acceptedSubmissions).toBe(0);
+    expect(p.acceptanceRate).toBe(0);
+    expect(p.totalProblems).toBe(2);
+    expect(p.unsolved).toBe(2);
+    expect(p.weeklySolved).toBe(0);
+    expect(p.monthlySolved).toBe(0);
+  });
+
+  it('only-WrongAnswer counts as attempted but never solved', async () => {
+    const u = await mkUser('WA', 'wa@example.com');
+    const p = await mkProblem();
+    await mkProblem();
+    await sub(u, p, 'WrongAnswer');
+    await sub(u, p, 'CompileError');
+    await sub(u, p, 'RuntimeError');
+
+    const r = await computeDsaProgress(u._id);
+    expect(r.totalSubmissions).toBe(3);
+    expect(r.acceptedSubmissions).toBe(0);
+    expect(r.totalSolved).toBe(0);
+    expect(r.totalAttempts).toBe(1);
+    expect(r.unsolved).toBe(2);
+  });
+
+  it('WA then AC settles as one solved AND one attempted problem', async () => {
+    const u = await mkUser('WAAC', 'waac@example.com');
+    const p = await mkProblem();
+    await sub(u, p, 'WrongAnswer');
+    await sub(u, p, 'Accepted');
+
+    const r = await computeDsaProgress(u._id);
+    expect(r.totalSolved).toBe(1);
+    expect(r.totalAttempts).toBe(1);
+    expect(r.totalSubmissions).toBe(2);
+    expect(r.acceptanceRate).toBe(50);
+  });
+
+  it('repeated Accepted submissions never inflate solved or attempted', async () => {
+    const u = await mkUser('Repeat', 'repeat@example.com');
+    const p = await mkProblem();
+    for (let i = 0; i < 5; i += 1) await sub(u, p, 'Accepted');
+
+    const r = await computeDsaProgress(u._id);
+    expect(r.totalSolved).toBe(1);
+    expect(r.totalAttempts).toBe(1);
+    expect(r.solvedProblemIds).toHaveLength(1);
+    expect(r.weeklySolved).toBe(1);
+    expect(r.monthlySolved).toBe(1);
+  });
+
+  it('mixed valid and dangling submissions count only the valid problems', async () => {
+    const u = await mkUser('Mixed', 'mixed@example.com');
+    const real = await mkProblem();
+    const other = await mkProblem();
+    await mkProblem();
+    await sub(u, real, 'Accepted');
+    await sub(u, null, 'Accepted');   // dangling
+    await sub(u, other, 'WrongAnswer');
+    await sub(u, null, 'Accepted');   // dangling
+
+    const r = await computeDsaProgress(u._id);
+    expect(r.totalProblems).toBe(3);
+    expect(r.totalSolved).toBe(1);
+    expect(r.totalAttempts).toBe(2);
+    expect(r.unsolved).toBe(2);
+    expect(r.totalSubmissions).toBe(4);
+  });
+
+  it('difficulty buckets plus unsolved always reconcile with the catalogue', async () => {
+    const u = await mkUser('Recon', 'recon@example.com');
+    const easy = await mkProblem({ difficulty: 'easy' });
+    const med = await mkProblem({ difficulty: 'medium' });
+    const hard = await mkProblem({ difficulty: 'hard' });
+    await mkProblem();
+    await sub(u, easy, 'Accepted');
+    await sub(u, med, 'Accepted');
+    await sub(u, hard, 'Accepted');
+
+    const r = await computeDsaProgress(u._id);
+    expect(r.easySolved + r.mediumSolved + r.hardSolved).toBe(r.totalSolved);
+    expect(r.totalSolved + r.unsolved).toBe(r.totalProblems);
   });
 });
 
