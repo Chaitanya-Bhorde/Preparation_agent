@@ -78,11 +78,40 @@ enough to author it correctly.
 
 ---
 
+## Batch 3 (3 problems)
+
+### 11. `Design Twitter` — CP-0100-MEDIUM — topic: Hash Map / Linked List
+- **Ambiguity:** two materially different problems share this title.
+  - **System-design reading:** asks for an architecture — timeline fan-out on write versus read, sharding, storage choice, cache layers. This has **no canonical input or output at all**; it cannot be expressed as a judgeable function.
+  - **Algorithmic reading:** a fixed API (`follow`, `unfollow`, `postTweet`, `getNewsFeed`, `getTweets`) with a specific return shape.
+- **Missing:** the record stores only a placeholder description. Nothing indicates which reading is intended, and the two are not interchangeable — one has no I/O contract at all, the other has a very specific one.
+- **Sources checked:** the `CodingProblem` record (placeholder only), legacy `Problem` records (no match), `scripts/curatedProblems`, `scripts/testCaseGenerators` `SOLVERS`, and authored batch scripts 1–5. The only repository hit was a one-line hashing seed stub (`add({problemId:'HMAP-004',title:'LRU Cache',...})`) that contains no contract.
+- **Needed:** confirm which reading is intended. If algorithmic, state the exact method signatures and return types; if system-design, this problem does not belong in a judged DSA catalogue.
+
+### 12. `Remove All Adjacent Duplicates` — CP-0114-EASY — topic: Stack
+- **Ambiguity:** at least two standard problems share this title and return **different answers for the same input**.
+  - **Fully-reducing form:** repeatedly remove adjacent equal pairs until none remain. `"abbaca"` → `"ca"`.
+  - **k-parameter form:** remove runs of exactly `k` adjacent duplicates. Needs an extra integer input; `"abbaca"` with `k=2` → `""`.
+  - **Single-pass form:** remove each run once. `"abbaca"` → `"aca"`.
+- **Missing:** the record supplies only a placeholder description, so nothing selects a reading. These variants are different problems with different signatures and different expected outputs.
+- **Sources checked:** same as entry 11 — record, legacy `Problem`, curated set, `SOLVERS` map, authored batch scripts. No canonical spec found.
+- **Needed:** specify which variant, and for the `k` form, the value range for `k`.
+
+### 13. `Convert Sorted Array to BST` — CP-0125-EASY — topic: Tree / BST
+- **Ambiguity:** the answer is **not uniquely determined**. Every height-balanced BST built from the same sorted array is a correct answer, and there are exponentially many of them (choosing the lower vs upper midpoint at each of the `n` nodes already yields different valid trees).
+- **Why this is unsafe to activate:** this platform judges by exact output match. A learner who picks the other midpoint submits a genuinely correct solution and is marked Wrong Answer. LeetCode accepts any balanced BST; an exact-match judge cannot do that without a tie-break rule the title does not state.
+- **Missing:** any statement of a deterministic construction rule (e.g. "always choose the lower midpoint"), plus a decision on the output representation.
+- **Sources checked:** same as entry 11. Note the catalogue already has an established tree convention (level-order array with `null` for missing children) that would make the representation unambiguous — the ambiguity is the *answer*, not the format.
+- **Needed:** a deterministic construction rule, so that exactly one output is correct.
+
+---
+
 ## How to clear an entry
 
 1. Add one clarifying line to the problem above.
-2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
-3. Re-run the batch builder. It derives every expected output by executing the reference, verifies the parsed arguments equal the authored arguments, checks each authored `expect` value against the reference, and proves the reference is Accepted while a wrong solution is rejected — so content, fixtures and judge cannot drift apart.
+2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js` / `dsaBatch3Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
+3. Add a deliberately wrong solution for that problem to the matching `dsaBatchNWrong.js`.
+4. Re-run the batch builder. It derives every expected output by executing the reference, verifies the parsed arguments equal the authored arguments, checks each authored `expect` value against the reference, and proves the reference is Accepted while the wrong solution is rejected **on both the visible and the hidden cases** — so content, fixtures and judge cannot drift apart.
 
 ## Progress
 
@@ -90,5 +119,6 @@ enough to author it correctly.
 | --- | --- | --- | --- |
 | 1 | 20 | 13 | 7 |
 | 2 | 20 | 17 | 3 |
+| 3 | 20 | 17 | 3 |
 
-**Remaining inactive after batch 2: 155**
+**Remaining inactive after batch 3: 138**
