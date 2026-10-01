@@ -106,10 +106,36 @@ enough to author it correctly.
 
 ---
 
+## Batch 4 (4 problems)
+
+All four store only a placeholder description (`solve(input)` returning a string, 0 samples, 0 hidden tests). Sources inspected for each: the `CodingProblem` record, legacy `Problem` records for the same title, `scripts/curatedProblems`, the `SOLVERS` map in `scripts/testCaseGenerators.js`, and authored batch scripts 1-3. None contained a contract.
+
+### 14. `Convert Sorted List to BST` — CP-0132-MEDIUM — topic: Tree / Linked List
+- **Ambiguity:** the answer is **not uniquely determined**. Every height-balanced BST over the same sorted list is a correct answer, and there are exponentially many (choosing the lower versus upper midpoint at each node already yields different valid trees). The list form carries no extra information that pins one of them down — this is the same defect already recorded for `Convert Sorted Array to BST` in entry 13.
+- **Why activation was unsafe:** this platform judges by exact output match, so a learner who picks the other midpoint submits a genuinely correct solution and is marked Wrong Answer.
+- **Needed:** a deterministic construction rule (for example "always choose the lower midpoint"), so exactly one output is correct.
+
+### 15. `Clone Graph` — CP-0142-MEDIUM — topic: Graph
+- **Ambiguity:** the return value is a **node object graph**, not a value. Object identity, neighbour ordering and pointer identity are all unconstrained by the title, so there is no canonical text form for the result.
+- **Why activation was unsafe:** any expected-output string would have to fix an arbitrary serialisation (and an arbitrary neighbour order) that the problem never specifies. Two equally correct clones could produce different strings and one would be judged wrong. Returning an adjacency list instead would be a *different* contract, not a clarification.
+- **Needed:** a stated output representation — for example "return the clone's adjacency list with each node's neighbours sorted ascending" — if that is the intended judging contract.
+
+### 16. `Redundant Connection` — CP-0150-MEDIUM — topic: Graph
+- **Ambiguity:** the answer is a **connection**, and the canonical problem permits returning **any** redundant edge. A graph can have several, and the title does not pick one.
+- **Why activation was unsafe:** exact-match judging needs one specific edge. Choosing "the first found scanning in input order" would be inventing a tie-break the title does not state — the same non-uniqueness class recorded for the BST problems above.
+- **Needed:** either a stated tie-break rule, or a change to the contract so the answer is unique (for example "return the number of redundant connections").
+
+### 17. `Accounts Merge` — CP-0151-MEDIUM — topic: Graph
+- **Ambiguity:** the return value is a graph of **merged user accounts** (user -> set of email addresses). Like `Clone Graph` this is an object graph, and email sets additionally have no specified ordering.
+- **Why activation was unsafe:** no canonical text form exists. Whether the emails come back as a set, a list, or a joined string — and in what order — are all unspecified, so no single expected-output string can be both correct and unique.
+- **Needed:** a stated output representation and ordering rule, for example "return, per user, their merged emails sorted ascending as a comma-separated string".
+
+---
+
 ## How to clear an entry
 
 1. Add one clarifying line to the problem above.
-2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js` / `dsaBatch3Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
+2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js` / `dsaBatch3Content.js` / `dsaBatch4Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
 3. Add a deliberately wrong solution for that problem to the matching `dsaBatchNWrong.js`.
 4. Re-run the batch builder. It derives every expected output by executing the reference, verifies the parsed arguments equal the authored arguments, checks each authored `expect` value against the reference, and proves the reference is Accepted while the wrong solution is rejected **on both the visible and the hidden cases** — so content, fixtures and judge cannot drift apart.
 
@@ -120,5 +146,6 @@ enough to author it correctly.
 | 1 | 20 | 13 | 7 |
 | 2 | 20 | 17 | 3 |
 | 3 | 20 | 17 | 3 |
+| 4 | 20 | 16 | 4 |
 
-**Remaining inactive after batch 3: 138**
+**Remaining inactive after batch 4: 122**
