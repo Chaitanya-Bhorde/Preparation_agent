@@ -59,19 +59,36 @@ enough to author it correctly.
 
 ---
 
+## Batch 2 (3 problems)
+
+### 8. `Triangle` — CP-0068-MEDIUM — topic: Dynamic Programming
+- **Ambiguity:** minimum total triangle sum that can be killed (top-down), count of triangles formed from points, largest perimeter triangle from an array, or a grid path traversal length.
+- **Missing:** four unrelated algorithms share this title. They take different inputs (grid vs array vs point set) and return different types (`number` vs `number[][]`).
+- **Needed:** which quantity to compute.
+
+### 9. `Distinct Subsequences` — CP-0078-HARD — topic: Dynamic Programming
+- **Ambiguity:** count of distinct subsequences of one string, count of those equal to a target, the list of distinct subsequences, or the count of subsequences of `s1` absent from `s2`.
+- **Missing:** the title spans four different DP problems with different inputs and return types.
+- **Needed:** the input pair and which quantity is returned.
+
+### 10. `Scramble String` — CP-0079-HARD — topic: Dynamic Programming
+- **Ambiguity:** the boolean "is `s2` a scramble of `s1`", the number of distinct scrambles, or an anagram check.
+- **Why inactive despite an unambiguous-looking title:** the boolean form is conventional, but its recursive reference is genuinely subtle. A standard prefix/suffix split DP was cross-checked against an independent insertion-based oracle over 4,000 random anagram pairs and **disagreed on 16 of them** — it reports `false` for real scrambles. Rather than ship a reference that silently contradicts the definition on inputs a learner can construct, this stays inactive until a reference cross-checked against an independent oracle is supplied.
+- **Needed:** confirm the boolean contract **and** provide/approve a reference that matches it on all anagram pairs.
+
+---
+
 ## How to clear an entry
 
 1. Add one clarifying line to the problem above.
-2. Add a matching entry to `server/scripts/dsaBatch1Content.js`-style content: `signature`,
-   `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
-3. Re-run the batch builder. It derives every expected output by executing the reference, then
-   proves the reference is Accepted and a wrong solution is rejected, so content, fixtures and
-   judge cannot drift apart.
+2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
+3. Re-run the batch builder. It derives every expected output by executing the reference, verifies the parsed arguments equal the authored arguments, checks each authored `expect` value against the reference, and proves the reference is Accepted while a wrong solution is rejected — so content, fixtures and judge cannot drift apart.
 
 ## Progress
 
 | Batch | Attempted | Activated | Manual review |
 | --- | --- | --- | --- |
 | 1 | 20 | 13 | 7 |
+| 2 | 20 | 17 | 3 |
 
-**Remaining inactive after batch 1: 172**
+**Remaining inactive after batch 2: 155**
