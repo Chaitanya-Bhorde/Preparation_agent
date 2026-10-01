@@ -123,7 +123,7 @@ async function validateViaGenericValidator(problem, code, language) {
 router.post('/run', protect, async (req, res) => {
   try {
     const { problemId, language, code } = req.body;
-    const problem = await CodingProblem.findById(problemId);
+    const problem = await CodingProblem.findOne({ _id: problemId, isActive: true });
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
     const normalizeTest = (tc) => ({ input: tc.input, expectedOutput: tc.output, isHidden: !!tc.isHidden });
@@ -191,7 +191,10 @@ router.post('/submit', protect, async (req, res) => {
     if (!language) return res.status(400).json({ success: false, message: 'Missing language' });
     if (!code) return res.status(400).json({ success: false, message: 'Missing user code' });
 
-    const problem = await CodingProblem.findById(problemId);
+    // Retired problems stay stored for authoring/history but must not accept
+    // new work: judging one yields a meaningless verdict and would let a
+    // retired problem re-enter a user's solved totals.
+    const problem = await CodingProblem.findOne({ _id: problemId, isActive: true });
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
     // Phase 3.2: /submit now validates via the generic, metadata-driven engine

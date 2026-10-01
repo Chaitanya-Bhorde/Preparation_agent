@@ -121,7 +121,7 @@ exports.getTopicProgress = async (req, res) => {
 
     const topicList = Array.from(new Set([
       ...(await Problem.distinct('tags')),
-      ...(await CodingProblem.distinct('tags')),
+      ...(await CodingProblem.distinct('tags', { isActive: true })),
       ...(await SQLProblem.distinct('tags'))
     ]));
 

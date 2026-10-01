@@ -373,7 +373,7 @@ exports.getCodingProblem = async (req, res) => {
 
 exports.getCodingCompanies = async (req, res) => {
   try {
-    const companies = await CodingProblem.distinct('companies');
+    const companies = await CodingProblem.distinct('companies', { isActive: true });
     res.status(200).json({ success: true, data: companies });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -382,7 +382,7 @@ exports.getCodingCompanies = async (req, res) => {
 
 exports.getCodingTags = async (req, res) => {
   try {
-    const tags = await CodingProblem.distinct('tags');
+    const tags = await CodingProblem.distinct('tags', { isActive: true });
     res.status(200).json({ success: true, data: tags });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -391,7 +391,7 @@ exports.getCodingTags = async (req, res) => {
 
 exports.getCodingTopics = async (req, res) => {
   try {
-    const topics = await CodingProblem.distinct('topic');
+    const topics = await CodingProblem.distinct('topic', { isActive: true });
     res.status(200).json({ success: true, data: topics });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

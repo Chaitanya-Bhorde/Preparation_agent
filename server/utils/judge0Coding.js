@@ -197,13 +197,6 @@ const executeJudge0SingleCase = async (sourceCode, language, input, expectedOutp
   try {
     let response;
     try {
-      // Log Java code for debugging
-      if (language === 'java') {
-        console.log('\n=== Submitting Java Code to Judge0 ===');
-        console.log(sourceCode);
-        console.log('=====================================\n');
-      }
-      
       const createRes = await judge0Client.post(
         '/submissions?base64_encoded=false',
         {
