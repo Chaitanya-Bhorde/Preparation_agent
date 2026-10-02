@@ -1,151 +1,112 @@
-# DSA — Problems Requiring Manual Content
+# Batch 5 - Problems Requiring Manual Content
 
-These problems are **deliberately left inactive** (`isActive: false`). Their records and
-any historical submissions are preserved; only the user-facing listing is withheld.
+These problems were selected for batch 5 and confirmed inactive, but were **not**
+activated. Each one has at least one standard, defensible reading that cannot be
+reconciled with the stored record, and activating it would have meant either
+guessing the contract or shipping expected outputs that are not determined by the
+input.
 
-Reason: the intended problem cannot be established from the repository. Each title below
-admits several materially different contracts, and the stored record contains nothing that
-resolves which one was intended — the description is the seeder's template
-(`"Solve the X problem. (Spec not yet reviewed)"`), there are **zero** sample cases,
-**zero** hidden cases, no reference solution, and the generic `solve(input: string) -> string`
-shell. Every in-repo source was checked: `curatedProblems.js` (51), `SOLVERS` in
-`testCaseGenerators.js` (51), `authoredDsaBatch1–5`, the legacy `problems` collection, and
-the recovery snapshots (`_current_codingproblems_snapshot.json`, `_incident_live_catalog.json`,
-`_live_catalog.json`, `_recovery_inventory.json`, `_full_audit_report.json`) — every one of
-which contains only the same template text, never a statement, fixture or expected output.
+Selected for batch 5: 30
+Activated: 24
+Held for manual review: 6
 
-Activating any of these would mean inventing the problem, which would produce a question whose
-statement, tests and judge disagree. Supplying one clarifying sentence per problem below is
-enough to author it correctly.
-
----
-
-## Batch 1 (7 problems)
-
-### 1. `4Sum` — CP-0018-MEDIUM — topic: Arrays
-- **Ambiguity:** return a sorted list of quadruplets, or the *count* of quadruplets summing to 0, or the four-element sum closest to a target, or the smallest-first-element quadruple.
-- **Missing:** the output type is entirely unspecified, and the four readings have incompatible return types (`number[][]` vs `number`).
-- **Needed:** one line stating which quantity to return.
-
-### 2. `Sort an Array` — CP-0024-MEDIUM — topic: Arrays
-- **Ambiguity:** ascending or descending; sort a scalar array or objects by a key; sort by value or by frequency.
-- **Missing:** no ordering, key, or comparator is recorded anywhere.
-- **Needed:** the sort ordering and the element shape.
-
-### 3. `Word Ladder II` — CP-0050-HARD — topic: Strings
-- **Ambiguity:** return *all* shortest transformation sequences, or their *count*, or only the lexicographically smallest one, or sequences of any length.
-- **Missing:** output shape. Note the suffix "II" conventionally denotes the all-sequences variant, but the record shares its title with the count-returning sibling, so this is not evidenced rather than confirmed.
-- **Needed:** confirm the all-sequences variant (or specify the output).
-
-### 4. `Reverse Words in String` — CP-0053-MEDIUM — topic: Strings
-- **Ambiguity:** trim and collapse internal whitespace, reverse characters within words only, or preserve the original spacing exactly.
-- **Missing:** the spacing/trimming rule, which is the entire substance of this problem — the three readings differ on nearly every input.
-- **Needed:** the exact whitespace rule.
-
-### 5. `Coin Change II` — CP-0061-MEDIUM — topic: Dynamic Programming
-- **Ambiguity:** the *number of combinations* that make an amount (unlimited coins), the *minimum number of coins*, or the number of ordered sequences.
-- **Missing:** which quantity is counted. The combinations and min-coins problems are distinct algorithms with different return types.
-- **Needed:** whether the answer is a count or a minimum.
-
-### 6. `Minimum Path Sum` — CP-0065-MEDIUM — topic: Dynamic Programming
-- **Ambiguity:** minimum top-left to bottom-right grid sum, minimum *falling* path, or minimum sum with arbitrary start and end.
-- **Missing:** which path family and which endpoints. These differ even on the same grid.
-- **Needed:** the movement rule and the fixed endpoints.
-
-### 7. `Target Sum` — CP-0066-MEDIUM — topic: Dynamic Programming
-- **Ambiguity:** assign `+`/`-` to every element to reach a target, ordinary subset sum against a target, or assign `+1`/`-1` to reach a difference.
-- **Missing:** only the title exists. The operator set, whether every element must be used, and the sign convention are all unstated.
-- **Needed:** the assignment rule (e.g. "every element gets `+` or `-`; return the number of assignments reaching `target`").
+| # | problemId | Title | Decision |
+|---|---|---|---|
+| 1 | CP-0152-MEDIUM | Network Delay Time | activated |
+| 2 | CP-0153-MEDIUM | Evaluate Division | activated |
+| 3 | CP-0154-MEDIUM | Cheapest Flights Within K Stops | activated |
+| 4 | CP-0155-MEDIUM | Minimum Height Trees | activated |
+| 5 | CP-0156-MEDIUM | Friend Circles | MANUAL REVIEW |
+| 6 | CP-0157-MEDIUM | Keys and Rooms | activated |
+| 7 | CP-0158-MEDIUM | Is Graph Bipartite | activated |
+| 8 | CP-0159-MEDIUM | Find Eventual Safe States | activated |
+| 9 | CP-0160-MEDIUM | Possible Bipartition | MANUAL REVIEW |
+| 10 | CP-0163-EASY | Sqrt(x) | activated |
+| 11 | CP-0164-EASY | Valid Perfect Square | activated |
+| 12 | CP-0165-EASY | Find Smallest Letter Greater Than Target | activated |
+| 13 | CP-0166-EASY | Missing Number | activated |
+| 14 | CP-0167-MEDIUM | Search a 2D Matrix | activated |
+| 15 | CP-0168-MEDIUM | Search in Rotated Sorted Array | activated |
+| 16 | CP-0169-MEDIUM | Search in Rotated Sorted Array II | MANUAL REVIEW |
+| 17 | CP-0170-MEDIUM | Find First and Last Position | activated |
+| 18 | CP-0173-MEDIUM | Search a 2D Matrix II | activated |
+| 19 | CP-0174-MEDIUM | Koko Eating Bananas | activated |
+| 20 | CP-0176-MEDIUM | Kth Largest Element in Array | activated |
+| 21 | CP-0177-EASY | Kth Largest Element in Stream | activated |
+| 22 | CP-0179-MEDIUM | Top K Frequent Words | activated |
+| 23 | CP-0181-MEDIUM | Find K Pairs with Smallest Sums | MANUAL REVIEW |
+| 24 | CP-0182-MEDIUM | Task Scheduler | activated |
+| 25 | CP-0183-HARD | Rearrange String k Distance Apart | MANUAL REVIEW |
+| 26 | CP-0184-HARD | Smallest Range From Lists | MANUAL REVIEW |
+| 27 | CP-0185-HARD | IPO | activated |
+| 28 | CP-0186-HARD | Find K-th Smallest Pair Distance | activated |
+| 29 | CP-0187-HARD | Maximum Frequency Stack | activated |
+| 30 | CP-0188-HARD | Trapping Rain Water II | activated |
 
 ---
 
-## Batch 2 (3 problems)
+## 1. Friend Circles
 
-### 8. `Triangle` — CP-0068-MEDIUM — topic: Dynamic Programming
-- **Ambiguity:** minimum total triangle sum that can be killed (top-down), count of triangles formed from points, largest perimeter triangle from an array, or a grid path traversal length.
-- **Missing:** four unrelated algorithms share this title. They take different inputs (grid vs array vs point set) and return different types (`number` vs `number[][]`).
-- **Needed:** which quantity to compute.
+- **problemId:** CP-0156-MEDIUM
+- **Topic / difficulty / tags:** Graph / medium / graph, union-find, depth-first-search
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** "Friend circles" names at least two standard contracts that return different values: the NUMBER of connected groups, or the SIZE of the largest group. The tags (union-find, depth-first-search) fit the first, but the title alone does not decide it. The catalogue also already carries "Number of Connected Components" as an ACTIVE problem with exactly the count-the-groups contract, so activating this record on that reading would publish a duplicate under a second name.
+- **Competing variants:** `number of connected groups`  vs  `size of the largest group`  vs  `per-person number of circles`
+- **Why activation is unsafe:** "Friend circles" names at least two standard contracts that return different values: the NUMBER of connected groups, or the SIZE of the largest group. The stored tags (union-find, depth-first-search) fit the first, but the title alone does not decide it, and the catalogue already publishes the count-the-groups contract as the ACTIVE problem "Number of Connected Components", so activating this record on that reading would duplicate an existing problem under a second name.
+- **What is needed:** A decision on which value the record must return: the number of connected groups, or the size of the largest group. If it is the count, this record should be retired or merged into the already-active "Number of Connected Components" instead of activated.
 
-### 9. `Distinct Subsequences` — CP-0078-HARD — topic: Dynamic Programming
-- **Ambiguity:** count of distinct subsequences of one string, count of those equal to a target, the list of distinct subsequences, or the count of subsequences of `s1` absent from `s2`.
-- **Missing:** the title spans four different DP problems with different inputs and return types.
-- **Needed:** the input pair and which quantity is returned.
+## 2. Possible Bipartition
 
-### 10. `Scramble String` — CP-0079-HARD — topic: Dynamic Programming
-- **Ambiguity:** the boolean "is `s2` a scramble of `s1`", the number of distinct scrambles, or an anagram check.
-- **Why inactive despite an unambiguous-looking title:** the boolean form is conventional, but its recursive reference is genuinely subtle. A standard prefix/suffix split DP was cross-checked against an independent insertion-based oracle over 4,000 random anagram pairs and **disagreed on 16 of them** — it reports `false` for real scrambles. Rather than ship a reference that silently contradicts the definition on inputs a learner can construct, this stays inactive until a reference cross-checked against an independent oracle is supplied.
-- **Needed:** confirm the boolean contract **and** provide/approve a reference that matches it on all anagram pairs.
+- **problemId:** CP-0160-MEDIUM
+- **Topic / difficulty / tags:** Graph / medium / graph, union-find
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** The title matches two different standard problems: "is the graph 2-colourable", and the equal-size two-group split over a set of people and their same-language pairs. The record cannot say which; the two return different booleans on ordinary inputs, and this very batch already contains "Is Graph Bipartite" as a separate record, which makes the overlap concrete rather than theoretical.
+- **Competing variants:** `2-colourable check (same as Is Graph Bipartite)`  vs  `split into two groups of EQUAL size`
+- **Why activation is unsafe:** The two readings return different booleans on ordinary inputs, and the 2-colourable reading is already published in this same catalogue as "Is Graph Bipartite". Choosing silently would either duplicate an active problem under a second name or ship a record whose description does not match what the title leads a learner to expect.
+- **What is needed:** A decision from the catalogue owner on which contract this record means: the plain 2-colourability check, or the equal-size two-group split. If the former, this record should probably be retired or merged into "Is Graph Bipartite" rather than activated.
 
----
+## 3. Search in Rotated Sorted Array II
 
-## Batch 3 (3 problems)
+- **problemId:** CP-0169-MEDIUM
+- **Topic / difficulty / tags:** Binary Search / medium / array, binary-search
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** The "II" marks the variant WITH duplicates, and that is exactly what destroys a unique answer: when the array contains the target more than once, several distinct indices are all correct, and exact-match judging would mark a correct solution wrong. Forcing the problem to distinct values would make it identical to the "Search in Rotated Sorted Array" record already selected in this batch, so there is no reconstruction that is both faithful and single-valued.
+- **Competing variants:** `any index of a duplicated target (not unique)`  vs  `requires distinct values, which is the other record in this batch`
+- **Why activation is unsafe:** The problem is only distinguishable from its non-"II" sibling by allowing duplicates, and duplicates are exactly what makes the correct index non-unique. Exact-match judging would reject correct solutions; removing duplicates would make the record a duplicate of "Search in Rotated Sorted Array", which this batch already activated.
+- **What is needed:** Either a stated tie-break for duplicate targets (for example "return the leftmost index"), or confirmation that duplicate-free inputs are acceptable, or agreement to retire this record in favour of the distinct-value version already activated.
 
-### 11. `Design Twitter` — CP-0100-MEDIUM — topic: Hash Map / Linked List
-- **Ambiguity:** two materially different problems share this title.
-  - **System-design reading:** asks for an architecture — timeline fan-out on write versus read, sharding, storage choice, cache layers. This has **no canonical input or output at all**; it cannot be expressed as a judgeable function.
-  - **Algorithmic reading:** a fixed API (`follow`, `unfollow`, `postTweet`, `getNewsFeed`, `getTweets`) with a specific return shape.
-- **Missing:** the record stores only a placeholder description. Nothing indicates which reading is intended, and the two are not interchangeable — one has no I/O contract at all, the other has a very specific one.
-- **Sources checked:** the `CodingProblem` record (placeholder only), legacy `Problem` records (no match), `scripts/curatedProblems`, `scripts/testCaseGenerators` `SOLVERS`, and authored batch scripts 1–5. The only repository hit was a one-line hashing seed stub (`add({problemId:'HMAP-004',title:'LRU Cache',...})`) that contains no contract.
-- **Needed:** confirm which reading is intended. If algorithmic, state the exact method signatures and return types; if system-design, this problem does not belong in a judged DSA catalogue.
+## 4. Find K Pairs with Smallest Sums
 
-### 12. `Remove All Adjacent Duplicates` — CP-0114-EASY — topic: Stack
-- **Ambiguity:** at least two standard problems share this title and return **different answers for the same input**.
-  - **Fully-reducing form:** repeatedly remove adjacent equal pairs until none remain. `"abbaca"` → `"ca"`.
-  - **k-parameter form:** remove runs of exactly `k` adjacent duplicates. Needs an extra integer input; `"abbaca"` with `k=2` → `""`.
-  - **Single-pass form:** remove each run once. `"abbaca"` → `"aca"`.
-- **Missing:** the record supplies only a placeholder description, so nothing selects a reading. These variants are different problems with different signatures and different expected outputs.
-- **Sources checked:** same as entry 11 — record, legacy `Problem`, curated set, `SOLVERS` map, authored batch scripts. No canonical spec found.
-- **Needed:** specify which variant, and for the `k` form, the value range for `k`.
+- **problemId:** CP-0181-MEDIUM
+- **Topic / difficulty / tags:** Heap / medium / heap
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** The task is to return k pairs with the smallest sums, but WHICH k pairs is not determined when several pairs share a sum. Ordinary inputs hit ties constantly - two equal elements in each array already give two different pairs with the same sum - and the judge would accept only one of them. No canonical tie-break is stated by the title.
+- **Competing variants:** `any k pairs attaining the k smallest sums (not unique)`  vs  `sorted by sum then by first element (would have to be invented)`
+- **Why activation is unsafe:** Several distinct pairs routinely share the same sum, so more than one pair list is correct. Storing a single expected output would reject correct answers. Any tie-break strong enough to make the answer unique would have to be invented, and nothing in the repository states one.
+- **What is needed:** A stated ordering rule for equal sums (for example "sort by sum, then by first element, then by second element"), or a decision to judge this problem with a validator that accepts any set of k pairs attaining the k smallest sums.
 
-### 13. `Convert Sorted Array to BST` — CP-0125-EASY — topic: Tree / BST
-- **Ambiguity:** the answer is **not uniquely determined**. Every height-balanced BST built from the same sorted array is a correct answer, and there are exponentially many of them (choosing the lower vs upper midpoint at each of the `n` nodes already yields different valid trees).
-- **Why this is unsafe to activate:** this platform judges by exact output match. A learner who picks the other midpoint submits a genuinely correct solution and is marked Wrong Answer. LeetCode accepts any balanced BST; an exact-match judge cannot do that without a tie-break rule the title does not state.
-- **Missing:** any statement of a deterministic construction rule (e.g. "always choose the lower midpoint"), plus a decision on the output representation.
-- **Sources checked:** same as entry 11. Note the catalogue already has an established tree convention (level-order array with `null` for missing children) that would make the representation unambiguous — the ambiguity is the *answer*, not the format.
-- **Needed:** a deterministic construction rule, so that exactly one output is correct.
+## 5. Rearrange String k Distance Apart
 
----
+- **problemId:** CP-0183-HARD
+- **Topic / difficulty / tags:** Heap / hard / hash-table, heap
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** The canonical problem asks for ANY valid rearrangement, and its own statement says so. Several rearrangements are correct for essentially every input, so a single expected-output string would mark correct solutions wrong; this needs a validator rather than exact matching.
+- **Competing variants:** `any valid rearrangement`  vs  `lexicographically smallest rearrangement`
+- **Why activation is unsafe:** The canonical contract explicitly accepts any valid rearrangement. A single stored expected string would mark correct solutions wrong. Making the answer unique requires either inventing a canonical form or switching this problem to a validator-based comparison, which is a change to the judging contract rather than to the content.
+- **What is needed:** A canonical form (for example "the lexicographically smallest valid rearrangement"), or a decision to judge with a validator that accepts any arrangement satisfying the distance constraint.
 
-## Batch 4 (4 problems)
+## 6. Smallest Range From Lists
 
-All four store only a placeholder description (`solve(input)` returning a string, 0 samples, 0 hidden tests). Sources inspected for each: the `CodingProblem` record, legacy `Problem` records for the same title, `scripts/curatedProblems`, the `SOLVERS` map in `scripts/testCaseGenerators.js`, and authored batch scripts 1-3. None contained a contract.
-
-### 14. `Convert Sorted List to BST` — CP-0132-MEDIUM — topic: Tree / Linked List
-- **Ambiguity:** the answer is **not uniquely determined**. Every height-balanced BST over the same sorted list is a correct answer, and there are exponentially many (choosing the lower versus upper midpoint at each node already yields different valid trees). The list form carries no extra information that pins one of them down — this is the same defect already recorded for `Convert Sorted Array to BST` in entry 13.
-- **Why activation was unsafe:** this platform judges by exact output match, so a learner who picks the other midpoint submits a genuinely correct solution and is marked Wrong Answer.
-- **Needed:** a deterministic construction rule (for example "always choose the lower midpoint"), so exactly one output is correct.
-
-### 15. `Clone Graph` — CP-0142-MEDIUM — topic: Graph
-- **Ambiguity:** the return value is a **node object graph**, not a value. Object identity, neighbour ordering and pointer identity are all unconstrained by the title, so there is no canonical text form for the result.
-- **Why activation was unsafe:** any expected-output string would have to fix an arbitrary serialisation (and an arbitrary neighbour order) that the problem never specifies. Two equally correct clones could produce different strings and one would be judged wrong. Returning an adjacency list instead would be a *different* contract, not a clarification.
-- **Needed:** a stated output representation — for example "return the clone's adjacency list with each node's neighbours sorted ascending" — if that is the intended judging contract.
-
-### 16. `Redundant Connection` — CP-0150-MEDIUM — topic: Graph
-- **Ambiguity:** the answer is a **connection**, and the canonical problem permits returning **any** redundant edge. A graph can have several, and the title does not pick one.
-- **Why activation was unsafe:** exact-match judging needs one specific edge. Choosing "the first found scanning in input order" would be inventing a tie-break the title does not state — the same non-uniqueness class recorded for the BST problems above.
-- **Needed:** either a stated tie-break rule, or a change to the contract so the answer is unique (for example "return the number of redundant connections").
-
-### 17. `Accounts Merge` — CP-0151-MEDIUM — topic: Graph
-- **Ambiguity:** the return value is a graph of **merged user accounts** (user -> set of email addresses). Like `Clone Graph` this is an object graph, and email sets additionally have no specified ordering.
-- **Why activation was unsafe:** no canonical text form exists. Whether the emails come back as a set, a list, or a joined string — and in what order — are all unspecified, so no single expected-output string can be both correct and unique.
-- **Needed:** a stated output representation and ordering rule, for example "return, per user, their merged emails sorted ascending as a comma-separated string".
+- **problemId:** CP-0184-HARD
+- **Topic / difficulty / tags:** Heap / hard / heap, greedy
+- **Sources checked:** Current CodingProblem record (title, topic, difficulty, tags, and the stock "(Spec not yet reviewed)" description); the legacy Problem collection and the DSA seeders (seedCodingProblemsExpanded and related) which record only title/topic/tags; scripts/curatedProblems; the SOLVERS table; authored batches 1-4; repository snapshots and state-probe exports; and the existing active catalogue, which was searched for an already-published contract covering the same task.
+- **Exact ambiguity:** The smallest range covering at least k of the lists. When two or more ranges share the minimum width they are all correct answers and the canonical problem returns any of them, so the pair to expect is not determined by the input.
+- **Competing variants:** `any minimum-width range (not unique)`  vs  `smallest starting value among minimum-width ranges (would have to be invented)`
+- **Why activation is unsafe:** Several ranges can share the minimum width, and the canonical problem returns any of them. Without a stated tie-break the expected [start, end] pair is not determined by the input, so expected outputs could not be generated honestly.
+- **What is needed:** A tie-break for equal-width ranges (for example "among minimum-width ranges return the one with the smallest start"), or a validator-based judging decision.
 
 ---
 
-## How to clear an entry
-
-1. Add one clarifying line to the problem above.
-2. Add a matching entry to `server/scripts/dsaBatch1Content.js` / `dsaBatch2Content.js` / `dsaBatch3Content.js` / `dsaBatch4Content.js`-style content: `signature`, `description`, `input`, `output`, `constraints`, `cases`, and a `reference`.
-3. Add a deliberately wrong solution for that problem to the matching `dsaBatchNWrong.js`.
-4. Re-run the batch builder. It derives every expected output by executing the reference, verifies the parsed arguments equal the authored arguments, checks each authored `expect` value against the reference, and proves the reference is Accepted while the wrong solution is rejected **on both the visible and the hidden cases** — so content, fixtures and judge cannot drift apart.
-
-## Progress
-
-| Batch | Attempted | Activated | Manual review |
-| --- | --- | --- | --- |
-| 1 | 20 | 13 | 7 |
-| 2 | 20 | 17 | 3 |
-| 3 | 20 | 17 | 3 |
-| 4 | 20 | 16 | 4 |
-
-**Remaining inactive after batch 4: 122**
+No other problem in the selected 30 was held back. The remaining
+24 were reconstructed from repository evidence, verified
+against independent oracles, and activated.
