@@ -142,64 +142,37 @@ async function getSQLFeatures(userId) {
  * Compute topic-level features for Aptitude domain.
  */
 async function getAptitudeFeatures(userId) {
-  const subs = await AptitudeSubmission.find({ user: userId, type: 'single-question' })
+  // AptitudeSubmission keys the user as `userId`; querying `user` returned zero
+  // rows, so aptitude never reached weak-areas or the recommendation layer.
+  // Mock tests are included: they carry real graded answers too.
+  const subs = await AptitudeSubmission.find({ userId: userId })
     .select('answers category correctCount totalCount createdAt').lean();
   const topicMap = {};
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   subs.forEach((sub) => {
     const category = sub.category || 'general';
-    if (!topicMap[category]) topicMap[category] = { attempts: 0, correct: 0, total: 0, recentAttempts: 0, recentCorrect: 0, lastAttempt: null };
+    if (!topicMap[category]) topicMap[category] = { submissions: 0, correct: 0, total: 0, recentSubmissions: 0, recentCorrect: 0, recentTotal: 0, lastAttempt: null };
     const t = topicMap[category];
     const correct = sub.answers ? sub.answers.filter((a) => a.isCorrect).length : (sub.correctCount || 0);
     const total = sub.answers ? sub.answers.length : (sub.totalCount || 1);
-    t.attempts += 1;
+    t.submissions += 1;
     t.correct += correct;
     t.total += total;
-    if (sub.createdAt >= cutoff) { t.recentAttempts += 1; t.recentCorrect += correct; }
+    if (sub.createdAt >= cutoff) { t.recentSubmissions += 1; t.recentCorrect += correct; t.recentTotal += total; }
     if (!t.lastAttempt || sub.createdAt > t.lastAttempt) t.lastAttempt = sub.createdAt;
   });
 
+  // Accuracy is per QUESTION, not per submission: a 30-question mock with 13
+  // correct is 43%, not 1300%. attempts stays the paper count so the evidence
+  // the ranker reads stays interpretable.
   return Object.keys(topicMap).map((topic) => {
     const t = topicMap[topic];
-    const accuracy = safeDiv(t.correct, t.attempts) * 100;
-    const recentAccuracy = safeDiv(t.recentCorrect, t.recentAttempts) * 100;
-    const trend = t.recentAttempts > 0 ? recentAccuracy - accuracy : 0;
-    return buildFeature(topic, 'Aptitude', t.attempts, t.correct, accuracy, recentAccuracy, 1.0, trend, t.recentAttempts, t.lastAttempt,
-      { attempts: t.attempts, correct: t.correct, total: t.total, recentAttempts: t.recentAttempts, recentAccuracy: Math.round(recentAccuracy), lastAttempt: t.lastAttempt });
-  }).sort((a, b) => a.attempts - b.attempts);
-}
-
-
-/**
- * Compute topic-level features for Aptitude domain.
- */
-async function getAptitudeFeatures(userId) {
-  const subs = await AptitudeSubmission.find({ user: userId, type: 'single-question' })
-    .select('answers category correctCount totalCount createdAt').lean();
-  const topicMap = {};
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-  subs.forEach((sub) => {
-    const category = sub.category || 'general';
-    if (!topicMap[category]) topicMap[category] = { attempts: 0, correct: 0, total: 0, recentAttempts: 0, recentCorrect: 0, lastAttempt: null };
-    const t = topicMap[category];
-    const correct = sub.answers ? sub.answers.filter((a) => a.isCorrect).length : (sub.correctCount || 0);
-    const total = sub.answers ? sub.answers.length : (sub.totalCount || 1);
-    t.attempts += 1;
-    t.correct += correct;
-    t.total += total;
-    if (sub.createdAt >= cutoff) { t.recentAttempts += 1; t.recentCorrect += correct; }
-    if (!t.lastAttempt || sub.createdAt > t.lastAttempt) t.lastAttempt = sub.createdAt;
-  });
-
-  return Object.keys(topicMap).map((topic) => {
-    const t = topicMap[topic];
-    const accuracy = safeDiv(t.correct, t.attempts) * 100;
-    const recentAccuracy = safeDiv(t.recentCorrect, t.recentAttempts) * 100;
-    const trend = t.recentAttempts > 0 ? recentAccuracy - accuracy : 0;
-    return buildFeature(topic, 'Aptitude', t.attempts, t.correct, accuracy, recentAccuracy, 1.0, trend, t.recentAttempts, t.lastAttempt,
-      { attempts: t.attempts, correct: t.correct, total: t.total, recentAttempts: t.recentAttempts, recentAccuracy: Math.round(recentAccuracy), lastAttempt: t.lastAttempt });
+    const accuracy = safeDiv(t.correct, t.total) * 100;
+    const recentAccuracy = safeDiv(t.recentCorrect, t.recentTotal) * 100;
+    const trend = t.recentTotal > 0 ? recentAccuracy - accuracy : 0;
+    return buildFeature(topic, 'Aptitude', t.submissions, t.correct, accuracy, recentAccuracy, 1.0, trend, t.recentSubmissions, t.lastAttempt,
+      { submissions: t.submissions, correct: t.correct, questions: t.total, recentSubmissions: t.recentSubmissions, recentQuestions: t.recentTotal, recentAttempts: t.recentSubmissions, recentAccuracy: Math.round(recentAccuracy), lastAttempt: t.lastAttempt });
   }).sort((a, b) => a.attempts - b.attempts);
 }
 
@@ -241,61 +214,6 @@ async function getInterviewFeatures(userId) {
       { attempts: t.attempts, score: Math.round(t.totalScore), maxScore: t.maxScore, recentAttempts: t.recentAttempts, recentScore: Math.round(t.recentScore), lastAttempt: t.lastAttempt });
   }).sort((a, b) => a.attempts - b.attempts);
 }
-
-
-
-function simpleKMeans(data, k = 4, maxIter = 20) {
-  if (!data.length) return [];
-  if (data.length <= k) return data.map((d) => ({ ...d, cluster: 0, clusterLabel: 'MEDIUM' }));
-  const features = data.map((d) => [d.accuracy / 100, Math.min(d.attempts / 20, 1), (d.trend + 100) / 200, d.recentAccuracy / 100]);
-  let centroids = [];
-  for (let i = 0; i < k; i++) {
-    const idx = Math.floor(Math.random() * data.length);
-    centroids.push([...features[idx]]);
-  }
-  let assignments = new Array(data.length).fill(0);
-  for (let iter = 0; iter < maxIter; iter++) {
-    let changed = false;
-    for (let i = 0; i < data.length; i++) {
-      let minDist = Infinity, bestCluster = 0;
-      for (let ci = 0; ci < k; ci++) {
-        let dist = 0;
-        for (let d = 0; d < 4; d++) dist += Math.pow(features[i][d] - centroids[ci][d], 2);
-        if (dist < minDist) { minDist = dist; bestCluster = ci; }
-      }
-      if (assignments[i] !== bestCluster) { assignments[i] = bestCluster; changed = true; }
-    }
-    const newCentroids = Array.from({ length: k }, () => ({ sum: [0, 0, 0, 0], count: 0 }));
-    for (let i = 0; i < data.length; i++) {
-      const ci = assignments[i];
-      for (let d = 0; d < 4; d++) newCentroids[ci].sum[d] += features[i][d];
-      newCentroids[ci].count += 1;
-    }
-    for (let ci = 0; ci < k; ci++) {
-      if (newCentroids[ci].count > 0) centroids[ci] = [0, 1, 2, 3].map((d) => newCentroids[ci].sum[d] / newCentroids[ci].count);
-    }
-    if (!changed) break;
-  }
-  const clusterStats = {};
-  for (let i = 0; i < data.length; i++) {
-    const ci = assignments[i];
-    if (!clusterStats[ci]) clusterStats[ci] = { accSum: 0, count: 0 };
-    clusterStats[ci].accSum += features[i][0];
-    clusterStats[ci].count += 1;
-  }
-  const sorted = Object.keys(clusterStats)
-    .map((ci) => ({ cluster: parseInt(ci), avg: clusterStats[ci].accSum / clusterStats[ci].count }))
-    .sort((a, b) => b.avg - a.avg);
-  const labels = {};
-  sorted.forEach((cs, idx) => {
-    if (idx === 0) labels[cs.cluster] = 'STRONG';
-    else if (idx === 1) labels[cs.cluster] = 'MEDIUM';
-    else if (idx === 2) labels[cs.cluster] = 'WEAK';
-    else labels[cs.cluster] = 'UNDER_PRACTICED';
-  });
-  return data.map((d, i) => ({ ...d, cluster: assignments[i], clusterLabel: labels[assignments[i]] || 'MEDIUM' }));
-}
-
 
 module.exports = {
   HEATMAP_INTENSITY,

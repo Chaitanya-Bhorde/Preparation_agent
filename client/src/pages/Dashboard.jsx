@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Code2, Database, Brain, Bot, FileText, GraduationCap, Target, CheckCircle, TrendingUp, Zap, BookOpen, Sparkles, ArrowRight, BarChart3, Trophy } from 'lucide-react';
 import { getCatalogCounts } from '../api';
+import RecommendationsPanel from '../components/RecommendationsPanel';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER } from '../utils/ui';
 
@@ -188,6 +189,10 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+      </div>
+
+      <div className="mb-8">
+        <RecommendationsPanel />
       </div>
 
       {/* Additional Features */}

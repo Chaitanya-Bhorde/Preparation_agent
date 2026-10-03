@@ -2,8 +2,22 @@ const User = require('../models/User');
 const Problem = require('../models/Problem');
 const Submission = require('../models/Submission');
 const { generateRecommendations } = require('../services/recommendationService');
+// Required as a module (not destructured) so the ML seam stays stubbable.
+const mlRankerClient = require('../services/mlRankerClient');
+const {
+  getDSAFeatures, getSQLFeatures, getAptitudeFeatures, getInterviewFeatures,
+} = require('../services/ml/featureEngineering');
 
 const REVISION_INTERVALS = [1, 3, 7, 14, 30];
+
+/** Every domain's topic features for one user, flattened for the ML ranker. */
+async function buildFeaturePayload(userId) {
+  const [dsa, sql, aptitude, interview] = await Promise.all([
+    getDSAFeatures(userId), getSQLFeatures(userId),
+    getAptitudeFeatures(userId), getInterviewFeatures(userId),
+  ]);
+  return [...dsa, ...sql, ...aptitude, ...interview];
+}
 
 const calculateNextReview = (currentIntervalIndex, passed) => {
   if (passed) {
@@ -38,10 +52,32 @@ exports.getRecommendations = async (req, res) => {
     ];
     const uniqueWeakTopics = [...new Set(weakTopics)];
 
+    // ML layer: rank the same real features in Python. It is additive - if the
+    // interpreter is missing, slow, crashing or returns nonsense we keep the
+    // built-in ranker's list and say so, rather than degrading the response.
+    let ml = null;
+    let source = 'builtin-ranker';
+    let recommendations = payload.recommendations;
+    try {
+      const features = await buildFeaturePayload(user._id);
+      const ranked = await mlRankerClient.rankWithPython(features);
+      if (ranked) {
+        ml = ranked;
+        source = 'python-ml';
+        if (Array.isArray(ranked.recommendations) && ranked.recommendations.length) {
+          recommendations = ranked.recommendations;
+        }
+      }
+    } catch (error) {
+      console.warn('[recommendations] ML ranker unavailable, using built-in:', error.message);
+    }
+
     res.status(200).json({
       success: true,
       data: {
-        recommendations: payload.recommendations,
+        recommendations,
+        source,
+        ml,
         revisionQueue: payload.recommendations.slice(0, 5),
         weakTopics: uniqueWeakTopics,
         weakTopicStats: payload.weakTopics,
@@ -65,9 +101,12 @@ exports.getRecommendations = async (req, res) => {
               total: s.attempts,
             }))
           : [],
-        // --- new, documented fields ---
-        hasEnoughData: payload.hasEnoughData,
-        message: payload.message,
+        // --- documented fields ---
+        // hasEnoughData/message come from whichever ranker answered: the ML
+        // ranker sees all four domains, the built-in one only DSA. Surfacing
+        // both would let the UI show two disagreeing empty states.
+        hasEnoughData: ml ? ml.hasEnoughData : payload.hasEnoughData,
+        message: ml ? ml.message : payload.message,
         model: payload.model,
         features: payload.features,
         crossDomain: payload.crossDomain,
