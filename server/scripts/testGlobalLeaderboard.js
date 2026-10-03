@@ -55,4 +55,8 @@ connection.on('connected', async () => {
   }
 });
 
-mongoose.connect(process.env.MONGO_URI);
+// require.main guard: this script wipes every UserStats and Leaderboard row.
+// Importing it must NEVER run those deletes.
+if (require.main === module) {
+  mongoose.connect(process.env.MONGO_URI);
+}

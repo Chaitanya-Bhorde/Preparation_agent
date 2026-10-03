@@ -1,24 +1,37 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Code2, Database, Brain, Bot, FileText, GraduationCap, Target, CheckCircle, TrendingUp, Zap, BookOpen, Sparkles, ArrowRight, BarChart3, Trophy } from 'lucide-react';
+import { getCatalogCounts } from '../api';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER } from '../utils/ui';
 
 export default function Dashboard() {
   usePageTitle('Home');
   const { user } = useAuth();
+  // Badge labels come from the live catalogue. Until the counts arrive the
+  // badge stays blank rather than showing a made-up number.
+  const [counts, setCounts] = useState({ dsaProblems: 0, sqlProblems: 0, aptitudeTopics: 0 });
+
+  useEffect(() => {
+    let live = true;
+    getCatalogCounts()
+      .then((c) => { if (live) setCounts(c); })
+      .catch(() => { /* keep the badges empty instead of inventing a number */ });
+    return () => { live = false; };
+  }, []);
 
   const features = [
     {
       name: 'DSA Practice',
       path: '/practice/dsa',
       icon: Code2,
-      desc: 'Solve 500+ coding problems with real-time Judge0 execution. Covers Arrays, Strings, DP, Graphs, Trees & more.',
+      desc: 'Solve coding problems with real-time Judge0 execution. Covers Arrays, Strings, DP, Graphs, Trees & more.',
       color: 'from-blue-600 to-blue-800',
       iconColor: 'text-blue-400',
       bgColor: 'bg-blue-900/20',
       borderColor: 'border-blue-800/50',
-      stats: '500+ Problems',
+      stats: counts.dsaProblems ? `${counts.dsaProblems} Problems` : '',
     },
     {
       name: 'SQL Practice',
@@ -29,7 +42,7 @@ export default function Dashboard() {
       iconColor: 'text-emerald-400',
       bgColor: 'bg-emerald-900/20',
       borderColor: 'border-emerald-800/50',
-      stats: '200+ Problems',
+      stats: counts.sqlProblems ? `${counts.sqlProblems} Problems` : '',
     },
     {
       name: 'Aptitude Practice',
@@ -40,7 +53,7 @@ export default function Dashboard() {
       iconColor: 'text-purple-400',
       bgColor: 'bg-purple-900/20',
       borderColor: 'border-purple-800/50',
-      stats: '1000+ Questions',
+      stats: counts.aptitudeTopics ? `${counts.aptitudeTopics} Topics` : '',
     },
     {
       name: 'Resume Analysis',
@@ -57,7 +70,7 @@ export default function Dashboard() {
       name: 'Mock Interview',
       path: '/mock-interview',
       icon: Bot,
-      desc: 'AI-powered voice-based mock interviews tailored to your target role. Get real-time feedback and improvement tips.',
+      desc: 'AI-powered mock interviews tailored to your target role. Get real-time feedback and improvement tips.',
       color: 'from-pink-600 to-pink-800',
       iconColor: 'text-pink-400',
       bgColor: 'bg-pink-900/20',
@@ -65,15 +78,15 @@ export default function Dashboard() {
       stats: 'AI Powered',
     },
     {
-      name: 'Company Wise Practice',
-      path: '/companies',
-      icon: Target,
-      desc: 'Practice company-specific curated problem sets. Get insights into test patterns and interview questions.',
+      name: 'Interview Preparation',
+      path: '/interview-prep',
+      icon: GraduationCap,
+      desc: 'Revise DBMS, OS, CN, Java, Python, DSA and System Design with notes, MCQs and interview questions.',
       color: 'from-cyan-600 to-cyan-800',
       iconColor: 'text-cyan-400',
       bgColor: 'bg-cyan-900/20',
       borderColor: 'border-cyan-800/50',
-      stats: 'Top Companies',
+      stats: 'Core Subjects',
     },
   ];
 
@@ -115,28 +128,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Overview */}
+      {/* Stats Overview — every number is the live catalogue count */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-4 animate-slideUp animate-delay-100">
           <div className="flex items-center gap-2 mb-1">
             <Code2 className="w-4 h-4 text-blue-400" />
             <span className="text-gray-400 text-xs">DSA Problems</span>
           </div>
-          <p className="text-xl font-bold text-white">500+</p>
+          <p className="text-xl font-bold text-white">{counts.dsaProblems || '—'}</p>
         </div>
         <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-4 animate-slideUp animate-delay-200">
           <div className="flex items-center gap-2 mb-1">
             <Database className="w-4 h-4 text-emerald-400" />
             <span className="text-gray-400 text-xs">SQL Problems</span>
           </div>
-          <p className="text-xl font-bold text-white">200+</p>
+          <p className="text-xl font-bold text-white">{counts.sqlProblems || '—'}</p>
         </div>
         <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-4 animate-slideUp animate-delay-300">
           <div className="flex items-center gap-2 mb-1">
             <Brain className="w-4 h-4 text-purple-400" />
-            <span className="text-gray-400 text-xs">Aptitude Questions</span>
+            <span className="text-gray-400 text-xs">Aptitude Topics</span>
           </div>
-          <p className="text-xl font-bold text-white">1000+</p>
+          <p className="text-xl font-bold text-white">{counts.aptitudeTopics || '—'}</p>
         </div>
         <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-4 animate-slideUp animate-delay-400">
           <div className="flex items-center gap-2 mb-1">
@@ -167,7 +180,7 @@ export default function Dashboard() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-white font-semibold">{mod.name}</h3>
-                    <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{mod.stats}</span>
+                    {mod.stats && <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{mod.stats}</span>}
                   </div>
                   <p className="text-gray-400 text-sm leading-relaxed">{mod.desc}</p>
                 </div>

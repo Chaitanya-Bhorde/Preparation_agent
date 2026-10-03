@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { analyzeResumeFile, getRoleRequirements, matchJD } from '../api';
-import { Upload, FileText, AlertCircle, TrendingUp, Loader2, Sparkles } from 'lucide-react';
+import { analyzeResumeFile, getRoleRequirements } from '../api';
+import { Upload, FileText, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { PAGE_CONTAINER_NARROW, CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES, INPUT_CLASSES, BUTTON_CLASSES } from '../utils/ui';
+import { PAGE_CONTAINER_NARROW, CARD_CLASSES, LOADING_SPINNER, EMPTY_STATE_CLASSES } from '../utils/ui';
 const categoryLabels = {
   contact_structure: 'Contact & Structure',
   experience: 'Work Experience',
@@ -25,14 +25,10 @@ const categoryMax = {
 };
 export default function Resume() {
   const [file, setFile] = useState(null);
-  const [resumeText, setResumeText] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState('');
-  const [jdText, setJdText] = useState('');
-  const [jdMatch, setJdMatch] = useState(null);
-  const [jdLoading, setJdLoading] = useState(false);
   const [reAnalyzing, setReAnalyzing] = useState(false);
   const fileRef = useRef();
   useEffect(() => {
@@ -53,7 +49,6 @@ export default function Resume() {
     try {
       const { data } = await analyzeResumeFile(fileToAnalyze, roleToUse || undefined);
       setResult(data.data);
-      setResumeText(data.data?.resumeText || '');
       toast.success(isReAnalyze ? 'Resume re-analyzed with new role!' : 'Resume analyzed!');
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to analyze resume';
@@ -80,22 +75,6 @@ export default function Resume() {
     }
   }, [selectedRole]);
 
-  const handleJDMatch = async () => {
-    if (!jdText.trim()) {
-      toast.error('Please paste a job description');
-      return;
-    }
-    setJdLoading(true);
-    try {
-      const { data } = await matchJD(resumeText || '', jdText);
-      setJdMatch(data.data);
-      toast.success('JD match computed!');
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to match JD');
-    } finally {
-      setJdLoading(false);
-    }
-  };
   const getScoreColor = (score) => {
     if (score >= 70) return 'text-green-400';
     if (score >= 40) return 'text-yellow-400';
@@ -245,29 +224,6 @@ export default function Resume() {
                   </div>
                 </div>
               )}
-              <div className={CARD_CLASSES}>
-                <h2 className="text-white font-semibold mb-3">JD Match</h2>
-                <textarea value={jdText} onChange={(e) => setJdText(e.target.value)} placeholder="Paste a job description to calculate match percentage" className={INPUT_CLASSES.replace('h-40', 'h-32')} />
-                <button onClick={handleJDMatch} disabled={jdLoading || !resumeText || !jdText.trim()} className={BUTTON_CLASSES.primary + ' mt-3 w-full'}>
-                  {jdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-                  {jdLoading ? 'Matching...' : 'Match JD'}
-                </button>
-                {jdMatch && (
-                  <div className="mt-3">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-400">JD Match</span>
-                      <span className={getCategoryColor(jdMatch.score, 100)}>{jdMatch.score}%</span>
-                    </div>
-                    <div className="w-full bg-gray-800 rounded-full h-2">
-                      <div className={`h-2 rounded-full ${getCategoryBar(jdMatch.score, 100)}`} style={{ width: `${jdMatch.score}%` }}></div>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-400">
-                      <div>Matched: {jdMatch.matchedKeywords?.join(', ')}</div>
-                      <div>Missing: {jdMatch.missingKeywords?.join(', ')}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
             </>
           )}
           {!result && !loading && (

@@ -94,4 +94,7 @@ const run = async () => {
   await mongoose.disconnect();
   process.exit(0);
 };
-run().catch((err) => { console.error(err); process.exit(1); });
+// require.main guard: importing this seeder must never write to the database.
+if (require.main === module) {
+  run().catch((err) => { console.error(err); process.exit(1); });
+}

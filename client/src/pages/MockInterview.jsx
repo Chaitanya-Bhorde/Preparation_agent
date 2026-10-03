@@ -889,7 +889,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
             <div className="flex items-center gap-3">
               <div className="relative w-24 h-18 bg-black rounded-lg overflow-hidden flex-shrink-0">
                 <video
-                  ref={proctoring.videoRef}
+                  ref={proctoring.setVideoElement}
                   autoPlay
                   muted
                   playsInline

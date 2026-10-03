@@ -186,4 +186,7 @@ const seedRoleRequirements = async () => {
   }
 };
 
-seedRoleRequirements();
+// require.main guard: importing this seeder must never write to the database.
+if (require.main === module) {
+  seedRoleRequirements();
+}

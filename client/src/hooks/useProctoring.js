@@ -19,6 +19,34 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
   const faceCheckRef = useRef(null);
   const lastViolationRef = useRef(0);
   const violationCountRef = useRef(0);
+  const autoSubmittedRef = useRef(false);
+
+  // Callbacks are read through refs so `handleViolation` keeps a STABLE identity.
+  // If they were `useCallback` dependencies instead, every parent re-render
+  // would replace them, and the interval effect below (which depends on
+  // `handleViolation`) would be torn down and recreated on every render. The
+  // interview screen re-renders once per second for the elapsed timer, so a
+  // 3s interval would never survive long enough to fire and face detection
+  // would silently never run.
+  const onViolationRef = useRef(onViolation);
+  const onAutoSubmitRef = useRef(onAutoSubmit);
+  const cameraActiveRef = useRef(false);
+
+  useEffect(() => { onViolationRef.current = onViolation; }, [onViolation]);
+  useEffect(() => { onAutoSubmitRef.current = onAutoSubmit; }, [onAutoSubmit]);
+  useEffect(() => { cameraActiveRef.current = cameraActive; }, [cameraActive]);
+
+  const attachStream = useCallback((video) => {
+    if (!video || !streamRef.current || video.srcObject === streamRef.current) return;
+    try {
+      video.srcObject = streamRef.current;
+      const p = video.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch (err) {
+      // A detached/unsupported element must not abort camera start-up.
+      console.warn('[Proctoring] could not attach camera stream:', err.message);
+    }
+  }, []);
 
   const startCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -31,10 +59,8 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
+      attachStream(videoRef.current);
+      cameraActiveRef.current = true;
       setCameraActive(true);
       return true;
     } catch (err) {
@@ -44,10 +70,11 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
           ? 'No camera found. Please connect a webcam.'
           : 'Could not access camera.';
       setCameraError(msg);
+      cameraActiveRef.current = false;
       setCameraActive(false);
       return false;
     }
-  }, []);
+  }, [attachStream]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -55,12 +82,15 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
       streamRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
+    cameraActiveRef.current = false;
     setCameraActive(false);
   }, []);
 
   const checkFacePresence = useCallback(() => {
-    if (!videoRef.current || !cameraActive) return true;
+    if (!videoRef.current || !cameraActiveRef.current) return true;
     const video = videoRef.current;
+    // Not yet decoded (no frames) — treat as "cannot judge" rather than a
+    // violation, so a slow first frame never triggers a false warning.
     if (video.videoWidth === 0 || video.videoHeight === 0) return true;
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
     const canvas = canvasRef.current;
@@ -82,7 +112,7 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     const detected = ratio > FACE_THRESHOLD;
     setFaceDetected(detected);
     return detected;
-  }, [cameraActive]);
+  }, []);
 
   const handleViolation = useCallback((reason) => {
     const now = Date.now();
@@ -93,17 +123,22 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     setViolationCount(newCount);
     console.log(`[Proctoring] Violation ${newCount}/${MAX_WARNINGS + 1}: ${reason}`);
     if (newCount > MAX_WARNINGS) {
+      // Ref guard, not just state: `autoSubmitted` only flips on the next
+      // render, so a second sampler tick inside the same window would fire the
+      // auto-submit callback twice (two submits, two reports).
+      if (autoSubmittedRef.current) return;
+      autoSubmittedRef.current = true;
       setAutoSubmitted(true);
       console.log('[Proctoring] Auto-submitting interview due to repeated violations.');
-      onAutoSubmit?.(reason);
+      onAutoSubmitRef.current?.(reason);
     } else {
       const warningMsg = newCount === 1
         ? 'Warning 1/2: Abnormal activity detected. Please remain focused on the interview and keep your face visible.'
         : 'Warning 2/2: Another abnormal activity was detected. One more violation will automatically submit your interview.';
       setLastWarning({ message: warningMsg, reason, count: newCount, at: new Date() });
-      onViolation?.(reason, newCount);
+      onViolationRef.current?.(reason, newCount);
     }
-  }, [onViolation, onAutoSubmit]);
+  }, []);
 
   useEffect(() => {
     if (!enabled || autoSubmitted) return;
@@ -120,6 +155,9 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     };
   }, [enabled, autoSubmitted, handleViolation]);
 
+  // Face sampling must survive re-renders: both `checkFacePresence` and
+  // `handleViolation` are stable now, so this effect only re-runs when the
+  // camera is actually started/stopped.
   useEffect(() => {
     if (!enabled || !cameraActive || autoSubmitted) return;
     const initialTimer = setTimeout(() => checkFacePresence(), 2000);
@@ -127,10 +165,19 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     return () => { clearTimeout(initialTimer); if (faceCheckRef.current) { clearInterval(faceCheckRef.current); faceCheckRef.current = null; } };
   }, [enabled, cameraActive, autoSubmitted, checkFacePresence, handleViolation]);
 
+  // The <video> element is rendered conditionally, so it can mount after
+  // getUserMedia() already resolved. Re-attach the live stream whenever the
+  // element appears, otherwise videoWidth stays 0 and no frame is ever sampled.
+  const setVideoElement = useCallback((el) => {
+    videoRef.current = el;
+    attachStream(el);
+  }, [attachStream]);
+
   useEffect(() => { return () => { stopCamera(); if (faceCheckRef.current) clearInterval(faceCheckRef.current); }; }, [stopCamera]);
 
   const reset = useCallback(() => {
     violationCountRef.current = 0;
+    autoSubmittedRef.current = false;
     setViolationCount(0);
     setLastWarning(null);
     setAutoSubmitted(false);
@@ -138,5 +185,5 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     lastViolationRef.current = 0;
   }, []);
 
-  return { videoRef, canvasRef, cameraActive, cameraError, faceDetected, violationCount, lastWarning, autoSubmitted, maxWarnings: MAX_WARNINGS, startCamera, stopCamera, reset, checkFacePresence };
+  return { videoRef, setVideoElement, canvasRef, cameraActive, cameraError, faceDetected, violationCount, lastWarning, autoSubmitted, maxWarnings: MAX_WARNINGS, startCamera, stopCamera, reset, checkFacePresence };
 }

@@ -158,4 +158,8 @@ async function seedAptitude() {
     process.exit(0);
   } catch (err) { console.error('Seeding error:', err.message); process.exit(1); }
 }
-seedAptitude();
+// require.main guard: this script rebuilds the aptitude bank (it deletes all
+// topics/questions/mock tests first). Importing it must NEVER seed or delete.
+if (require.main === module) {
+  seedAptitude();
+}

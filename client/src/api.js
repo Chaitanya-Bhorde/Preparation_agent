@@ -57,7 +57,20 @@ export const analyzeResumeFile = (file, role) => {
   });
 };
 export const getRoleRequirements = () => API.get('/role-requirements');
-export const matchJD = (resumeText, jobDescription) => API.post('/jd-match/match', { resumeText, jobDescription });
+// Catalogue totals used for the dashboard badges. Each is a real countDocuments()
+// from the server, never a hardcoded number.
+export const getCatalogCounts = async () => {
+  const [dsa, sql, aptitude] = await Promise.all([
+    API.get('/coding-problems/stats'),
+    API.get('/sql/problems', { params: { limit: 1 } }),
+    API.get('/aptitude/topics'),
+  ]);
+  return {
+    dsaProblems: dsa.data?.data?.total ?? 0,
+    sqlProblems: sql.data?.total ?? 0,
+    aptitudeTopics: aptitude.data?.total ?? 0,
+  };
+};
 export const getAnalytics = (params) => API.get('/analytics', { params });
 export const getAdminAnalytics = () => API.get('/analytics/admin');
 

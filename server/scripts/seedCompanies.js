@@ -459,4 +459,7 @@ const seedCompanies = async () => {
   }
 };
 
-seedCompanies();
+// require.main guard: importing this seeder must never write to the database.
+if (require.main === module) {
+  seedCompanies();
+}

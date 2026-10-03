@@ -220,8 +220,13 @@ router.post('/submit-mock', protect, async (req, res) => {
       duration: answers.reduce((sum, a) => sum + (a.timeTaken || 0), 0),
     });
     await submission.save();
-    await updateUserAchievements(userId, mockTest.category, true, 'mock-test');
-    await updateLeaderboardAptitude(userId, correctCount, score);
+    await updateUserAchievements(userId, {
+      category: mockTest.category,
+      attempted: answers.length,
+      correct: correctCount,
+      mockTest: true,
+    });
+    await updateLeaderboardAptitude(userId, answers.length, correctCount, score);
     res.status(201).json({
       submissionId: submission._id,
       score,
@@ -268,26 +273,36 @@ router.get('/results/:submissionId', protect, async (req, res) => {
   }
 });
 
-// Helper: update user achievements + award badges based on performance
-async function updateUserAchievements(userId, category, isCorrect, type) {
+// Helper: record real attempt counts + award badges.
+// `attempted`/`correct` are QUESTION counts taken from the graded submission,
+// never a per-paper proxy. A mixed paper ('full') has no single category, so it
+// is deliberately NOT attributed to quantitative/logical/verbal — those buckets
+// are filled by /aptitude/progress from the questions' own stored category.
+async function updateUserAchievements(userId, { category, attempted = 0, correct = 0, mockTest = false } = {}) {
   let achievements = await UserAchievements.findOne({ userId });
   if (!achievements) achievements = new UserAchievements({ userId });
   const catRaw = String(category || '').replace(/-only$/, '');
-  const cat = (catRaw === 'quantitative' || catRaw === 'logical' || catRaw === 'verbal') ? catRaw : 'quantitative';
-  achievements.statistics.totalQuestionsAttempted += 1;
-  if (isCorrect) {
-    achievements.statistics.totalCorrect += 1;
-    achievements.statistics.categoryCounts[cat].correct += 1;
+  const cat = ['quantitative', 'logical', 'verbal'].includes(catRaw) ? catRaw : null;
+  achievements.statistics.totalQuestionsAttempted += attempted;
+  achievements.statistics.totalCorrect += correct;
+  if (cat) {
+    achievements.statistics.categoryCounts[cat].attempted += attempted;
+    achievements.statistics.categoryCounts[cat].correct += correct;
   }
-  achievements.statistics.categoryCounts[cat].attempted += 1;
-  if (type === 'mock-test') achievements.statistics.totalMockTestsTaken += 1;
-  if (isCorrect) {
-    achievements.statistics.currentStreak += 1;
-    if (achievements.statistics.currentStreak > achievements.statistics.longestStreak) {
-      achievements.statistics.longestStreak = achievements.statistics.currentStreak;
-    }
-  } else {
-    achievements.statistics.currentStreak = 0;
+  if (mockTest) achievements.statistics.totalMockTestsTaken += 1;
+
+  // Day streak (consecutive calendar days with activity), not a running tally
+  // of correct answers. Streaks that have not been touched today or yesterday
+  // are no longer current.
+  const DAY_MS = 86400000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const last = achievements.lastUpdated ? new Date(achievements.lastUpdated) : null;
+  if (last) last.setHours(0, 0, 0, 0);
+  const diffDays = last ? Math.round((today - last) / DAY_MS) : null;
+  if (diffDays === null || diffDays > 1) achievements.statistics.currentStreak = 1;
+  else if (diffDays === 1) achievements.statistics.currentStreak += 1;
+  if (achievements.statistics.currentStreak > achievements.statistics.longestStreak) {
+    achievements.statistics.longestStreak = achievements.statistics.currentStreak;
   }
   const badges = [
     { threshold: 100, id: 'first-hundred', name: 'First Hundred', icon: '🎯', category: null },
@@ -298,8 +313,10 @@ async function updateUserAchievements(userId, category, isCorrect, type) {
     { threshold: 100, id: 'verbal-ace', name: 'Verbal Ace', icon: '📚', category: 'verbal' },
   ];
   for (const badge of badges) {
+    // `>=` not `===`: the threshold is a minimum ("earn at 100 correct"), so an
+    // exact comparison made every badge unreachable past the very first one.
     if (badge.category) {
-      if (achievements.statistics.categoryCounts[badge.category].correct === badge.threshold) {
+      if (achievements.statistics.categoryCounts[badge.category].correct >= badge.threshold) {
         const badgeExists = achievements.badges.find(b => b.id === badge.id);
         if (!badgeExists) {
           achievements.badges.push({
@@ -308,7 +325,7 @@ async function updateUserAchievements(userId, category, isCorrect, type) {
           });
         }
       }
-    } else if (achievements.statistics.totalCorrect === badge.threshold) {
+    } else if (achievements.statistics.totalCorrect >= badge.threshold) {
       const badgeExists = achievements.badges.find(b => b.id === badge.id);
       if (!badgeExists) {
         achievements.badges.push({
@@ -323,7 +340,7 @@ async function updateUserAchievements(userId, category, isCorrect, type) {
 }
 
 // Helper: update the aptitude section of the per-user leaderboard
-async function updateLeaderboardAptitude(userId, correctCount, score) {
+async function updateLeaderboardAptitude(userId, attemptedCount, correctCount, score) {
   let leaderboard = await Leaderboard.findOne({ userId });
   if (!leaderboard) {
     const ui = await User.findById(userId).select('name email');
@@ -336,7 +353,7 @@ async function updateLeaderboardAptitude(userId, correctCount, score) {
     });
   }
   if (!leaderboard.aptitude) leaderboard.aptitude = { questionsAttempted: 0, questionsCorrect: 0, averageScore: 0, mockTestsCompleted: 0, bestScore: 0, rank: 0 };
-  leaderboard.aptitude.questionsAttempted += 1;
+  leaderboard.aptitude.questionsAttempted += attemptedCount;
   leaderboard.aptitude.questionsCorrect += correctCount;
   leaderboard.aptitude.mockTestsCompleted += 1;
   leaderboard.aptitude.averageScore = (leaderboard.aptitude.averageScore + score) / 2;
@@ -380,36 +397,60 @@ router.get('/mock/:mockTestId/questions', async (req, res) => {
 
 // GET /api/aptitude/progress
 // Personal aptitude analytics: stats + badges (auth required).
+// Every number is aggregated from the user's own `aptitudesubmissions` rows.
+// Badges are the only field taken from UserAchievements, because that is where
+// they are actually awarded.
 router.get('/progress', protect, async (req, res) => {
   try {
+    const mongoose = require('mongoose');
     const userId = req.user.id;
-    const [achievements, agg] = await Promise.all([
+    const oid = new mongoose.Types.ObjectId(userId);
+    const [achievements, agg, byCategory, activity] = await Promise.all([
       UserAchievements.findOne({ userId }).lean(),
       AptitudeSubmission.aggregate([
-        { $match: { userId: new (require('mongoose').Types).ObjectId(userId) } },
+        { $match: { userId: oid } },
         { $group: {
             _id: null,
             totalQuestions: { $sum: '$totalCount' },
             correctQuestions: { $sum: '$correctCount' },
-            singleSubmissions: { $sum: { $cond: [{ $eq: ['$type', 'single-question'] }, 1, 0] } },
-            mockSubmissions: { $sum: { $cond: [{ $eq: ['$type', 'mock-test'] }, 1, 0] } },
             mockTestsTaken: { $sum: { $cond: [{ $eq: ['$type', 'mock-test'] }, 1, 0] } },
             bestScore: { $max: '$score' },
             avgScore: { $avg: '$score' },
           } },
       ]).exec(),
+      // Per-question category breakdown. A submission's own category can be
+      // 'full', so the real category lives on the question each answer points at.
+      AptitudeSubmission.aggregate([
+        { $match: { userId: oid } },
+        { $unwind: '$answers' },
+        { $lookup: { from: 'aptitudequestions', localField: 'answers.questionId', foreignField: '_id', as: 'q' } },
+        { $unwind: '$q' },
+        { $match: { 'q.category': { $in: ['quantitative', 'logical', 'verbal'] } } },
+        { $group: {
+            _id: '$q.category',
+            attempted: { $sum: 1 },
+            correct: { $sum: { $cond: [{ $eq: ['$answers.isCorrect', true] }, 1, 0] } },
+          } },
+      ]).exec(),
+      AptitudeSubmission.find({ userId: oid }).select('createdAt').lean(),
     ]);
-    const a = agg[0] || { totalQuestions: 0, correctQuestions: 0, singleSubmissions: 0, mockSubmissions: 0, mockTestsTaken: 0, bestScore: 0, avgScore: 0 };
+    const a = agg[0] || { totalQuestions: 0, correctQuestions: 0, mockTestsTaken: 0, bestScore: 0, avgScore: 0 };
+    const { computeStreaks } = require('../services/analyticsService');
+    const streaks = computeStreaks(
+      activity.map((d) => d.createdAt).sort((x, y) => new Date(y) - new Date(x))
+    );
+    const categoryCounts = { quantitative: { attempted: 0, correct: 0 }, logical: { attempted: 0, correct: 0 }, verbal: { attempted: 0, correct: 0 } };
+    byCategory.forEach((row) => { categoryCounts[row._id] = { attempted: row.attempted, correct: row.correct }; });
     const stats = {
-      totalQuestionsAttempted: (achievements && achievements.statistics.totalQuestionsAttempted) || a.totalQuestions,
-      totalCorrect: (achievements && achievements.statistics.totalCorrect) || a.correctQuestions,
+      totalQuestionsAttempted: a.totalQuestions,
+      totalCorrect: a.correctQuestions,
       accuracy: a.totalQuestions > 0 ? Math.round((a.correctQuestions / a.totalQuestions) * 100) : 0,
       mockTestsTaken: a.mockTestsTaken,
       bestScore: a.bestScore || 0,
       averageScore: a.totalQuestions > 0 ? Math.round(a.avgScore) : 0,
-      currentStreak: (achievements && achievements.statistics.currentStreak) || 0,
-      longestStreak: (achievements && achievements.statistics.longestStreak) || 0,
-      categoryCounts: (achievements && achievements.statistics.categoryCounts) || { quantitative: { attempted: 0, correct: 0 }, logical: { attempted: 0, correct: 0 }, verbal: { attempted: 0, correct: 0 } },
+      currentStreak: streaks.currentStreak,
+      longestStreak: streaks.maxStreak,
+      categoryCounts,
       badges: (achievements && achievements.badges) || [],
     };
     res.json({ success: true, data: stats });

@@ -37,4 +37,8 @@ async function main() {
   console.log('AFTER sqlproblems total=' + await SQLProblem.countDocuments({}) + ' active=' + await SQLProblem.countDocuments({ isActive: true }) + ' inactive=' + await SQLProblem.countDocuments({ isActive: false }));
   await mongoose.disconnect();
 }
-main().catch((e) => { console.error('FATAL', e); process.exit(1); });
+// require.main guard: this script deletes and rebuilds the SQL bank.
+// Importing it must NEVER run those deletes.
+if (require.main === module) {
+  main().catch((e) => { console.error('FATAL', e); process.exit(1); });
+}

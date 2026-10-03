@@ -1,7 +1,8 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
-const AptitudeResult = require('../models/AptitudeResult');
+const AptitudeSubmission = require('../models/AptitudeSubmission');
 const InterviewSession = require('../models/InterviewSession');
 
 exports.getInterviewReadiness = async (req, res) => {
@@ -19,9 +20,18 @@ exports.getInterviewReadiness = async (req, res) => {
       ? Math.round((problemsSolved / totalProblemsInBank) * 100)
       : 0;
 
-    const aptitudeResults = await AptitudeResult.find({ user: userId }).select('score');
-    const aptitudeScore = aptitudeResults.length > 0
-      ? Math.round(aptitudeResults.reduce((sum, r) => sum + r.score, 0) / aptitudeResults.length)
+    // Aptitude is stored in `aptitudesubmissions` (both single-question practice
+    // and mock tests). The old read used `AptitudeResult`, a collection no code
+    // path ever writes to, so this number was permanently 0.
+    const aptitudeAgg = await AptitudeSubmission.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      { $group: { _id: null, attempted: { $sum: '$totalCount' }, correct: { $sum: '$correctCount' } } },
+    ]);
+    const aptitudeAttempted = aptitudeAgg[0] ? aptitudeAgg[0].attempted : 0;
+    const aptitudeCorrect = aptitudeAgg[0] ? aptitudeAgg[0].correct : 0;
+    const hasAptitudeData = aptitudeAttempted > 0;
+    const aptitudeScore = hasAptitudeData
+      ? Math.round((aptitudeCorrect / aptitudeAttempted) * 100)
       : 0;
 
     const atsScore = user.profile?.atsScore || 0;
@@ -35,7 +45,7 @@ exports.getInterviewReadiness = async (req, res) => {
     const weights = { coding: 0.5, aptitude: 0.2, ats: 0.15, mock: 0.15 };
     const categories = [
       { value: codingAccuracy, weight: weights.coding, hasData: problemsSolved > 0 },
-      { value: aptitudeScore, weight: weights.aptitude, hasData: aptitudeResults.length > 0 },
+      { value: aptitudeScore, weight: weights.aptitude, hasData: hasAptitudeData },
       { value: atsScore, weight: weights.ats, hasData: hasResume },
       { value: mockInterviewScore, weight: weights.mock, hasData: mockInterviews.length > 0 },
     ];

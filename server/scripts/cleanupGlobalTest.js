@@ -18,4 +18,8 @@ connection.on('connected', async () => {
     process.exit(1);
   }
 });
-mongoose.connect(process.env.MONGO_URI);
+// require.main guard: this script deletes every Global leaderboard snapshot.
+// Importing it must NEVER run those deletes.
+if (require.main === module) {
+  mongoose.connect(process.env.MONGO_URI);
+}

@@ -202,8 +202,11 @@ async function run() {
   process.exit(0);
 }
 
-run().catch(async (error) => {
-  console.error('Seeding failed:', error);
-  await mongoose.disconnect().catch(() => {});
-  process.exit(1);
-});
+// require.main guard: importing this seeder must never write to the database.
+if (require.main === module) {
+  run().catch(async (error) => {
+    console.error('Seeding failed:', error);
+    await mongoose.disconnect().catch(() => {});
+    process.exit(1);
+  });
+}

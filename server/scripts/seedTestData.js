@@ -170,4 +170,8 @@ connection.on('connected', async () => {
   }
 });
 
-mongoose.connect(process.env.MONGO_URI);
+// require.main guard: this script wipes UserStats/UserFriends and the whole
+// CodingProblem bank. Importing it must NEVER run those deletes.
+if (require.main === module) {
+  mongoose.connect(process.env.MONGO_URI);
+}

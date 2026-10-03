@@ -11,15 +11,9 @@ judge0-server/.env.postgres
 server/server.err
 server/server.out
 server/.env
+server/logs/
 live-users.json
 null
-
-# PrepAgent runtime diagnostic logs
-client/build_out.txt
-client_err.txt
-client_log.txt
-server_err.txt
-server_log.txt
 
 # Temporary seeder/coverage diagnostics (local only)
 server/audit.txt
@@ -27,10 +21,4 @@ server/cov*.txt
 server/scripts/_*.txt
 server/scripts/_*.js
 server/scripts/seedInterviewPrep.topics.*
-
-# Incident/investigation artifacts (local only; see DSA_RESEED_INCIDENT_SUMMARY.md)
-server/_*.txt
-server/_*.js
-server/_*.json
-!server/_acceptance_report.json
 
