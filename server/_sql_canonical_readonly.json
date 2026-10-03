@@ -1,0 +1,6281 @@
+[
+  {
+    "_id": "6ab2a2c7c166b33d0ebb86d2",
+    "title": "SQL Problem Needs Review",
+    "description": "d",
+    "difficulty": "easy",
+    "topic": "WHERE",
+    "topics": [
+      "WHERE"
+    ],
+    "tags": [],
+    "companies": [],
+    "constraints": [],
+    "schemaSetupSQL": "CREATE TABLE t(id INTEGER);",
+    "referenceSolutionSQL": "",
+    "isActive": false,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "schemaTables": [],
+    "examples": [],
+    "sampleTestCases": [],
+    "hiddenTestCases": [],
+    "createdAt": "2026-09-22T15:46:15.563Z",
+    "updatedAt": "2026-09-23T06:02:59.751Z",
+    "slug": "sql-problem-needs-review",
+    "__v": 0
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a22",
+    "title": "EXISTS Operator",
+    "slug": "exists-operator",
+    "description": "Write a SQL query using subqueries to solve the problem.\n\nProblem: EXISTS Operator.",
+    "difficulty": "medium",
+    "topic": "Subquery",
+    "tags": [
+      "EXISTS",
+      "subquery"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name FROM employees e WHERE EXISTS (SELECT 1 FROM departments d WHERE d.id = e.department_id AND d.budget > 1000000);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.572Z",
+    "updatedAt": "2026-08-07T08:45:55.792Z",
+    "companies": [
+      "Microsoft",
+      "Amazon"
+    ],
+    "constraints": [
+      "Subquery must return the correct intermediate result"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 1,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a23",
+    "title": "Rank Employees by Salary",
+    "slug": "rank-employees-by-salary",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Rank Employees by Salary.",
+    "difficulty": "hard",
+    "topic": "Window Functions",
+    "tags": [
+      "RANK",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, RANK() OVER (ORDER BY salary DESC) AS salary_rank FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.572Z",
+    "updatedAt": "2026-08-07T08:45:55.805Z",
+    "companies": [
+      "Deloitte",
+      "Google"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 2,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2b",
+    "title": "Date Difference Calculation",
+    "slug": "date-difference-calculation",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Date Difference Calculation.",
+    "difficulty": "hard",
+    "topic": "Window Functions with Date",
+    "tags": [
+      "LAG",
+      "window function",
+      "date"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT DATEDIFF(day, start_date, end_date) AS days_elapsed FROM projects;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.835Z",
+    "companies": [
+      "Deloitte",
+      "Google"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 3,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions with Date"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a35",
+    "title": "Window Frame",
+    "slug": "window-frame",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Window Frame.",
+    "difficulty": "hard",
+    "topic": "Window Functions",
+    "tags": [
+      "ROWS",
+      "RANGE",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, SUM(salary) OVER (ORDER BY hire_date ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS window_sum FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.577Z",
+    "updatedAt": "2026-08-07T08:45:55.847Z",
+    "companies": [
+      "Amazon",
+      "Deloitte"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 4,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a32",
+    "title": "Pivot Table",
+    "slug": "pivot-table",
+    "description": "Write a SQL query using aggregate functions (COUNT, SUM, AVG, MAX, MIN) to compute the required statistics.\n\nProblem: Pivot Table.",
+    "difficulty": "hard",
+    "topic": "Aggregation",
+    "tags": [
+      "CASE",
+      "pivot"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT department, SUM(CASE WHEN gender = 'Male' THEN salary ELSE 0 END) AS male_sal, SUM(CASE WHEN gender = 'Female' THEN salary ELSE 0 END) AS female_sal FROM employees GROUP BY department;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.576Z",
+    "updatedAt": "2026-08-07T08:45:55.862Z",
+    "companies": [
+      "Microsoft",
+      "Amazon"
+    ],
+    "constraints": [
+      "Use GROUP BY when aggregating by categories"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 5,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Aggregation"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0b",
+    "title": "Pattern Matching",
+    "slug": "pattern-matching",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: Pattern Matching.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "LIKE"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name FROM users WHERE email LIKE '%@gmail.com';",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.567Z",
+    "updatedAt": "2026-08-07T08:45:55.876Z",
+    "companies": [
+      "TCS",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 6,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0c",
+    "title": "NULL Values",
+    "slug": "null-values",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: NULL Values.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "IS NULL"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, COALESCE(bonus, 0) AS bonus FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.567Z",
+    "updatedAt": "2026-08-07T08:45:55.889Z",
+    "companies": [
+      "Capgemini",
+      "Infosys"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 7,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a28",
+    "title": "First and Last Order per Customer",
+    "slug": "first-and-last-order-per-customer",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: First and Last Order per Customer.",
+    "difficulty": "hard",
+    "topic": "Window Functions - FIRST_VALUE LAST_VALUE",
+    "tags": [
+      "FIRST_VALUE",
+      "LAST_VALUE"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT customer_id, MIN(order_date) AS first_order, MAX(order_date) AS last_order FROM orders GROUP BY customer_id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.914Z",
+    "companies": [
+      "Deloitte",
+      "Google"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 8,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions - FIRST_VALUE LAST_VALUE"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a34",
+    "title": "Common Table Expressions",
+    "slug": "common-table-expressions",
+    "description": "Write a SQL query using Common Table Expressions (WITH clause) for better readability.\n\nProblem: Common Table Expressions.",
+    "difficulty": "medium",
+    "topic": "CTE",
+    "tags": [
+      "CTE",
+      "WITH"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "WITH dept_sales AS (SELECT department, SUM(amount) AS total FROM sales GROUP BY department) SELECT department, total FROM dept_sales WHERE total > 10000;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.577Z",
+    "updatedAt": "2026-08-07T08:45:55.929Z",
+    "companies": [
+      "Amazon",
+      "Google"
+    ],
+    "constraints": [
+      "CTE must be properly defined and referenced"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 9,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "CTE"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0e",
+    "title": "NOT IN Operator",
+    "slug": "not-in-operator",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: NOT IN Operator.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "NOT IN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name FROM employees WHERE department_id NOT IN (SELECT id FROM departments WHERE name = 'HR');",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.942Z",
+    "companies": [
+      "Infosys",
+      "Accenture"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 10,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1c",
+    "title": "Multiple JOINs",
+    "slug": "multiple-joins",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Multiple JOINs.",
+    "difficulty": "hard",
+    "topic": "Multi-table JOIN",
+    "tags": [
+      "JOIN",
+      "multiple"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, d.name AS department, p.name AS project FROM employees e JOIN departments d ON e.department_id = d.id JOIN projects p ON e.id = p.employee_id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.570Z",
+    "updatedAt": "2026-08-07T08:45:55.956Z",
+    "companies": [
+      "Amazon",
+      "Google"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 11,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Multi-table JOIN"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a20",
+    "title": "Correlated Subquery",
+    "slug": "correlated-subquery",
+    "description": "Write a SQL query using subqueries to solve the problem.\n\nProblem: Correlated Subquery.",
+    "difficulty": "hard",
+    "topic": "Subquery",
+    "tags": [
+      "correlated",
+      "subquery"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees e1 WHERE salary > (SELECT AVG(salary) FROM employees e2 WHERE e2.department = e1.department);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.571Z",
+    "updatedAt": "2026-08-07T08:45:55.980Z",
+    "companies": [
+      "Microsoft",
+      "Deloitte"
+    ],
+    "constraints": [
+      "Subquery must return the correct intermediate result"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 12,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a24",
+    "title": "Dense Rank for Scores",
+    "slug": "dense-rank-for-scores",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Dense Rank for Scores.",
+    "difficulty": "hard",
+    "topic": "DENSE_RANK",
+    "tags": [
+      "DENSE_RANK",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, score, DENSE_RANK() OVER (ORDER BY score DESC) AS rank FROM students;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.572Z",
+    "updatedAt": "2026-08-07T08:45:55.992Z",
+    "companies": [
+      "Google",
+      "Amazon"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 13,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "DENSE_RANK"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a29",
+    "title": "Find Duplicate Emails",
+    "slug": "find-duplicate-emails",
+    "description": "Write a SQL query to find all duplicate emails in the Person table.\n\nReturn the duplicate email addresses.",
+    "difficulty": "easy",
+    "topic": "GROUP BY with HAVING",
+    "tags": [
+      "GROUP BY",
+      "HAVING",
+      "duplicates"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT email, COUNT(*) AS cnt FROM users GROUP BY email HAVING COUNT(*) > 1;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:56.006Z",
+    "companies": [
+      "Amazon",
+      "Google"
+    ],
+    "constraints": [
+      "The email field may contain duplicates",
+      "Return each duplicate only once"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 14,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY with HAVING"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0d",
+    "title": "IN Operator",
+    "slug": "in-operator",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: IN Operator.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "IN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name FROM employees WHERE department_id IN (1, 2, 3);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.167Z",
+    "companies": [
+      "Accenture",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 93,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2a",
+    "title": "Delete Duplicate Rows",
+    "slug": "delete-duplicate-rows",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Delete Duplicate Rows.",
+    "difficulty": "easy",
+    "topic": "Duplicate Detection",
+    "tags": [
+      "GROUP BY",
+      "HAVING",
+      "duplicates"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "DELETE FROM users WHERE id NOT IN (SELECT MIN(id) FROM users GROUP BY email HAVING COUNT(*) > 1);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.128Z",
+    "companies": [
+      "TCS",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 98,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Duplicate Detection"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1f",
+    "title": "Employees Above Average",
+    "slug": "employees-above-average",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Employees Above Average.",
+    "difficulty": "medium",
+    "topic": "Subquery with GROUP BY",
+    "tags": [
+      "subquery",
+      "HAVING",
+      "GROUP BY"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees WHERE salary > (SELECT AVG(salary) FROM employees);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.571Z",
+    "updatedAt": "2026-08-07T08:45:55.140Z",
+    "companies": [
+      "Deloitte",
+      "Microsoft"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 99,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery with GROUP BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a08",
+    "title": "Filter by Department",
+    "slug": "filter-by-department",
+    "description": "Write a SQL query to select the names and salaries of all employees in the Engineering department.\n\nThe employees table has the following columns: id, name, department, salary.\n\nReturn the name and salary of each employee in the Engineering department.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "filtering"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees WHERE department = 'Engineering';",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.566Z",
+    "updatedAt": "2026-08-07T08:45:55.155Z",
+    "companies": [
+      "Cognizant",
+      "Capgemini"
+    ],
+    "constraints": [
+      "The result should only include employees where department = \"Engineering\"",
+      "Order the results by name"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 100,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0a",
+    "title": "Range Queries",
+    "slug": "range-queries",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: Range Queries.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "BETWEEN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees WHERE salary BETWEEN 50000 AND 100000;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.567Z",
+    "updatedAt": "2026-08-07T08:45:55.095Z",
+    "companies": [
+      "Capgemini",
+      "Infosys"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 102,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a25",
+    "title": "Running Total of Sales",
+    "slug": "running-total-of-sales",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Running Total of Sales.",
+    "difficulty": "hard",
+    "topic": "Window Functions - SUM OVER",
+    "tags": [
+      "window function",
+      "SUM"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT date, amount, SUM(amount) OVER (ORDER BY date) AS running_total FROM sales;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.572Z",
+    "updatedAt": "2026-08-07T08:45:55.314Z",
+    "companies": [
+      "Microsoft",
+      "Google"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 104,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions - SUM OVER"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2f",
+    "title": "Percent Rank",
+    "slug": "percent-rank",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Percent Rank.",
+    "difficulty": "hard",
+    "topic": "Window Functions",
+    "tags": [
+      "PERCENT_RANK",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, PERCENT_RANK() OVER (ORDER BY salary) AS pct_rank FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.575Z",
+    "updatedAt": "2026-08-07T08:45:55.612Z",
+    "companies": [
+      "Amazon",
+      "Microsoft"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 105,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2c",
+    "title": "Nth Highest Salary",
+    "slug": "nth-highest-salary",
+    "description": "Write a SQL query to get the nth highest salary from the Employee table.\n\nIf there is no nth highest salary, return null.",
+    "difficulty": "medium",
+    "topic": "Subquery with LIMIT/OFFSET",
+    "tags": [
+      "subquery",
+      "LIMIT",
+      "OFFSET"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT DISTINCT salary FROM employees ORDER BY salary DESC LIMIT 1 OFFSET 2;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.072Z",
+    "companies": [
+      "Deloitte",
+      "Amazon"
+    ],
+    "constraints": [
+      "n is a parameter",
+      "Handle edge cases where n > number of distinct salaries"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 108,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery with LIMIT/OFFSET"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a11",
+    "title": "Order By with ASC/DESC",
+    "slug": "order-by-with-asc-desc",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Order By with ASC/DESC.",
+    "difficulty": "easy",
+    "topic": "ORDER BY",
+    "tags": [
+      "ORDER BY",
+      "direction"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees ORDER BY salary DESC;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.112Z",
+    "companies": [
+      "Cognizant",
+      "TCS"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 119,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "ORDER BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a27",
+    "title": "Lead and Lag",
+    "slug": "lead-and-lag",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Lead and Lag.",
+    "difficulty": "medium",
+    "topic": "Window Functions",
+    "tags": [
+      "LEAD",
+      "LAG",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, LAG(salary) OVER (ORDER BY salary) AS prev_salary, LEAD(salary) OVER (ORDER BY salary) AS next_salary FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.573Z",
+    "updatedAt": "2026-08-07T08:45:55.474Z",
+    "companies": [
+      "Deloitte",
+      "Amazon"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 133,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a26",
+    "title": "Row Number",
+    "slug": "row-number",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Row Number.",
+    "difficulty": "medium",
+    "topic": "Window Functions",
+    "tags": [
+      "ROW_NUMBER",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, department, salary, ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) AS row_num FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.573Z",
+    "updatedAt": "2026-08-07T08:45:55.519Z",
+    "companies": [
+      "Deloitte",
+      "Google"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 149,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a30",
+    "title": "NTILE Function",
+    "slug": "ntile-function",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: NTILE Function.",
+    "difficulty": "medium",
+    "topic": "Window Functions",
+    "tags": [
+      "NTILE",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, NTILE(4) OVER (ORDER BY salary DESC) AS quartile FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.576Z",
+    "updatedAt": "2026-08-07T08:45:55.628Z",
+    "companies": [
+      "Amazon",
+      "Microsoft"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 300,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a19",
+    "title": "RIGHT JOIN",
+    "slug": "right-join",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: RIGHT JOIN.",
+    "difficulty": "medium",
+    "topic": "JOINs",
+    "tags": [
+      "RIGHT JOIN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, d.name FROM employees e RIGHT JOIN departments d ON e.department_id = d.id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.569Z",
+    "updatedAt": "2026-08-07T08:45:55.300Z",
+    "companies": [
+      "Infosys",
+      "TCS"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 302,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "JOINs"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a13",
+    "title": "Average Salary by Department",
+    "slug": "average-salary-by-department",
+    "description": "Write a SQL query to calculate the average salary for each department.\n\nReturn the department name and the average salary, rounded to 2 decimal places.",
+    "difficulty": "easy",
+    "topic": "GROUP BY with Aggregation",
+    "tags": [
+      "GROUP BY",
+      "AVG"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT department, AVG(salary) AS avg_salary FROM employees GROUP BY department;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.448Z",
+    "companies": [
+      "Google",
+      "Deloitte"
+    ],
+    "constraints": [
+      "Group the results by department",
+      "Round the average salary to 2 decimal places"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 336,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY with Aggregation"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1d",
+    "title": "Cross JOIN",
+    "slug": "cross-join",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Cross JOIN.",
+    "difficulty": "medium",
+    "topic": "JOINs",
+    "tags": [
+      "CROSS JOIN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, d.name AS department FROM employees e CROSS JOIN departments d;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.571Z",
+    "updatedAt": "2026-08-07T08:45:55.580Z",
+    "companies": [
+      "Capgemini",
+      "Infosys"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 410,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "JOINs"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1a",
+    "title": "FULL OUTER JOIN",
+    "slug": "full-outer-join",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: FULL OUTER JOIN.",
+    "difficulty": "medium",
+    "topic": "JOINs",
+    "tags": [
+      "FULL JOIN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, d.name FROM employees e FULL OUTER JOIN departments d ON e.department_id = d.id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.570Z",
+    "updatedAt": "2026-08-07T08:45:55.219Z",
+    "companies": [
+      "Accenture",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 412,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "JOINs"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a17",
+    "title": "Simple INNER JOIN",
+    "slug": "simple-inner-join",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Simple INNER JOIN.",
+    "difficulty": "medium",
+    "topic": "JOINs",
+    "tags": [
+      "JOIN",
+      "INNER JOIN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, d.name FROM employees e INNER JOIN departments d ON e.department_id = d.id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.569Z",
+    "updatedAt": "2026-08-07T08:45:55.760Z",
+    "companies": [
+      "Accenture",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 434,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "JOINs"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2d",
+    "title": "Product Sales Analysis",
+    "slug": "product-sales-analysis",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Product Sales Analysis.",
+    "difficulty": "medium",
+    "topic": "Multi-table JOIN with Aggregation",
+    "tags": [
+      "JOIN",
+      "GROUP BY",
+      "SUM"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT p.product_name, SUM(o.quantity * o.price) AS total_revenue FROM products p JOIN orders o ON p.id = o.product_id GROUP BY p.product_name ORDER BY total_revenue DESC;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.506Z",
+    "companies": [
+      "Amazon",
+      "Google"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 451,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Multi-table JOIN with Aggregation"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a12",
+    "title": "Count Employees per Department",
+    "slug": "count-employees-per-department",
+    "description": "Write a SQL query to count the number of employees in each department.\n\nReturn the department name and the count of employees.",
+    "difficulty": "easy",
+    "topic": "GROUP BY",
+    "tags": [
+      "GROUP BY",
+      "COUNT"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT department, COUNT(*) AS emp_count FROM employees GROUP BY department;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.655Z",
+    "companies": [
+      "TCS",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Group by department",
+      "Include departments with 0 employees if applicable"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 501,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a15",
+    "title": "Min Max Values",
+    "slug": "min-max-values",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Min Max Values.",
+    "difficulty": "easy",
+    "topic": "GROUP BY",
+    "tags": [
+      "GROUP BY",
+      "MIN",
+      "MAX"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT MIN(salary) AS min_sal, MAX(salary) AS max_sal FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.701Z",
+    "companies": [
+      "Infosys",
+      "Cognizant"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 512,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1b",
+    "title": "Self JOIN",
+    "slug": "self-join",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Self JOIN.",
+    "difficulty": "medium",
+    "topic": "Self JOIN",
+    "tags": [
+      "self join",
+      "JOIN"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e1.name AS emp1, e2.name AS emp2, e1.salary FROM employees e1 JOIN employees e2 ON e1.department = e2.department AND e1.id < e2.id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.570Z",
+    "updatedAt": "2026-08-07T08:45:55.684Z",
+    "companies": [
+      "Deloitte",
+      "Amazon"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 538,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Self JOIN"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a31",
+    "title": "Conditional Aggregation",
+    "slug": "conditional-aggregation",
+    "description": "Write a SQL query using aggregate functions (COUNT, SUM, AVG, MAX, MIN) to compute the required statistics.\n\nProblem: Conditional Aggregation.",
+    "difficulty": "medium",
+    "topic": "Aggregation",
+    "tags": [
+      "CASE",
+      "aggregation"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT department, COUNT(CASE WHEN salary > 80000 THEN 1 END) AS high_earners, COUNT(CASE WHEN salary <= 80000 THEN 1 END) AS others FROM employees GROUP BY department;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.576Z",
+    "updatedAt": "2026-08-07T08:45:55.532Z",
+    "companies": [
+      "Amazon",
+      "Microsoft"
+    ],
+    "constraints": [
+      "Use GROUP BY when aggregating by categories"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 556,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Aggregation"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a18",
+    "title": "LEFT JOIN with NULL Handling",
+    "slug": "left-join-with-null-handling",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: LEFT JOIN with NULL Handling.",
+    "difficulty": "medium",
+    "topic": "LEFT JOIN",
+    "tags": [
+      "LEFT JOIN",
+      "NULL"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT e.name, COALESCE(d.name, 'No Department') AS dept FROM employees e LEFT JOIN departments d ON e.department_id = d.id;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.569Z",
+    "updatedAt": "2026-08-07T08:45:55.776Z",
+    "companies": [
+      "Infosys",
+      "TCS"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 597,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "LEFT JOIN"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a21",
+    "title": "Subquery in FROM",
+    "slug": "subquery-in-from",
+    "description": "Write a SQL query using subqueries to solve the problem.\n\nProblem: Subquery in FROM.",
+    "difficulty": "medium",
+    "topic": "Subquery",
+    "tags": [
+      "subquery",
+      "derived"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT dept, AVG(salary) AS avg_sal FROM (SELECT department AS dept, salary FROM employees) AS emp_dept GROUP BY dept;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.571Z",
+    "updatedAt": "2026-08-07T08:45:55.597Z",
+    "companies": [
+      "Microsoft",
+      "Amazon"
+    ],
+    "constraints": [
+      "Subquery must return the correct intermediate result"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 805,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a1e",
+    "title": "Find Highest Paid Employee",
+    "slug": "find-highest-paid-employee",
+    "description": "Write a SQL query to find the employee with the highest salary in each department.\n\nIf multiple employees have the same highest salary, return all of them.",
+    "difficulty": "easy",
+    "topic": "Subquery",
+    "tags": [
+      "subquery",
+      "MAX"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees WHERE salary = (SELECT MAX(salary) FROM employees);",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.571Z",
+    "updatedAt": "2026-08-07T08:45:55.461Z",
+    "companies": [
+      "Deloitte",
+      "Google"
+    ],
+    "constraints": [
+      "Return all columns for the highest paid employee(s) per department"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 809,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Subquery"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a33",
+    "title": "Recursive CTE",
+    "slug": "recursive-cte",
+    "description": "Write a SQL query using Common Table Expressions (WITH clause) for better readability.\n\nProblem: Recursive CTE.",
+    "difficulty": "hard",
+    "topic": "CTE",
+    "tags": [
+      "CTE",
+      "recursive"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "WITH RECURSIVE org_chart AS (SELECT id, name, manager_id, 1 AS level FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, e.manager_id, oc.level + 1 FROM employees e JOIN org_chart oc ON e.manager_id = oc.id) SELECT * FROM org_chart;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.577Z",
+    "updatedAt": "2026-08-07T08:45:55.642Z",
+    "companies": [
+      "Deloitte",
+      "Amazon"
+    ],
+    "constraints": [
+      "CTE must be properly defined and referenced"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 834,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "CTE"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a36",
+    "title": "Filtering Window Results",
+    "slug": "filtering-window-results",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Filtering Window Results.",
+    "difficulty": "medium",
+    "topic": "Window Functions",
+    "tags": [
+      "WHERE",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, ROW_NUMBER() OVER (ORDER BY salary DESC) AS rn FROM employees WHERE rn <= 10;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.577Z",
+    "updatedAt": "2026-08-07T08:45:55.402Z",
+    "companies": [
+      "Deloitte",
+      "Amazon"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 840,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a09",
+    "title": "Multiple Conditions",
+    "slug": "multiple-conditions",
+    "description": "Write a SQL query using the WHERE clause to filter rows based on the given condition.\n\nProblem: Multiple Conditions.",
+    "difficulty": "easy",
+    "topic": "WHERE Clause",
+    "tags": [
+      "WHERE",
+      "AND",
+      "OR"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees WHERE salary > 80000 AND department = 'Engineering';",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.566Z",
+    "updatedAt": "2026-08-07T08:45:55.546Z",
+    "companies": [
+      "TCS",
+      "Accenture"
+    ],
+    "constraints": [
+      "Use WHERE clause to filter results"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 860,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "WHERE Clause"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a10",
+    "title": "Order By Multiple Columns",
+    "slug": "order-by-multiple-columns",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Order By Multiple Columns.",
+    "difficulty": "easy",
+    "topic": "ORDER BY",
+    "tags": [
+      "ORDER BY",
+      "multiple"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, department, salary FROM employees ORDER BY department ASC, salary DESC;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.199Z",
+    "companies": [
+      "Cognizant",
+      "Accenture"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 892,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "ORDER BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a14",
+    "title": "Sum of Sales",
+    "slug": "sum-of-sales",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Sum of Sales.",
+    "difficulty": "easy",
+    "topic": "GROUP BY",
+    "tags": [
+      "GROUP BY",
+      "SUM"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT SUM(amount) AS total_sales FROM orders;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.668Z",
+    "companies": [
+      "TCS",
+      "Cognizant"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 900,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a2e",
+    "title": "Cumulative Distribution",
+    "slug": "cumulative-distribution",
+    "description": "Write a SQL query using window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG, etc.) to solve the problem.\n\nProblem: Cumulative Distribution.",
+    "difficulty": "hard",
+    "topic": "Window Functions",
+    "tags": [
+      "CUME_DIST",
+      "window function"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary, CUME_DIST() OVER (ORDER BY salary DESC) AS cum_dist FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.574Z",
+    "updatedAt": "2026-08-07T08:45:55.715Z",
+    "companies": [
+      "Microsoft",
+      "Google"
+    ],
+    "constraints": [
+      "Use appropriate PARTITION BY and ORDER BY clauses"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 905,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Window Functions"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a0f",
+    "title": "Order By Salary",
+    "slug": "order-by-salary",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Order By Salary.",
+    "difficulty": "easy",
+    "topic": "ORDER BY",
+    "tags": [
+      "ORDER BY",
+      "sorting"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT name, salary FROM employees ORDER BY salary DESC;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.568Z",
+    "updatedAt": "2026-08-07T08:45:55.435Z",
+    "companies": [
+      "TCS",
+      "Capgemini"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 907,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "ORDER BY"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a06",
+    "title": "Distinct Values",
+    "slug": "distinct-values",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Distinct Values.",
+    "difficulty": "easy",
+    "topic": "Basic SELECT",
+    "tags": [
+      "SELECT",
+      "DISTINCT"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT DISTINCT department FROM employees;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 0,
+    "createdAt": "2026-07-27T10:05:51.565Z",
+    "updatedAt": "2026-08-07T08:45:55.728Z",
+    "companies": [
+      "Cognizant",
+      "Accenture"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 926,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "Basic SELECT"
+    ]
+  },
+  {
+    "_id": "6a672d7fd55d757de71e5a16",
+    "title": "Group By with Having",
+    "slug": "group-by-with-having",
+    "description": "Write a basic SQL SELECT query to retrieve the required data.\n\nProblem: Group By with Having.",
+    "difficulty": "medium",
+    "topic": "GROUP BY with HAVING",
+    "tags": [
+      "GROUP BY",
+      "HAVING"
+    ],
+    "schemaSetupSQL": "CREATE TABLE test_table (id INT, name VARCHAR(100), value INT);\nINSERT INTO test_table VALUES (1, 'Sample', 100);",
+    "sampleTestCases": [
+      {
+        "inputStateSQL": "",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          }
+        ]
+      }
+    ],
+    "hiddenTestCases": [
+      {
+        "inputStateSQL": "INSERT INTO test_table VALUES (2, 'Test', 200);",
+        "expectedOutputRows": [
+          {
+            "id": 1,
+            "name": "Sample",
+            "value": 100
+          },
+          {
+            "id": 2,
+            "name": "Test",
+            "value": 200
+          }
+        ]
+      }
+    ],
+    "referenceSolutionSQL": "SELECT department, AVG(salary) AS avg_sal FROM employees GROUP BY department HAVING AVG(salary) > 60000;",
+    "isActive": true,
+    "totalSubmissions": 0,
+    "acceptedSubmissions": 0,
+    "acceptanceRate": 0,
+    "__v": 1,
+    "createdAt": "2026-07-27T10:05:51.569Z",
+    "updatedAt": "2026-08-07T08:45:55.743Z",
+    "companies": [
+      "Amazon",
+      "Microsoft"
+    ],
+    "constraints": [
+      "Select the appropriate columns"
+    ],
+    "examples": [
+      {
+        "exampleNumber": 1,
+        "inputTables": [
+          {
+            "tableName": "employees",
+            "rows": [
+              {
+                "id": 1,
+                "name": "Alice",
+                "department": "Engineering",
+                "salary": 120000
+              },
+              {
+                "id": 2,
+                "name": "Bob",
+                "department": "Marketing",
+                "salary": 95000
+              },
+              {
+                "id": 3,
+                "name": "Charlie",
+                "department": "Engineering",
+                "salary": 110000
+              }
+            ]
+          }
+        ],
+        "outputTable": {
+          "columns": [
+            "id",
+            "name",
+            "value"
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Sample",
+              "value": 100
+            }
+          ]
+        },
+        "explanation": "The query produces these results based on the input data."
+      }
+    ],
+    "problemNumber": 941,
+    "schemaTables": [
+      {
+        "tableName": "employees",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "department",
+            "type": "VARCHAR(100)"
+          },
+          {
+            "name": "salary",
+            "type": "DECIMAL(10,2)"
+          }
+        ],
+        "notes": "id is the primary key for this table."
+      }
+    ],
+    "topics": [
+      "GROUP BY with HAVING"
+    ]
+  }
+]
