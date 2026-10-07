@@ -1,15 +1,27 @@
 import { useState, useEffect } from 'react';
-import { exportProgress } from '../api';
+import { exportProgress, resetLearningData } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Download, FileText, Loader2, CheckCircle, BarChart3, Award, TrendingUp, BookOpen, Building2 } from 'lucide-react';
+import { Download, FileText, Loader2, CheckCircle, BarChart3, Award, TrendingUp, BookOpen, Building2, AlertTriangle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PAGE_CONTAINER, LOADING_SPINNER, CARD_CLASSES } from '../utils/ui';
+import { clearDismissedSuggestions, emitAnalyticsUpdated } from '../utils/analyticsEvents';
 
 export default function ProgressExport() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  // Two-step reset confirmation: first click arms, second click (within 8s)
+  // executes. This makes the irreversible action deliberate without a modal.
+  const [resetStage, setResetStage] = useState('idle'); // 'idle' | 'armed'
+  const [resetting, setResetting] = useState(false);
+
+  useEffect(() => {
+    if (resetStage !== 'armed') return undefined;
+    const t = setTimeout(() => setResetStage('idle'), 8000);
+    return () => clearTimeout(t);
+  }, [resetStage]);
 
   useEffect(() => {
     loadData();
@@ -23,6 +35,32 @@ export default function ProgressExport() {
       console.error('Failed to load progress data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (resetting) return;
+    if (resetStage !== 'armed') {
+      setResetStage('armed');
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetLearningData();
+      setResetStage('idle');
+      // Dismissed suggestions belong to the wiped learning state, so they go too.
+      clearDismissedSuggestions();
+      // Refresh this page to its post-reset state and notify every analytics
+      // panel to refetch (all endpoints are deterministic — no LLM involved).
+      setLoading(true);
+      await loadData();
+      emitAnalyticsUpdated('reset');
+      toast.success('Learning data reset. Your account, questions and goals are untouched.');
+    } catch (error) {
+      setResetStage('idle');
+      toast.error(error.response?.data?.message || 'Reset failed — no changes were made.');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -271,6 +309,50 @@ export default function ProgressExport() {
           </div>
         </>
       )}
+
+      {/* Danger zone: full learning-data reset. Two clicks to confirm; the
+          server additionally requires { confirm: 'RESET' }. */}
+      <div className={`${CARD_CLASSES} mt-6 border border-red-900/60`}>
+        <h2 className="text-white font-semibold mb-2 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 text-red-400" /> Reset Learning Data
+        </h2>
+        <p className="text-gray-400 text-sm mb-4 max-w-2xl">
+          Permanently deletes <strong className="text-gray-200">your</strong> submissions, mock
+          interviews, practice history, stats, mistakes, drafts and leaderboard entries. Your
+          account, profile and all question banks stay intact. This cannot be undone.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={resetting}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 ${
+              resetStage === 'armed'
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-red-900/40 hover:bg-red-900/70 text-red-200 border border-red-700/60'
+            }`}
+          >
+            {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {resetting
+              ? 'Resetting...'
+              : resetStage === 'armed'
+                ? 'Click again to permanently reset'
+                : 'Reset learning data'}
+          </button>
+          {resetStage === 'armed' && !resetting && (
+            <button
+              type="button"
+              onClick={() => setResetStage('idle')}
+              className="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          {resetStage === 'armed' && (
+            <span className="text-xs text-red-300">Auto-cancels in 8 seconds.</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

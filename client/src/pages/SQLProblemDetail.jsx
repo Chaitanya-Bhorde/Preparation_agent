@@ -166,6 +166,13 @@ export default function SQLProblemDetail() {
       if (data.success) {
         setSubmitResult(data.data);
         if (data.data?.status === 'accepted') fetchProblem();
+        // Real-time analytics: DB write succeeded — notify analytics panels to
+        // refetch deterministic stats/suggestions from real records. No LLM.
+        // Isolated so a dynamic-import hiccup can never fail the submission.
+        try {
+          const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+          emitAnalyticsUpdated('sql', { accepted: data.data?.status === 'accepted' });
+        } catch (_) { /* analytics refresh is best-effort; submission already saved */ }
       } else {
         setActionError(data.message || 'Submission failed');
       }

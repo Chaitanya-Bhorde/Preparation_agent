@@ -31,7 +31,14 @@ async function generateRecommendations(userId) {
     return (b.confidence || 0) - (a.confidence || 0);
   });
 }
-module.exports = { generateRecommendations };
+module.exports = {
+  generateRecommendations,
+  // Exported so services/performanceAnalysisService can reuse the SAME wording
+  // for a weak topic that the recommendation panel already shows, instead of
+  // keeping a second, drifting copy of the advice text.
+  buildAction,
+  buildWeakReason,
+};
 
 
 /**

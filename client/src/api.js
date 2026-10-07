@@ -137,9 +137,23 @@ export const getMyInterviewExperiences = () => API.get('/interview-experiences/m
 
 // Leaderboard
 export const getGlobalLeaderboard = (params) => API.get('/leaderboard/global', { params });
+// Real application-wide performance board:
+// Rank | Name | DSA | Aptitude | SQL | Mock Interview | Overall
+export const getOverallLeaderboard = (params) => API.get('/leaderboard/overall', { params });
+
+// Overall performance analytics (same scores that rank the leaderboard)
+export const getOverallPerformance = () => API.get('/analytics/overall-performance');
+export const getTopicPerformance = () => API.get('/analytics/topic-performance');
+export const getStrengths = () => API.get('/analytics/strengths');
+export const getImprovements = () => API.get('/analytics/improvements');
+export const getPersonalizedSuggestions = () => API.get('/analytics/suggestions');
 
 // Progress Export
 export const exportProgress = () => API.get('/progress/export');
+
+// Learning-data reset: wipes only the signed-in user's practice records.
+// The server requires an explicit { confirm: 'RESET' } body.
+export const resetLearningData = () => API.delete('/learning-data', { data: { confirm: 'RESET' } });
 
 // Mock Interview (new AI-powered system)
 export const getInterviewFields = () => API.get('/interview/fields');

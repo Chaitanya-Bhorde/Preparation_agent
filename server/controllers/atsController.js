@@ -30,10 +30,14 @@ exports.analyzeResumeFile = async (req, res) => {
         fileName = req.file.originalname;
       }
     } catch (fileError) {
+      // SECURITY: the raw message can embed the absolute storage path (e.g.
+      // `ENOENT ... open 'C:\...\uploads\x.pdf'`) or an upstream HTTP status.
+      // Keep the detail in the server log and answer the client with a clean,
+      // actionable message instead of disclosing the filesystem layout.
       console.error('[ATS_ANALYZE] FILE LOAD FAILED:', fileError.message);
       return res.status(500).json({
         success: false,
-        message: `Failed to load uploaded file: ${fileError.message}`,
+        message: 'Could not read the uploaded file. Please try uploading it again.',
       });
     }
 

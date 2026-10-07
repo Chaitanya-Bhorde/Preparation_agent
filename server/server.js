@@ -58,6 +58,31 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// ---------------------------------------------------------------------------
+// Local upload storage.
+//
+// When Cloudinary is NOT configured, multer's diskStorage writes the uploaded
+// resume / profile picture into server/uploads (see config/cloudinary.js) and
+// getFileUrl() returns `/uploads/<filename>`. Nothing ever served that path,
+// so every locally-stored upload produced a dead link: the API returned a URL
+// that 404'd, and `profile.resumeUrl` in the database pointed at nothing.
+//
+// Mounting the directory here is the missing half of that contract, so the URL
+// the API hands back is the URL the server actually serves.
+//
+// `index: false` and `dotfiles: 'deny'` stop the directory from being listed or
+// from serving dotfiles. The route is mounted BEFORE the API routers, and it is
+// read-only static content - it cannot execute, write, or reach the database.
+// Only the filename multer generated (`<timestamp>-<random>-<originalname>`) is
+// reachable, never an arbitrary filesystem path.
+// ---------------------------------------------------------------------------
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  index: false,
+  dotfiles: 'deny',
+  fallthrough: false,
+  maxAge: '1h',
+}));
+
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -112,6 +137,7 @@ app.use('/api/sql', require('./routes/sql'));
 app.use('/api/interview-experiences', require('./routes/interviewExperiences'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/progress', require('./routes/progressExport'));
+app.use('/api/learning-data', require('./routes/learningData'));
 app.use('/api/interview', interviewAiLimiter, require('./routes/interview'));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'PrepAgent API is running' });

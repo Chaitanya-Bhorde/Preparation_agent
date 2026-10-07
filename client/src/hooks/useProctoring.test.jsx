@@ -129,7 +129,7 @@ describe('useProctoring', () => {
     await startCamera(api);
     expect(api.current.cameraError).toMatch(/No camera found/i);
   });
-it('raises a warning when the face leaves the frame, even while the screen re-renders every second', async () => {
+it('raises a camera warning when the face leaves the frame, even while the screen re-renders every second', async () => {
     const events = [];
     const api = mountProctoring((kind, payload) => events.push({ kind, payload }));
     await startCamera(api);
@@ -142,33 +142,47 @@ it('raises a warning when the face leaves the frame, even while the screen re-re
     framePixels = 'dark';
     await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
     expect(api.current.faceDetected).toBe(false);
-    expect(api.current.violationCount).toBe(1);
+    // Camera/face absence is advisory-only: it warns but NEVER feeds the
+    // auto-submit counter (which is reserved for tab-switch / window-blur).
+    expect(api.current.violationCount).toBe(0);
+    expect(api.current.faceWarningCount).toBe(1);
     expect(events[0]).toEqual({ kind: 'violation', payload: { reason: 'NO_FACE', count: 1 } });
-    expect(api.current.lastWarning.message).toMatch(/Warning 1\/2/);
+    expect(api.current.lastWarning.message).toMatch(/Camera check/i);
+    expect(api.current.autoSubmitted).toBe(false);
   });
 
-  it('recovers when the face returns, then warns again and auto-submits on the third violation', async () => {
+  it('never auto-submits from repeated camera warnings alone', async () => {
     const events = [];
     const api = mountProctoring((kind, payload) => events.push({ kind, payload }));
     await startCamera(api);
 
     framePixels = 'dark';
-    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
-    expect(api.current.violationCount).toBe(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(api.current.faceWarningCount).toBeGreaterThanOrEqual(2);
+    expect(api.current.violationCount).toBe(0);
+    expect(api.current.autoSubmitted).toBe(false);
+    expect(events.filter((e) => e.kind === 'autoSubmit')).toHaveLength(0);
+  });
 
-    framePixels = 'skin';
-    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
-    expect(api.current.faceDetected).toBe(true);
+  it('still escalates tab-switch violations to auto-submit on the third strike', async () => {
+    const events = [];
+    const api = mountProctoring((kind, payload) => events.push({ kind, payload }));
+    await startCamera(api);
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    framePixels = 'dark';
-    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    await act(async () => {
+      window.dispatchEvent(new Event('blur'));
+      await vi.advanceTimersByTimeAsync(1100);
+      window.dispatchEvent(new Event('blur'));
+      await vi.advanceTimersByTimeAsync(1100);
+    });
     expect(api.current.violationCount).toBe(2);
     expect(api.current.lastWarning.message).toMatch(/Warning 2\/2/);
+    expect(api.current.autoSubmitted).toBe(false);
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    framePixels = 'dark';
-    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    await act(async () => {
+      window.dispatchEvent(new Event('blur'));
+      await vi.advanceTimersByTimeAsync(1100);
+    });
     expect(api.current.violationCount).toBeGreaterThanOrEqual(3);
     expect(api.current.autoSubmitted).toBe(true);
     expect(events.filter((e) => e.kind === 'autoSubmit')).toHaveLength(1);
@@ -195,9 +209,10 @@ it('raises a warning when the face leaves the frame, even while the screen re-re
     await startCamera(api);
     framePixels = 'dark';
     await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
-    expect(api.current.violationCount).toBe(1);
+    expect(api.current.faceWarningCount).toBe(1);
     await act(async () => { api.current.reset(); });
     expect(api.current.violationCount).toBe(0);
+    expect(api.current.faceWarningCount).toBe(0);
     expect(api.current.lastWarning).toBeNull();
     expect(api.current.faceDetected).toBe(true);
   });

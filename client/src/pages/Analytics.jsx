@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getCategorySummary, getCategoryHeatmap, getCategoryTopics, getSQLHeatmap, getAptitudeHeatmap, getInterviewHeatmap, getSQLAnalytics, getAptitudeAnalytics, getMockInterviewAnalytics } from '../api';
 import ContributionHeatmap from '../components/ContributionHeatmap';
 import { toCountMap } from '../utils/heatmapDate';
 import AptitudeAnalyticsPanel from '../components/aptitude/AptitudeAnalyticsPanel';
+import PerformanceAnalyticsPanel from '../components/PerformanceAnalyticsPanel';
 import { Loader2, TrendingUp, Code2, Database, Brain, CheckCircle2, Target, Gauge, Flame, Mic } from 'lucide-react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { PAGE_CONTAINER, LOADING_SPINNER, CARD_CLASSES } from '../utils/ui';
+import { onAnalyticsUpdated } from '../utils/analyticsEvents';
 
 const TABS = [
+// "Performance" is the new overall view: Overall Performance -> Section ->
+  // Topic -> Strengths -> Areas to Improve -> Personalized Suggestions.
+  { key: 'performance', label: 'Performance', icon: Target },
   { key: 'overall', label: 'Overall', icon: TrendingUp },
   { key: 'dsa', label: 'DSA', icon: Code2 },
   { key: 'sql', label: 'SQL', icon: Database },
@@ -39,7 +44,7 @@ export default function Analytics() {
   const { user, loading: authLoading } = useAuth();
   const userId = user?.id;
 
-  const [activeTab, setActiveTab] = useState('overall');
+  const [activeTab, setActiveTab] = useState('performance');
   const [summary, setSummary] = useState(null);
   const [heatmap, setHeatmap] = useState(null);
   const [topics, setTopics] = useState([]);
@@ -57,17 +62,37 @@ export default function Analytics() {
 
   useEffect(() => {
     if (!userId || authLoading) return;
+    // The Performance tab has its own self-contained panel (it fetches its five
+    // datasets itself), so the per-category trio is neither needed nor fetched.
+    if (activeTab === 'performance') return;
     loadTab(activeTab);
   }, [activeTab, userId, authLoading]);
 
-  const loadTab = async (category) => {
-    setLoading(true);
+  // Real-time analytics: refetch the active tab's real data whenever a
+  // submission event fires — deterministic endpoints only, no LLM calls.
+  // Silent on purpose: no loading spinner flash, and a failed background
+  // refresh keeps the last genuinely-loaded data instead of wiping it.
+  // (The Performance tab listens for the same event inside its own panel.)
+  useEffect(() => {
+    if (!userId || authLoading || activeTab === 'performance') return undefined;
+    return onAnalyticsUpdated(() => { loadTab(activeTab, { silent: true }); });
+  }, [activeTab, userId, authLoading]);
+
+  // Latest-wins guard: rapid consecutive events / tab switches fire overlapping
+  // requests; a slower, older response must never overwrite newer data.
+  const loadSeqRef = useRef(0);
+
+  const loadTab = async (category, opts = {}) => {
+    const { silent = false } = opts;
+    const seq = ++loadSeqRef.current;
+    if (!silent) setLoading(true);
     try {
       const [s, h, t] = await Promise.all([
         getCategorySummary(category, userId),
         getCategoryHeatmap(category, userId),
         getCategoryTopics(category, userId),
       ]);
+      if (seq !== loadSeqRef.current) return; // stale response loses
       setSummary(s.data.data);
       setHeatmap(h.data.data);
       setTopics(t.data.data.topics || []);
@@ -78,6 +103,7 @@ export default function Analytics() {
             getSQLHeatmap(), getAptitudeHeatmap(), getInterviewHeatmap(),
             getCategorySummary("dsa", userId), getCategoryHeatmap("dsa", userId),
           ]);
+          if (seq !== loadSeqRef.current) return; // superseded while fetching
           setDomain({
             sql: sq.data.data, aptitude: ap.data.data, interview: iv.data.data,
             dsa: dsa.data.data,
@@ -87,10 +113,14 @@ export default function Analytics() {
         } catch (e) { console.error('Failed to load domain analytics:', e?.response?.status || e?.message); }
       }
     } catch (error) {
+      if (seq !== loadSeqRef.current) return;
       console.error('Failed to load analytics:', error);
-      setSummary(null); setHeatmap(null); setTopics([]);
+      // A tab SWITCH must drop the previous tab's data (never show it under
+      // the wrong tab); a silent background refresh failure keeps the last
+      // real numbers rather than replacing them with zeros.
+      if (!silent) { setSummary(null); setHeatmap(null); setTopics([]); }
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   };
 
@@ -129,7 +159,9 @@ export default function Analytics() {
         })}
       </div>
 
-      {activeTab === 'aptitude' ? (
+      {activeTab === 'performance' ? (
+        <PerformanceAnalyticsPanel />
+      ) : activeTab === 'aptitude' ? (
         <AptitudeAnalyticsPanel />
       ) : loading ? (
         <div className={LOADING_SPINNER}><Loader2 className="w-8 h-8 animate-spin text-blue-400" /></div>

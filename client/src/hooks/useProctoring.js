@@ -10,6 +10,7 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
   const [cameraError, setCameraError] = useState(null);
   const [faceDetected, setFaceDetected] = useState(true);
   const [violationCount, setViolationCount] = useState(0);
+  const [faceWarningCount, setFaceWarningCount] = useState(0);
   const [lastWarning, setLastWarning] = useState(null);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
 
@@ -19,6 +20,7 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
   const faceCheckRef = useRef(null);
   const lastViolationRef = useRef(0);
   const violationCountRef = useRef(0);
+  const faceWarningRef = useRef(0);
   const autoSubmittedRef = useRef(false);
 
   // Callbacks are read through refs so `handleViolation` keeps a STABLE identity.
@@ -118,6 +120,22 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     const now = Date.now();
     if (now - lastViolationRef.current < DEBOUNCE_MS) return;
     lastViolationRef.current = now;
+    // Camera/face absence is advisory only: it must NEVER drive the
+    // auto-submit counter. Tab-switch / window-blur are the only signals
+    // that may end the interview. A shared counter would let two NO_FACE
+    // warnings plus one tab switch (or three NO_FACE ticks) submit the
+    // interview, which is exactly the reported warning-warning-submit bug.
+    if (reason === 'NO_FACE') {
+      const nextFace = faceWarningRef.current + 1;
+      faceWarningRef.current = nextFace;
+      setFaceWarningCount(nextFace);
+      const faceMsg = nextFace <= 1
+        ? 'Camera check: no face detected. Please keep your face visible in the camera frame.'
+        : 'Camera check: still no face detected. Please adjust your camera — this warning will never auto-submit your interview.';
+      setLastWarning({ message: faceMsg, reason, count: Math.min(nextFace, MAX_WARNINGS), at: new Date() });
+      onViolationRef.current?.(reason, nextFace);
+      return;
+    }
     const newCount = violationCountRef.current + 1;
     violationCountRef.current = newCount;
     setViolationCount(newCount);
@@ -177,13 +195,15 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
 
   const reset = useCallback(() => {
     violationCountRef.current = 0;
+    faceWarningRef.current = 0;
     autoSubmittedRef.current = false;
     setViolationCount(0);
+    setFaceWarningCount(0);
     setLastWarning(null);
     setAutoSubmitted(false);
     setFaceDetected(true);
     lastViolationRef.current = 0;
   }, []);
 
-  return { videoRef, setVideoElement, canvasRef, cameraActive, cameraError, faceDetected, violationCount, lastWarning, autoSubmitted, maxWarnings: MAX_WARNINGS, startCamera, stopCamera, reset, checkFacePresence };
+  return { videoRef, setVideoElement, canvasRef, cameraActive, cameraError, faceDetected, violationCount, faceWarningCount, lastWarning, autoSubmitted, maxWarnings: MAX_WARNINGS, startCamera, stopCamera, reset, checkFacePresence };
 }

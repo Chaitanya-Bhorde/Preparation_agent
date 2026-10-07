@@ -17,11 +17,29 @@ const {
   getAptitudeHeatmap,
   getAptitudeTopics,
   getInterviewHeatmap,
+  getOverallPerformance,
+  getStrengths,
+  getImprovements,
+  getSuggestions,
+  getTopicPerformance,
 } = require('../controllers/analyticsController');
 const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/overall/allusers', protect, authorize('admin'), getPlatformAnalytics);
+
+// ---------------------------------------------------------------------------
+// Static, first-party analytics paths MUST be registered BEFORE the
+// `/:category/...` routes below, otherwise Express would match
+// GET /analytics/overall-performance as category="overall-performance" and
+// hand it to the generic trio handlers.
+// ---------------------------------------------------------------------------
+router.get('/overall-performance', protect, getOverallPerformance);
+router.get('/topic-performance', protect, getTopicPerformance);
+router.get('/strengths', protect, getStrengths);
+router.get('/improvements', protect, getImprovements);
+router.get('/suggestions', protect, getSuggestions);
+
 router.get('/:category/summary/:userId', protect, getCategorySummary);
 router.get('/:category/heatmap/:userId', protect, getCategoryHeatmap);
 router.get('/:category/topics/:userId', protect, getCategoryTopics);

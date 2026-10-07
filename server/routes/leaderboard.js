@@ -1,7 +1,40 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const leaderboardService = require('../services/leaderboardService');
+const overallPerformanceService = require('../services/overallPerformanceService');
 const { protect } = require('../middleware/auth');
+
+/**
+ * GET /api/leaderboard/overall
+ * ---------------------------------------------------------------------------
+ * The real application-wide performance leaderboard:
+ *
+ *   Rank | Name | DSA | Aptitude | SQL | Mock Interview | Overall
+ *
+ * Every number is aggregated live from the caller's own persisted activity
+ * (codesubmissions / sqlsubmissions / aptitudesubmissions / interviewsessions)
+ * by services/overallPerformanceService. There is no snapshot collection and
+ * no stored rank, so the board can never drift from what people actually did.
+ *
+ * Requires authentication only so the response can carry `currentUser` (the
+ * caller's own row and rank) for the highlight in the UI. No email address,
+ * profile picture or any other private field is published — `name` only.
+ *
+ * Query params: ?limit=50&page=1
+ */
+router.get('/overall', protect, async (req, res) => {
+  try {
+    const result = await overallPerformanceService.getOverallLeaderboard({
+      limit: req.query.limit,
+      page: req.query.page,
+      currentUserId: req.user.id || req.user._id,
+    });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Unable to load leaderboard', message: err.message });
+  }
+});
 
 /**
  * GET /api/leaderboard/global
@@ -70,6 +103,14 @@ router.get('/friends', protect, async (req, res) => {
 router.get('/rank/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+    // A non-ObjectId in the path is a malformed request, not a server fault.
+    // Without this guard the value reaches Mongoose, throws a CastError, and the
+    // catch below answers 500 while echoing the driver message (model name and
+    // path included). Guarding here keeps the status class honest and the detail
+    // server-side - the same pattern routes/sql.js already uses for problemId.
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
     const rank = await leaderboardService.getUserGlobalRank(userId);
 
     if (rank === null) {

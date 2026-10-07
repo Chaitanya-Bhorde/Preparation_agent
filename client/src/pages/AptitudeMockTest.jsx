@@ -105,6 +105,14 @@ export default function AptitudeMockTest() {
       };
       const r = await submitAptitudeMock(payload);
       setResult(r.data);
+      // Real-time analytics: submission persisted — notify analytics/suggestion
+      // panels to refetch deterministic stats from real records (no LLM).
+      // Isolated so an emit failure can never turn a saved submission into an
+      // error state (which would let the user re-submit the same test).
+      try {
+        const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+        emitAnalyticsUpdated('aptitude', { submissionId: r.data?.submissionId });
+      } catch (_) { /* analytics refresh is best-effort; submission already saved */ }
       try {
         const d = await getAptitudeResults(r.data.submissionId);
         setDetails(d.data.submission);

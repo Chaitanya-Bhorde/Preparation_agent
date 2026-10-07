@@ -11,7 +11,7 @@ export default function ForgotPassword() {
   const [form, setForm] = useState({ email: '' });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [resetToken, setResetToken] = useState('');
+  const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,8 +20,12 @@ export default function ForgotPassword() {
     try {
       const { data } = await forgotPassword(form.email);
       setSent(true);
-      setResetToken(data.resetToken || '');
-      toast.success('Reset token generated');
+      // SECURITY: the server deliberately never returns the reset token - the
+      // requester has not proved they own the mailbox, so handing it back would
+      // be an account-takeover primitive. We therefore show only the server's
+      // neutral confirmation and send the user to their mail client.
+      setMessage(data.message || 'If an account exists for that address, a password reset link has been issued.');
+      toast.success('Reset link requested');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Something went wrong');
     } finally {
@@ -39,18 +43,12 @@ export default function ForgotPassword() {
             <p className="text-gray-400 mt-1">Your placement preparation companion</p>
           </div>
           <div className="bg-gray-900 rounded-xl p-8 space-y-4 shadow-2xl border border-gray-800">
-            <h2 className="text-xl font-semibold text-white mb-2">Reset your password</h2>
-            <p className="text-gray-300 text-sm">Use the link below to set a new password.</p>
-            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-              <p className="text-xs text-gray-400 break-all">/reset-password/{resetToken}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate(`/reset-password/${resetToken}`)}
-              className={BUTTON_CLASSES.primary + ' w-full justify-center'}
-            >
-              Go to Reset Password
-            </button>
+            <h2 className="text-xl font-semibold text-white mb-2">Check your email</h2>
+            <p className="text-gray-300 text-sm">{message}</p>
+            <p className="text-gray-500 text-xs">
+              For your security we never display the reset link here. Open the email sent to{' '}
+              <span className="text-gray-300">{form.email}</span> and follow the link to set a new password.
+            </p>
             <button
               type="button"
               onClick={() => navigate('/login')}

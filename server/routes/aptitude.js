@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { protect } = require('../middleware/auth');
 const AptitudeTopic = require('../models/AptitudeTopic');
 const AptitudeQuestion = require('../models/AptitudeQuestion');
@@ -35,6 +36,12 @@ router.get('/questions/:topicId', async (req, res) => {
   try {
     const { topicId } = req.params;
     const { difficulty } = req.query;
+    // A non-ObjectId in the path is a malformed request, not a server fault.
+    // Without this guard the value reaches Mongoose and throws a CastError,
+    // which the catch below turns into a 500 that also echoes the driver message.
+    if (!mongoose.Types.ObjectId.isValid(topicId)) {
+      return res.status(400).json({ error: 'Invalid topic id' });
+    }
     const validDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : null;
     const query = validDiff ? { topicId, difficulty: validDiff } : { topicId };
     // Hide the answer key and worked solution from unauthenticated callers.

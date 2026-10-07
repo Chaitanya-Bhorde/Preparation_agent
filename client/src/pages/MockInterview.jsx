@@ -655,6 +655,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
   // Auto-submit due to proctoring violation (3rd violation)
   const autoSubmitDueToProctoring = useCallback(async (reason) => {
+    if (reason === 'NO_FACE') { console.log('[Interview] Ignoring auto-submit request from camera signal: ' + reason); return; }
     if (autoSubmittedRef.current) return;
     autoSubmittedRef.current = true;
     console.log('[Interview] Auto-submitting due to proctoring: ' + reason);
@@ -684,6 +685,12 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       const { data } = await completeInterviewSession(sessionId);
       setIsComplete(true);
       setCompletedReport(data.data?.report || null);
+      // Real-time analytics: interview persisted — refresh stats/suggestions
+      // from real records (deterministic path, no LLM dependency).
+      try {
+        const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+        emitAnalyticsUpdated('mock', { sessionId });
+      } catch (_) { /* analytics refresh must never block completion */ }
       setTimeout(() => onComplete(sessionId), 1500);
     } catch (err) {
       console.error('[Interview] Auto-submit failed:', err);
@@ -1662,6 +1669,10 @@ export default function MockInterview() {
           } catch (_) { /* fall through to finalize attempt below */ }
         }
         try { await completeInterviewSession(state.session.id); } catch (_) { /* may already be completed */ }
+        try {
+          const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+          emitAnalyticsUpdated('mock', { sessionId: state.session.id });
+        } catch (_) { /* analytics refresh must never block completion */ }
         setReportSessionId(state.session.id);
         setPhase('report');
         return;

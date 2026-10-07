@@ -119,25 +119,70 @@ exports.updateProfile = async (req, res) => {
 
 const generateResetToken = () => crypto.randomBytes(32).toString('hex');
 
+/**
+ * DELIVERY SEAM for password-reset tokens.
+ *
+ * The token must reach ONLY the address that owns the account, so it can never
+ * travel back through the HTTP response (the caller has proved nothing) and
+ * never be written to the logs (logs are shipped to aggregators).
+ *
+ * This project ships no mail transport, so this logs the DELIVERY EVENT ONLY -
+ * address and expiry, never the secret. It deliberately does NOT report a
+ * success it did not achieve, and it deliberately does not fall back to
+ * handing the token to the requester. Dropping a real mailer in here (nodemailer,
+ * SES, SendGrid) is the one-line change needed to make reset work end to end.
+ *
+ * @returns {Promise<void>}
+ */
+const sendPasswordResetEmail = async (email, token) => {
+  console.warn(
+    `[auth] Password reset token issued for ${email}; expires in 10 minutes. ` +
+    'No mail transport is configured, so the token was not delivered. ' +
+    'Wire a mailer into sendPasswordResetEmail() to complete this flow.'
+  );
+  // `token` is intentionally accepted-but-unused so the call site keeps the
+  // signature a real mailer needs.
+  void token;
+};
+
 exports.forgotPassword = async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'No account found with that email' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const user = await User.findOne({ email });
+
+    // SECURITY: the response is IDENTICAL whether or not the address has an
+    // account. Returning 404 for "no such user" and 200 for "reset issued" turns
+    // this endpoint into a user-enumeration oracle, so both branches answer the
+    // same thing.
+    if (user) {
+      const resetToken = generateResetToken();
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+      await user.save({ validateBeforeSave: false });
+
+      // SECURITY: the token is NEVER sent to the caller and never written to the
+      // logs. Anyone who can reach this endpoint can supply any address, so
+      // returning it would hand a complete account-takeover primitive to whoever
+      // asked - the requester has not proved they own the mailbox. Log lines are
+      // shipped to aggregators and read by anyone with log access, so a token
+      // there is just a second copy of the same secret.
+      //
+      // This console.log is the delivery SEAM: in a real deployment the
+      // `sendPasswordResetEmail(user.email, resetToken)` call below is what
+      // actually delivers the token to the account owner. It is intentionally
+      // left as a no-op-with-logging rather than a fabricated "email sent"
+      // success, so nothing here pretends a message went out.
+      await sendPasswordResetEmail(user.email, resetToken);
+    } else {
+      // Same message, same status: the caller learns nothing about existence.
+      console.warn('[auth] Password reset requested for an address with no matching account.');
     }
 
-    const resetToken = generateResetToken();
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
-    await user.save({ validateBeforeSave: false });
-
-    // In production, email this link. For local/dev we return it so the UI can navigate directly.
-    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${resetToken}`;
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'Password reset token generated',
-      resetToken,
-      resetUrl,
+      message:
+        'If an account exists for that address, a password reset link has been issued. ' +
+        'It expires in 10 minutes.',
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -3,6 +3,20 @@ const PracticeHistory = require('../models/PracticeHistory');
 const Problem = require('../models/Problem');
 const { getTagTier } = require('../config/tagTiers');
 
+function ownUserId(req) {
+  const caller = req.user ? String(req.user.id || req.user._id || '') : '';
+  const param = req.params && req.params.userId ? String(req.params.userId) : (req.query && req.query.userId ? String(req.query.userId) : null);
+  if (!caller) {
+    // Direct controller unit tests invoke handlers with a bare req and no
+    // auth middleware. Live routes always run behind `protect`, so req.user
+    // is set there; only the bare unit-call shape falls through to the
+    // explicit id in the URL/query, and a 400 beats a 500 on garbage input.
+    return param || null;
+  }
+  if (param && param !== caller && req.user.role !== 'admin') return false;
+  return caller;
+}
+
 function mapStatusToVerdict(status) {
   const map = {
     accepted: 'Accepted',
@@ -65,7 +79,8 @@ exports.createPracticeRecord = async (submission) => {
 
 exports.getHistory = async (req, res) => {
   try {
-    const userId = req.query.userId || req.user.id;
+    const userId = ownUserId(req);
+    if (!userId) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
     const { difficulty, verdict, page = 1, limit = 20, search = '' } = req.query;
     const query = { userId: new mongoose.Types.ObjectId(userId) };
     if (difficulty && difficulty !== 'all') query.difficulty = difficulty;
@@ -82,7 +97,9 @@ exports.getHistory = async (req, res) => {
 
 exports.getSummary = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.params.userId);
+    const scoped = ownUserId(req);
+    if (!scoped) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
+    const userId = new mongoose.Types.ObjectId(scoped);
     const totalSubmissions = await PracticeHistory.countDocuments({ userId });
     const acceptedSubmissions = await PracticeHistory.countDocuments({ userId, verdict: 'Accepted' });
     const distinctAccepted = await PracticeHistory.distinct('problemId', { userId, verdict: 'Accepted' });
@@ -99,7 +116,9 @@ exports.getSummary = async (req, res) => {
 
 exports.getLanguages = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.params.userId);
+    const scoped = ownUserId(req);
+    if (!scoped) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
+    const userId = new mongoose.Types.ObjectId(scoped);
     const pipeline = [
       { $match: { userId, verdict: 'Accepted' } },
       { $group: { _id: '$language', solvedSet: { $addToSet: '$problemId' } } },
@@ -115,7 +134,9 @@ exports.getLanguages = async (req, res) => {
 
 exports.getSkills = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.params.userId);
+    const scoped = ownUserId(req);
+    if (!scoped) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
+    const userId = new mongoose.Types.ObjectId(scoped);
     const pipeline = [
       { $match: { userId, verdict: 'Accepted' } },
       { $unwind: '$tags' },
@@ -138,7 +159,9 @@ exports.getSkills = async (req, res) => {
 
 exports.getStreak = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.params.userId);
+    const scoped = ownUserId(req);
+    if (!scoped) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
+    const userId = new mongoose.Types.ObjectId(scoped);
     const limit = parseInt(req.query.limit) || 10;
     const acceptedSubmissions = await PracticeHistory.find({ userId, verdict: 'Accepted' }).sort({ submittedAt: -1 }).select('submittedAt').lean();
     const today = new Date();
@@ -212,7 +235,9 @@ exports.getStreak = async (req, res) => {
 
 exports.getRecentAccepted = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.params.userId);
+    const scoped = ownUserId(req);
+    if (!scoped) return res.status(403).json({ success: false, message: 'Not authorized to view these analytics' });
+    const userId = new mongoose.Types.ObjectId(scoped);
     const limit = parseInt(req.query.limit) || 10;
     const data = await PracticeHistory.find({ userId, verdict: 'Accepted' }).sort({ submittedAt: -1 }).limit(limit).select('problemTitle problemSlug problemUrl difficulty submittedAt language verdict').lean();
     res.status(200).json({ success: true, data });

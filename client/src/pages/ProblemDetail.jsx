@@ -198,6 +198,12 @@ export default function ProblemDetail() {
         : await submitCode({ problemId: problem._id, code, language });
       const submitResult = { ...data.data, mode: 'submit' };
       setResult(submitResult);
+      // Real-time analytics: submission persisted — notify analytics panels to
+      // refetch deterministic stats/suggestions from fresh DB records (no LLM).
+      try {
+        const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+        emitAnalyticsUpdated(isSql ? 'sql' : 'dsa', { accepted: data.data.status === 'accepted' });
+      } catch (_) { /* analytics refresh must never block submission */ }
       if (data.data.status === 'accepted') {
         toast.success('All test cases passed!');
         // Trigger immediate refresh of dashboard/profile stats

@@ -797,3 +797,151 @@ exports.getRecommendations = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/* ------------------------------------------- overall performance analytics */
+
+// @desc    Overall Performance — the same section scores and Overall score that
+//          rank the user on /api/leaderboard/overall, plus their live rank.
+// @route   GET /api/analytics/overall-performance
+exports.getOverallPerformance = async (req, res) => {
+  try {
+    if (!ownScope(req)) return badScope(res);
+    const { getUserOverallPerformance, SECTIONS, SECTION_HEADINGS } = require('../services/overallPerformanceService');
+    const performance = await getUserOverallPerformance(uid(req));
+
+    // A section with no activity stays null all the way to the client so the UI
+    // can render "—"/"Not Attempted" instead of inventing a 0.
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...performance,
+        sectionLabels: SECTION_HEADINGS,
+        sections: SECTIONS,
+        emptyState: performance.hasAnyActivity
+          ? null
+          : 'No performance data yet. Complete DSA, SQL, Aptitude or Mock Interview activities to start building your profile.',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Your Strengths + Areas That Need Improvement, from real topic data
+// @route   GET /api/analytics/strengths
+// @route   GET /api/analytics/weak-areas/table
+exports.getStrengths = async (req, res) => {
+  try {
+    if (!ownScope(req)) return badScope(res);
+    const { analyze } = require('../services/performanceAnalysisService');
+    const analysis = await analyze(uid(req));
+    return res.status(200).json({
+      success: true,
+      data: {
+        strengths: analysis.strengths,
+        hasAnyActivity: analysis.hasAnyActivity,
+        emptyState: analysis.strengths.length
+          ? null
+          : 'No strengths detected yet. Keep practising — a topic is only called a strength once there is enough real data behind it.',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Areas That Need Improvement as a renderable table
+// @route   GET /api/analytics/improvements
+exports.getImprovements = async (req, res) => {
+  try {
+    if (!ownScope(req)) return badScope(res);
+    const { analyze } = require('../services/performanceAnalysisService');
+    const analysis = await analyze(uid(req));
+    return res.status(200).json({
+      success: true,
+      data: {
+        weakAreas: analysis.weakAreas,
+        hasAnyActivity: analysis.hasAnyActivity,
+        emptyState: analysis.weakAreas.length
+          ? null
+          : 'No weak areas detected. Nothing in your tracked topics is below the threshold right now.',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Personalized Suggestions, grouped by section, from the EXISTING
+//          recommendation engine (services/ml/recommendationEngine)
+// @route   GET /api/analytics/suggestions
+exports.getSuggestions = async (req, res) => {
+  try {
+    if (!ownScope(req)) return badScope(res);
+    const { buildSuggestions } = require('../services/performanceAnalysisService');
+    const suggestions = await buildSuggestions(uid(req));
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...suggestions,
+        emptyState: suggestions.hasAny
+          ? null
+          : 'No suggestions yet. Complete a few DSA, SQL, Aptitude or Mock Interview activities and personalised suggestions will appear here.',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Topic Performance across all four sections in ONE call.
+ *
+ * This reuses the SAME loaders and the SAME `topicRows` /
+ * `aptitudeTopicRows` / `interviewTopicRows` helpers the per-category topic
+ * endpoints already use, so the numbers here are identical to the ones the
+ * existing Analytics tabs show — it is an aggregation of existing analytics,
+ * not a second definition. Each section is only included when the user actually
+ * has records for it; a section with no records is reported as `null`, never
+ * as an empty-looking "0%" row.
+ */
+exports.getTopicPerformance = async (req, res) => {
+  try {
+    if (!ownScope(req)) return badScope(res);
+    const userId = uid(req);
+
+    const [dsaSubs, sqlSubs, aptSubs, interviewSubs] = await Promise.all([
+      loadDsaSubmissions(userId),
+      loadSqlSubmissions(userId),
+      loadAptitudeSubmissions(userId),
+      loadCompletedInterviews(userId),
+    ]);
+
+    const build = (subs, tagsOf, difficultyOf) =>
+      subs.length === 0
+        ? null
+        : topicRows(subs, tagsOf, difficultyOf).sort((a, b) => b.acceptanceRate - a.acceptanceRate);
+
+    const sections = {
+      dsa: build(dsaSubs, (s) => (s.problemTags && s.problemTags.length ? s.problemTags : ['general']), (s) => s.problemDifficulty),
+      sql: build(sqlSubs, (s) => (s.topics && s.topics.length ? s.topics : ['general']), (s) => s.difficulty),
+      aptitude: aptSubs.length === 0
+        ? null
+        : aptitudeTopicRows(aptSubs).sort((a, b) => b.acceptanceRate - a.acceptanceRate),
+      mockInterview: interviewSubs.length === 0
+        ? null
+        : interviewTopicRows(interviewSubs).sort((a, b) => b.acceptanceRate - a.acceptanceRate),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        sections,
+        hasAnyActivity: Object.values(sections).some((v) => v !== null),
+        emptyState: 'No topic data yet. Start solving problems to see topic-level performance.',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

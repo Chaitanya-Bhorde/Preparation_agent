@@ -217,6 +217,15 @@ export default function CodingProblemDetail() {
       if (typeof data.data.solved === 'boolean') setIsSolved(data.data.solved);
       // Refresh the history so the new attempt appears without a manual reload.
       loadSubmissions();
+      // Real-time analytics: the DB write already succeeded (we got 2xx), so
+      // tell every analytics/suggestion panel to refetch from real records.
+      // Suggestions recalculate deterministically from fresh rows — no LLM.
+      // Isolated in its own try/catch: the dynamically-imported chunk lives on
+      // the network, and an emit failure must never fail the submission flow.
+      try {
+        const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+        emitAnalyticsUpdated('dsa', { accepted: data.data.verdict === 'Accepted' });
+      } catch (_) { /* analytics refresh is best-effort; submission already saved */ }
       if (data.data.verdict === 'Accepted') {
         toast.success('All test cases passed!');
         try {

@@ -1,10 +1,11 @@
 .leaderboard-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 70px minmax(140px, 1.6fr) repeat(4, minmax(84px, 1fr)) minmax(96px, 1.2fr);
+  gap: 12px;
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid #2a2a2a;
   transition: background-color 0.2s;
-  cursor: pointer;
 }
 
 .leaderboard-row:hover {
@@ -13,7 +14,7 @@
 
 .leaderboard-row.current-user {
   background-color: #2a1a0e;
-  font-weight: bold;
+  box-shadow: inset 3px 0 0 #f59e0b;
 }
 
 .leaderboard-row.current-user:hover {
@@ -21,22 +22,29 @@
 }
 
 .rank-cell {
-  width: 50px;
-  flex-shrink: 0;
+  text-align: center;
 }
 
 .rank-badge {
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 700;
   color: #fff;
   min-width: 28px;
   text-align: center;
   display: inline-block;
 }
 
+.rank-badge--gold { color: #ffd700; }
+.rank-badge--silver { color: #c0c0c0; }
+.rank-badge--bronze { color: #cd7f32; }
+.rank-badge--default { color: #e5e5e5; }
+.rank-badge--muted { color: #555; }
+
 .user-info {
-  flex: 1;
-  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .username {
@@ -46,58 +54,57 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
+  margin: 0;
 }
 
-.tier-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: bold;
-  margin-left: 8px;
+.you-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
 }
 
-.stats-cell {
-  flex: 1;
-  padding: 0 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat {
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-  color: #888;
-}
-
-.stat-value {
-  color: #fff;
+.score-cell {
+  text-align: center;
+  font-size: 13px;
   font-weight: 500;
-  margin-left: 4px;
+  color: #e5e5e5;
 }
 
-.stat.easy .stat-value {
-  color: #4CAF50;
+/* A section the user has never attempted. Explicitly NOT 0. */
+.score-cell--empty {
+  color: #5a5a5a;
+  font-weight: 400;
 }
 
-.stat.medium .stat-value {
-  color: #FFC107;
+.score-cell--overall {
+  border-left: 1px solid #2a2a2a;
 }
 
-.stat.hard .stat-value {
-  color: #F44336;
+.overall-score {
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-block;
+  min-width: 42px;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
-@media (max-width: 768px) {
+.overall-score--strong { color: #4ade80; background: rgba(74, 222, 128, 0.12); }
+.overall-score--mid { color: #facc15; background: rgba(250, 204, 21, 0.12); }
+.overall-score--low { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+.overall-score--muted { color: #5a5a5a; }
+
+@media (max-width: 900px) {
   .leaderboard-row {
-    padding: 8px 12px;
-  }
-
-  .rank-cell {
-    width: 35px;
+    grid-template-columns: 56px minmax(110px, 1.4fr) repeat(4, minmax(64px, 1fr)) minmax(76px, 1fr);
+    padding: 10px 12px;
   }
 
   .rank-badge {
@@ -105,13 +112,11 @@
     min-width: 24px;
   }
 
-  .user-info {
-    padding: 0 8px;
-    flex: 1;
-  }
-
   .username {
     font-size: 12px;
-    max-width: 120px;
+  }
+
+  .score-cell {
+    font-size: 12px;
   }
 }
