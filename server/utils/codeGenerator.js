@@ -126,10 +126,25 @@ function mapCppType(type) {
 function mapCType(type) {
   const map = {
     'int': 'int', 'long': 'long', 'double': 'double', 'char': 'char',
-    'char*': 'char*', 'int*': 'int*',
-    'number': 'int', 'boolean': 'int', 'number[]': 'int*', 'number[][]': 'int**',
+    'char*': 'char*', 'int*': 'int*', 'string': 'char*',
+    'int[]': 'int*', 'number[]': 'int*', 'number[][]': 'int**',
+    'number': 'int', 'boolean': 'int', 'bool': 'int',
   };
   return map[type] || type;
+}
+
+function isCArrayType(type) {
+  const t = String(type || '');
+  return t === 'int*' || t === 'int[]' || t === 'number[]' || t === 'char*' || t === 'string';
+}
+
+function isCSizeParam(param, params) {
+  const n = String(param.name || '').toLowerCase();
+  if (/(size|length|len|count|numsize|n$)/.test(n)) {
+    const t = String(param.type || '').toLowerCase();
+    if (t === 'int' || t === 'long' || t === 'number') return true;
+  }
+  return false;
 }
 
 function getDefaultStub(language) {
@@ -673,35 +688,103 @@ function jsParseLine(p) {
 }
 
 function buildCDriver(userCode, funcName, params, returnType) {
-  const parsing = params.map((p, idx) => cParseLine(p, idx)).join('\n    ');
-  const args = params.map(p => p.name).join(', ');
-  const printExpr = cPrintExpr('result', returnType);
+  const list = Array.isArray(params) ? params : [];
+  const sizeParams = new Set(list.filter((p) => isCSizeParam(p, list)).map((p) => p.name));
+  const isReturnSizeParam = (p) => String(p.name || '').toLowerCase() === 'returnsize';
+  let lineCursor = 0;
+  const parsing = list.map((p) => {
+    const t = String(p.type || '');
+    // returnSize is an OUTPUT parameter: never read it from stdin. It is
+    // declared once by extraDecl below and passed as &returnSize.
+    if (isReturnSizeParam(p)) return '';
+    if (sizeParams.has(p.name)) {
+      const src = list.find((q) => isCArrayType(q.type) && !sizeParams.has(q.name));
+      if (src) return `${mapCType(p.type)} ${p.name} = __prepagent_len_${src.name};`;
+      return `${mapCType(p.type)} ${p.name} = atoi(lines[${lineCursor++}]);`;
+    }
+    if (t === 'int*') return `int __prepagent_len_${p.name} = 0;\n    int* ${p.name} = parseIntArray(lines[${lineCursor++}], &__prepagent_len_${p.name});`;
+    if (t === 'int[]' || t === 'number[]') return `int __prepagent_len_${p.name} = 0;\n    int* ${p.name} = parseIntArray(lines[${lineCursor++}], &__prepagent_len_${p.name});`;
+    if (t === 'char*' || t === 'string') return `char* ${p.name} = __prepagent_strdup(lines[${lineCursor++}]);`;
+    return cParseLine(p, lineCursor++);
+  }).filter(Boolean).join('\n    ');
+  const extra = list.filter((p) => String(p.name || '').toLowerCase() === 'returnsize');
+  const extraDecl = extra.length > 0 ? '\n    int returnSize = 0;' : '';
+  const args = list.map((p) => {
+    if (String(p.name || '').toLowerCase() === 'returnsize') return '&returnSize';
+    return p.name;
+  }).join(', ');
+  const printExpr = cPrintExpr('result', returnType, extra.length > 0);
+  const hasReturnSize = extra.length > 0;
 
   return `#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-char** splitLines(char* input, int* count) {
+static char* __prepagent_strdup(const char* s) {
+    if (!s) return NULL;
+    size_t n = strlen(s) + 1;
+    char* d = (char*)malloc(n);
+    if (d) memcpy(d, s, n);
+    return d;
+}
+
+static char** splitLines(char* input, int* count) {
     int caps = 4, n = 0;
-    char** arr = malloc(sizeof(char*) * caps);
+    char** arr = (char**)malloc(sizeof(char*) * caps);
     char* save = NULL;
-    char* token = strtok_r(input, "\\n", &save);
+    char* token = strtok(input, "\\n");
+    (void)save;
     while (token) {
-        if (n >= caps) { caps *= 2; arr = realloc(arr, sizeof(char*) * caps); }
+        if (n >= caps) { caps *= 2; arr = (char**)realloc(arr, sizeof(char*) * caps); }
         arr[n++] = token;
-        token = strtok_r(NULL, "\\n", &save);
+        token = strtok(NULL, "\\n");
     }
     *count = n;
     return arr;
 }
 
+static int* parseIntArray(const char* raw, int* outLen) {
+    int caps = 8, n = 0;
+    int* arr = (int*)malloc(sizeof(int) * caps);
+    const char* p = raw ? raw : "";
+    char num[64];
+    int ni = 0;
+    while (*p) {
+        if ((*p >= '0' && *p <= '9') || *p == '-' || *p == '+') {
+            if (ni < 63) num[ni++] = *p;
+        } else {
+            if (ni > 0) { num[ni] = 0; if (n >= caps) { caps *= 2; arr = (int*)realloc(arr, sizeof(int) * caps); } arr[n++] = atoi(num); ni = 0; }
+        }
+        p++;
+    }
+    if (ni > 0) { num[ni] = 0; if (n >= caps) { caps *= 2; arr = (int*)realloc(arr, sizeof(int) * caps); } arr[n++] = atoi(num); }
+    *outLen = n;
+    return arr;
+}
+
+static void printIntArray(int* arr, int len) {
+    printf("[");
+    for (int i = 0; i < len; i++) { if (i) printf(","); printf("%d", arr[i]); }
+    printf("]\\n");
+}
+
+${userCode}
+
 int main() {
-    char buffer[4096];
-    if (!fgets(buffer, sizeof(buffer), stdin)) return 0;
+    char buffer[65536];
+    size_t total = 0;
+    size_t cap = sizeof(buffer);
+    static char all[1048576];
+    size_t allLen = 0;
+    int ch;
+    while ((ch = getchar()) != EOF && allLen + 1 < sizeof(all)) { all[allLen++] = (char)ch; }
+    all[allLen] = 0;
+    if (allLen == 0) return 0;
     int count = 0;
-    char** lines = splitLines(buffer, &count);
+    char** lines = splitLines(all, &count);
     if (count == 0) return 0;
-    ${parsing}
+    (void)buffer; (void)total; (void)cap;
+    ${parsing}${extraDecl}
     ${returnType} result = ${funcName}(${args});
     ${printExpr}
     return 0;
@@ -733,13 +816,16 @@ function cParseLine(p, idx) {
   return `char* ${p.name} = strdup(lines[${idx}]);`;
 }
 
-function cPrintExpr(varName, type) {
+function cPrintExpr(varName, type, hasReturnSize) {
+  if (hasReturnSize) return `printIntArray(${varName}, returnSize);`;
+  if (type === 'int*') return `printIntArray(${varName}, 0);`;
   if (type === 'int') return `printf("%d\\n", ${varName});`;
   if (type === 'long') return `printf("%lld\\n", ${varName});`;
   if (type === 'double') return `printf("%f\\n", ${varName});`;
   if (type === 'boolean') return `printf("%s\\n", ${varName} ? "true" : "false");`;
   if (type === 'char*' || type === 'string') return `printf("%s\\n", ${varName});`;
-  return ``;
+  if (type === 'int[]' || type === 'number[]') return `printf("%s\\n", ${varName});`;
+  return `printf("%s\\n", ${varName});`;
 }
 
 function validateSignatureAgainstTestCases(signature, testCases) {

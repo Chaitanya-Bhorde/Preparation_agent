@@ -532,9 +532,27 @@ function parseLineValue(type, raw) {
   return v; // string / raw
 }
 
+/**
+ * Decode the LITERAL escape sequences the seed/DB convention stores inside
+ * line-based test inputs. A stored input like `[2,7,11,15]\n9` is really the
+ * characters `[2,7,11,15]`, backslash, `n`, `9` and means TWO stdin lines; the
+ * drivers (and localExecutor.normalizeStdin) translate that backslash-n into a
+ * real newline before splitting. This mirrors that translation so the generic
+ * validator splits the SAME stored value onto the SAME lines the engines do —
+ * otherwise the whole `[2,7,11,15]\n9` is parsed as one line and JSON.parse
+ * chokes on the trailing `\n9` ("Unexpected non-whitespace character after
+ * JSON"), which surfaced as a 500 on every /submit.
+ */
+function decodeLineEscapes(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\r/g, '\r');
+}
+
 /** Convert a legacy LINE-BASED test input into positional args (field order). */
 function lineInputToArgs(lineInput, fields) {
-  const lines = String(lineInput == null ? '' : lineInput).split('\n');
+  const lines = decodeLineEscapes(lineInput).split('\n');
   return fields.map((f, i) => parseLineValue(f.type, lines[i]));
 }
 

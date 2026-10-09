@@ -13,6 +13,11 @@ const STATUS_CONFIG = {
   compilation_error: { icon: Terminal, color: 'text-orange-400', bg: 'bg-orange-900/20', label: 'Compilation Error' },
   runtime_error: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/20', label: 'Runtime Error' },
   time_limit_exceeded: { icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Time Limit Exceeded' },
+  // Nothing was verified (problem ships no test cases) or the execution
+  // backend failed — neither is the user's code being wrong.
+  untested: { icon: AlertTriangle, color: 'text-gray-400', bg: 'bg-gray-800/60', label: 'Not verifiable (no test cases)' },
+  system_error: { icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Execution backend error' },
+  unsupported_language: { icon: AlertTriangle, color: 'text-gray-400', bg: 'bg-gray-800/60', label: 'Language unavailable' },
 };
 
 const LANGUAGES = [

@@ -73,6 +73,10 @@ export default function AptitudeTopicPractice() {
     } catch (e) {
       console.error('submit-answer failed (feedback still shown locally):', e?.message);
     }
+    try {
+      const { emitAnalyticsUpdated } = await import('../utils/analyticsEvents');
+      emitAnalyticsUpdated('aptitude', { questionId: q._id });
+    } catch (_) { /* analytics refresh is best-effort; feedback already shown */ }
   }, [questions, idx, answers]);
 
   // Clear an answer so the green/red feedback disappears (after ~18s) and the user can retry.

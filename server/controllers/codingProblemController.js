@@ -3,7 +3,7 @@ const CodeSubmission = require('../models/CodeSubmission');
 const mongoose = require('mongoose');
 const { generateStarterCode } = require('../utils/codeGenerator');
 
-const SUPPORTED_LANGS = ['javascript', 'python', 'java', 'cpp', 'c', 'csharp'];
+const SUPPORTED_LANGS = ['javascript', 'python', 'java', 'cpp', 'c'];
 
 // Generate starter code from functionSignature (ensures consistency across languages)
 function buildStarterCode(pObj) {

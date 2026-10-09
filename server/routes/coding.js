@@ -72,8 +72,14 @@ function verdictFromResults(results, passed, total) {
   if (et === 'CompileError') return 'CompileError';
   if (et === 'RuntimeError') return 'RuntimeError';
   if (et === 'TLE' || et === 'time_limit_exceeded') return 'TLE';
+  if (et === 'system_error' || et === 'internal_error') return firstFailed && firstFailed.status === 'unsupported_language' ? 'UnsupportedLanguage' : 'SystemError';
   return 'WrongAnswer';
 }
+
+const SUPPORTED_SUBMIT_LANGUAGES = ['javascript', 'python', 'java', 'cpp', 'c'];
+const UNSUPPORTED_LANGUAGE_MESSAGE = {
+  csharp: 'C# execution is currently unavailable because no configured C# runtime exists.',
+};
 
 /**
  * Validate a submission via the generic, metadata-driven engine.
@@ -123,6 +129,13 @@ async function validateViaGenericValidator(problem, code, language) {
 router.post('/run', protect, async (req, res) => {
   try {
     const { problemId, language, code } = req.body;
+    if (!problemId) return res.status(400).json({ success: false, message: 'Missing problemId' });
+    if (!language) return res.status(400).json({ success: false, message: 'Missing language' });
+    if (!code) return res.status(400).json({ success: false, message: 'Missing user code' });
+    const lang = String(language || '').toLowerCase();
+    if (UNSUPPORTED_LANGUAGE_MESSAGE[lang] || (language && !SUPPORTED_SUBMIT_LANGUAGES.includes(lang))) {
+      return res.status(400).json({ success: false, message: UNSUPPORTED_LANGUAGE_MESSAGE[lang] || `Language "${language}" is not supported. Supported languages: ${SUPPORTED_SUBMIT_LANGUAGES.join(', ')}.` });
+    }
     const problem = await CodingProblem.findOne({ _id: problemId, isActive: true });
     if (!problem) return res.status(404).json({ success: false, message: 'Problem not found' });
 
@@ -142,6 +155,9 @@ router.post('/run', protect, async (req, res) => {
       memoryUsed: r.memoryUsed,
       error: r.error,
       errorType: r.errorType,
+      // Kept for parity with the /submit shaping: the verdict logic below
+      // distinguishes an unsupported-language failure from a generic one.
+      status: r.status,
       errorMessage: r.error || null, // Show error message for all failures
       isSample: true,
     }));
@@ -152,11 +168,19 @@ router.post('/run', protect, async (req, res) => {
     const totalTestCases = results.length;
     const passedTestCases = results.filter((r) => r.passed).length;
     const firstFailed = results.find((r) => !r.passed);
+    // `wrong_answer` is a claim about the USER'S CODE. It must never be used as
+    // a catch-all: with zero test cases nothing was verified (Untested), and a
+    // system_error means the EXECUTION BACKEND failed (SystemError /
+    // UnsupportedLanguage) — both are honest non-answers, not "Wrong Answer".
     let status = 'wrong_answer';
-    if (totalTestCases > 0 && passedTestCases === totalTestCases) status = 'accepted';
+    if (totalTestCases === 0) status = 'untested';
+    else if (passedTestCases === totalTestCases) status = 'accepted';
     else if (firstFailed && firstFailed.errorType === 'CompileError') status = 'compilation_error';
     else if (firstFailed && firstFailed.errorType === 'RuntimeError') status = 'runtime_error';
     else if (firstFailed && firstFailed.errorType === 'TLE') status = 'time_limit_exceeded';
+    else if (firstFailed && (firstFailed.errorType === 'system_error' || firstFailed.errorType === 'internal_error')) {
+      status = firstFailed.status === 'unsupported_language' ? 'unsupported_language' : 'system_error';
+    }
     // Capitalized verdict keys must match the frontend STATUS_CONFIG.
     const verdictMap = {
       accepted: 'Accepted',
@@ -164,6 +188,9 @@ router.post('/run', protect, async (req, res) => {
       compilation_error: 'CompileError',
       runtime_error: 'RuntimeError',
       time_limit_exceeded: 'TLE',
+      untested: 'Untested',
+      system_error: 'SystemError',
+      unsupported_language: 'UnsupportedLanguage',
     };
 
     res.status(200).json({
@@ -190,6 +217,10 @@ router.post('/submit', protect, async (req, res) => {
     if (!problemId) return res.status(400).json({ success: false, message: 'Missing problemId' });
     if (!language) return res.status(400).json({ success: false, message: 'Missing language' });
     if (!code) return res.status(400).json({ success: false, message: 'Missing user code' });
+    const langLower = String(language).toLowerCase();
+    if (UNSUPPORTED_LANGUAGE_MESSAGE[langLower] || !SUPPORTED_SUBMIT_LANGUAGES.includes(langLower)) {
+      return res.status(400).json({ success: false, message: UNSUPPORTED_LANGUAGE_MESSAGE[langLower] || `Language "${language}" is not supported. Supported languages: ${SUPPORTED_SUBMIT_LANGUAGES.join(', ')}.` });
+    }
 
     // Retired problems stay stored for authoring/history but must not accept
     // new work: judging one yields a meaningless verdict and would let a
@@ -344,6 +375,21 @@ async function persistSubmissionRecords(req, problem, code, language, verdict, r
  *  sample cases carry full detail, hidden cases carry counts only (input /
  *  expected / actual nulled), and a hidden first-failure is not leaked. */
 async function sendSubmitResponse(res, { problem, verdict, results, passedTestCases, totalTestCases, submission, firstFailedIdx, solved }) {
+  // The response `status` mirrors the verdict in the LOWERCASE vocabulary the
+  // legacy ProblemDetail page renders from (it reads data.status, not
+  // data.verdict). Collapsing every non-Accepted verdict to 'wrong_answer'
+  // there mislabelled CompileError/SystemError/etc. as the user's code being
+  // wrong.
+  const VERDICT_TO_STATUS = {
+    Accepted: 'accepted',
+    WrongAnswer: 'wrong_answer',
+    CompileError: 'compilation_error',
+    RuntimeError: 'runtime_error',
+    TLE: 'time_limit_exceeded',
+    Untested: 'untested',
+    SystemError: 'system_error',
+    UnsupportedLanguage: 'unsupported_language',
+  };
   const visibleCount = (problem.sampleTests || []).length;
   const firstFailedIsHidden = firstFailedIdx >= visibleCount && firstFailedIdx !== -1;
   const firstFailed = firstFailedIdx >= 0 ? results[firstFailedIdx] : null;
@@ -379,7 +425,7 @@ async function sendSubmitResponse(res, { problem, verdict, results, passedTestCa
     success: true,
     data: {
       ...submission.toObject(),
-      status: verdict === 'Accepted' ? 'accepted' : 'wrong_answer',
+      status: VERDICT_TO_STATUS[verdict] || 'wrong_answer',
       verdict,
       passedTestCases,
       totalTestCases,

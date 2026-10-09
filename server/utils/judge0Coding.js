@@ -130,6 +130,37 @@ const pollJudge0Submission = async (token) => {
  */
 const executeSingleCase = async (sourceCode, language, input, expectedOutput, returnType) => {
   const engine = (process.env.CODING_EXECUTION_ENGINE || 'auto').toLowerCase();
+  const lang = normalizeLanguage(language);
+  const localSupported = (() => {
+    try { return localExecutor.isLocallySupported(lang); } catch (_) { return true; }
+  })();
+
+  const unsupportedResult = (message) => ({
+    passed: false,
+    input: input || '',
+    output: '',
+    expectedOutput: expectedOutput || '',
+    error: message,
+    errorType: 'system_error',
+    status: 'unsupported_language',
+    status_id: 13,
+    executionTime: 0,
+    memoryUsed: 0,
+  });
+
+  if (lang === 'csharp') {
+    if (engine === 'judge0' || engine === 'auto') {
+      const judge0Result = await executeJudge0SingleCase(sourceCode, language, input, expectedOutput, returnType);
+      if (engine === 'judge0') return judge0Result;
+      const failedAtEngine =
+        judge0Result.status_id === 13 || judge0Result.status_id === 14 ||
+        judge0Result.errorType === 'system_error' ||
+        judge0Result.status === 'internal_error';
+      if (failedAtEngine) return unsupportedResult('C# execution is currently unavailable because no configured C# runtime exists. Configure Judge0 or install a dotnet SDK to enable C#.');
+      return judge0Result;
+    }
+    return unsupportedResult('C# execution is currently unavailable because no configured C# runtime exists. Configure Judge0 or install a dotnet SDK to enable C#.');
+  }
 
   const tryLocal = async () => {
     try {
@@ -154,7 +185,22 @@ const executeSingleCase = async (sourceCode, language, input, expectedOutput, re
   };
 
   if (engine === 'local') {
+    if (!localSupported) {
+      if (lang === 'python') return unsupportedResult('Python execution backend is unavailable: no Python 3 runtime was found locally. Install Python 3 or set CODING_EXECUTION_ENGINE=auto with Judge0 configured.');
+      return unsupportedResult(`Language "${language}" is not supported by the local execution engine.`);
+    }
     return tryLocal();
+  }
+
+  if (!localSupported && (lang === 'python')) {
+    const judge0Result = await executeJudge0SingleCase(sourceCode, language, input, expectedOutput, returnType);
+    if (engine === 'judge0') return judge0Result;
+    const failedAtEngine =
+      judge0Result.status_id === 13 || judge0Result.status_id === 14 ||
+      judge0Result.errorType === 'system_error' ||
+      judge0Result.status === 'internal_error';
+    if (failedAtEngine) return unsupportedResult('Python execution backend is unavailable: Judge0 is unreachable and no local Python 3 runtime exists. Install Python 3 or start Judge0.');
+    return judge0Result;
   }
 
   const judge0Result = await executeJudge0SingleCase(sourceCode, language, input, expectedOutput, returnType);
@@ -312,6 +358,11 @@ const executeJudge0SingleCase = async (sourceCode, language, input, expectedOutp
 const javaParseType = (type) => {
   const map = {
     'int': 'int', 'long': 'long', 'double': 'double', 'float': 'float',
+    // 'number'/'integer' are first-class tokens elsewhere (genericValidator
+    // TYPE_MAP, codeGenerator javaTypeMap, the C++/JS/C drivers) — the Java
+    // driver must map them too, or the generated driver parses scalars as
+    // String and the user's code fails to compile with a bogus type error.
+    'number': 'int', 'integer': 'int',
     'boolean': 'boolean', 'bool': 'boolean', 'char': 'char',
     'String': 'String', 'string': 'String',
     'int[]': 'int[]', 'number[]': 'int[]', 'String[]': 'String[]', 'char[]': 'char[]',
@@ -324,7 +375,7 @@ const javaParseType = (type) => {
 const javaParseLine = (p, idx) => {
   const ln = `lines[${idx}]`;
   const t = p.type;
-  if (t === 'int') return `int ${p.name} = Integer.parseInt(${ln}.trim());`;
+  if (t === 'int' || t === 'number' || t === 'integer') return `int ${p.name} = Integer.parseInt(${ln}.trim());`;
   if (t === 'long') return `long ${p.name} = Long.parseLong(${ln}.trim());`;
   if (t === 'double') return `double ${p.name} = Double.parseDouble(${ln}.trim());`;
   if (t === 'float') return `float ${p.name} = Float.parseFloat(${ln}.trim());`;
@@ -438,6 +489,22 @@ const buildJavaDriver = (userCode, funcName, params, returnType) => {
     + `}\n`;
 };
 
+const buildPythonDriver = (sourceCode, fn, params, returnType) => {
+  const parseLines = (params || []).map((p, i) => {
+    const t = (p.type || '').trim();
+    if (t === 'int') return `    ${p.name} = int(lines[${i}].strip() or 0)`;
+    if (t === 'float' || t === 'double' || t === 'decimal') return `    ${p.name} = float(lines[${i}].strip() or 0)`;
+    if (t === 'bool' || t === 'boolean') return `    ${p.name} = lines[${i}].strip().lower() == 'true'`;
+    if (t === 'str' || t === 'string') return `    ${p.name} = lines[${i}]`;
+    return `    ${p.name} = json.loads(lines[${i}])`;
+  }).join('\n');
+  const args = (params || []).map((p) => p.name).join(', ');
+  const rt = (returnType || '').trim();
+  const needsJson = /List|list|\[\]|vector/i.test(rt);
+  const printStmt = needsJson ? '    print(json.dumps(result))' : '    print(result)';
+  return `${sourceCode}\nimport sys\nimport json\n\ndef __prepagent_main__():\n    data = sys.stdin.read().split('\\n')\n    lines = [l for l in data if l.strip() != '']\n    if not lines:\n        return\n${parseLines}\n    result = ${fn}(${args})\n${printStmt}\n\n__prepagent_main__()\n`;
+};
+
 const buildDriver = (sourceCode, language) => {
   switch (language) {
     case 'python':
@@ -460,7 +527,7 @@ const buildDriverFromSignature = (sourceCode, language, functionSignature) => {
   const params = (functionSignature.params || []).map((p) => p.name || 'input').join(', ');
   switch (language) {
     case 'python':
-      return `${sourceCode}\nimport sys\nfor line in sys.stdin:\n    line=line.rstrip('\\n')\n    print(${fn}(${params}))`;
+      return buildPythonDriver(sourceCode, fn, functionSignature.params || [], functionSignature.returnType || '');
     case 'java':
       return buildJavaDriver(sourceCode, fn, functionSignature.params || [], functionSignature.returnType || '');
     case 'c':
@@ -666,7 +733,28 @@ exports.computeVerdict = (results) => {
   };
 };
 
+const SUPPORTED_LANGUAGES = ['javascript', 'python', 'java', 'cpp', 'c'];
+const LANGUAGE_SUPPORT = {
+  javascript: { id: 'javascript', label: 'JavaScript', local: true, judge0: true },
+  python: { id: 'python', label: 'Python', local: 'runtime', judge0: true },
+  java: { id: 'java', label: 'Java', local: true, judge0: true },
+  cpp: { id: 'cpp', label: 'C++', local: true, judge0: true },
+  c: { id: 'c', label: 'C', local: true, judge0: true },
+  csharp: { id: 'csharp', label: 'C#', local: false, judge0: false, unsupported: true, reason: 'C# execution is currently unavailable because no configured C# runtime exists.' },
+};
+
+exports.SUPPORTED_LANGUAGES = SUPPORTED_LANGUAGES;
+exports.LANGUAGE_SUPPORT = LANGUAGE_SUPPORT;
+exports.getLanguageSupport = () => {
+  const pythonLocal = (() => { try { return !!localExecutor.detectPython(); } catch (_) { return false; } })();
+  return Object.values(LANGUAGE_SUPPORT).map((l) => ({
+    ...l,
+    localAvailable: l.id === 'python' ? pythonLocal : !!l.local,
+    executable: l.id === 'python' ? pythonLocal : !!l.local,
+  }));
+};
 exports.buildDriver = buildDriver;
+exports.buildPythonDriver = buildPythonDriver;
 exports.buildDriverFromSignature = buildDriverFromSignature;
 exports.LANGUAGE_IDS = LANGUAGE_IDS;
 exports.JUDGE0_STATUS = JUDGE0_STATUS;

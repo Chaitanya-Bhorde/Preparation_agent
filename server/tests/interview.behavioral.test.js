@@ -1,8 +1,4 @@
-/**
- * AI Mock Interview - behavioral tests.
- * Verifies dynamic question generation, contextual follow-ups,
- * adaptive difficulty, state machine, error handling, and security.
- */
+ 
 
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');

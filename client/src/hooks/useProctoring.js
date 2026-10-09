@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const MAX_WARNINGS = 2;
+const MAX_WARNINGS = 3;
 const FACE_CHECK_INTERVAL = 3000;
 const FACE_THRESHOLD = 0.15;
-const DEBOUNCE_MS = 1000;
+const VIOLATION_COOLDOWN_MS = 1000;
 
 export default function useProctoring({ enabled = false, onViolation, onAutoSubmit }) {
   const [cameraActive, setCameraActive] = useState(false);
@@ -88,11 +88,12 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     setCameraActive(false);
   }, []);
 
+  const consecutiveNoFaceRef = useRef(0);
+  const noFaceCooldownUntilRef = useRef(0);
+
   const checkFacePresence = useCallback(() => {
     if (!videoRef.current || !cameraActiveRef.current) return true;
     const video = videoRef.current;
-    // Not yet decoded (no frames) — treat as "cannot judge" rather than a
-    // violation, so a slow first frame never triggers a false warning.
     if (video.videoWidth === 0 || video.videoHeight === 0) return true;
     if (!canvasRef.current) canvasRef.current = document.createElement('canvas');
     const canvas = canvasRef.current;
@@ -113,46 +114,52 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     const ratio = skinPixels / (sampleSize * sampleSize);
     const detected = ratio > FACE_THRESHOLD;
     setFaceDetected(detected);
+    if (detected) {
+      consecutiveNoFaceRef.current = 0;
+      noFaceCooldownUntilRef.current = 0;
+    } else {
+      consecutiveNoFaceRef.current += 1;
+    }
     return detected;
   }, []);
 
   const handleViolation = useCallback((reason) => {
+    if (autoSubmittedRef.current) return;
     const now = Date.now();
-    if (now - lastViolationRef.current < DEBOUNCE_MS) return;
+    if (now - lastViolationRef.current < VIOLATION_COOLDOWN_MS) return;
+    if (reason === 'NO_FACE' && now < noFaceCooldownUntilRef.current) return;
     lastViolationRef.current = now;
-    // Camera/face absence is advisory only: it must NEVER drive the
-    // auto-submit counter. Tab-switch / window-blur are the only signals
-    // that may end the interview. A shared counter would let two NO_FACE
-    // warnings plus one tab switch (or three NO_FACE ticks) submit the
-    // interview, which is exactly the reported warning-warning-submit bug.
+    if (reason === 'NO_FACE') noFaceCooldownUntilRef.current = now + FACE_CHECK_INTERVAL;
+    const newCount = violationCountRef.current + 1;
+    violationCountRef.current = newCount;
+    setViolationCount(newCount);
     if (reason === 'NO_FACE') {
       const nextFace = faceWarningRef.current + 1;
       faceWarningRef.current = nextFace;
       setFaceWarningCount(nextFace);
-      const faceMsg = nextFace <= 1
-        ? 'Camera check: no face detected. Please keep your face visible in the camera frame.'
-        : 'Camera check: still no face detected. Please adjust your camera — this warning will never auto-submit your interview.';
-      setLastWarning({ message: faceMsg, reason, count: Math.min(nextFace, MAX_WARNINGS), at: new Date() });
-      onViolationRef.current?.(reason, nextFace);
-      return;
     }
-    const newCount = violationCountRef.current + 1;
-    violationCountRef.current = newCount;
-    setViolationCount(newCount);
-    console.log(`[Proctoring] Violation ${newCount}/${MAX_WARNINGS + 1}: ${reason}`);
-    if (newCount > MAX_WARNINGS) {
-      // Ref guard, not just state: `autoSubmitted` only flips on the next
-      // render, so a second sampler tick inside the same window would fire the
-      // auto-submit callback twice (two submits, two reports).
+    if (newCount >= MAX_WARNINGS) {
       if (autoSubmittedRef.current) return;
       autoSubmittedRef.current = true;
       setAutoSubmitted(true);
-      console.log('[Proctoring] Auto-submitting interview due to repeated violations.');
+      if (faceCheckRef.current) { clearInterval(faceCheckRef.current); faceCheckRef.current = null; }
+      if (reason === 'NO_FACE') {
+        setLastWarning({ message: 'Warning 3/3: No face detected for the third time. Submitting your interview now.', reason, count: newCount, at: new Date() });
+      } else {
+        setLastWarning({ message: 'Warning 3/3: Repeated violation detected. Submitting your interview now.', reason, count: newCount, at: new Date() });
+      }
       onAutoSubmitRef.current?.(reason);
     } else {
-      const warningMsg = newCount === 1
-        ? 'Warning 1/2: Abnormal activity detected. Please remain focused on the interview and keep your face visible.'
-        : 'Warning 2/2: Another abnormal activity was detected. One more violation will automatically submit your interview.';
+      let warningMsg;
+      if (reason === 'NO_FACE') {
+        warningMsg = newCount === 1
+          ? 'Camera check: no face detected. Please keep your face visible in the camera frame. (Warning 1/3)'
+          : 'Camera check: still no face detected. Please adjust your camera. (Warning 2/3 — one more violation will auto-submit)';
+      } else {
+        warningMsg = newCount === 1
+          ? 'Warning 1/3: Abnormal activity detected. Please remain focused on the interview and keep your face visible.'
+          : 'Warning 2/3: Another violation was detected. One more violation will automatically submit your interview.';
+      }
       setLastWarning({ message: warningMsg, reason, count: newCount, at: new Date() });
       onViolationRef.current?.(reason, newCount);
     }
@@ -197,6 +204,8 @@ export default function useProctoring({ enabled = false, onViolation, onAutoSubm
     violationCountRef.current = 0;
     faceWarningRef.current = 0;
     autoSubmittedRef.current = false;
+    consecutiveNoFaceRef.current = 0;
+    noFaceCooldownUntilRef.current = 0;
     setViolationCount(0);
     setFaceWarningCount(0);
     setLastWarning(null);

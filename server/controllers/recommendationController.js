@@ -44,12 +44,7 @@ exports.getRecommendations = async (req, res) => {
     // instead of padding the list with arbitrary problems.
     const payload = await generateRecommendations(user._id);
 
-    // Preserve the existing response contract so current clients keep working,
-    // while adding the new, explainable fields.
-    const weakTopics = [
-      ...(user.weakTopics || []),
-      ...payload.weakTopics.map((w) => w.topic),
-    ];
+    const weakTopics = payload.weakTopics.map((w) => w.topic);
     const uniqueWeakTopics = [...new Set(weakTopics)];
 
     // ML layer: rank the same real features in Python. It is additive - if the

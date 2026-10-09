@@ -28,13 +28,69 @@
  * ---------------------------------------------------------------------------
  */
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { outputsMatch } = require('./testCaseCompare');
 
+const PYTHON_CANDIDATES = ['python', 'python3', 'py'];
+const CSHARP_CANDIDATES = ['dotnet'];
+
+let pythonBinCache = null;
+let pythonProbeDone = false;
+let dotnetProbeDone = false;
+let dotnetAvailableCache = false;
+
+function commandExists(cmd) {
+  try {
+    const r = spawnSync(cmd, ['--version'], { windowsHide: true, timeout: 8000 });
+    return !!(r && (r.status === 0 || (r.stdout && r.stdout.length > 0) || (r.stderr && r.stderr.length > 0)));
+  } catch (_) {
+    return false;
+  }
+}
+
+function detectPython() {
+  if (pythonProbeDone) return pythonBinCache;
+  pythonProbeDone = true;
+  for (const c of PYTHON_CANDIDATES) {
+    try {
+      const args = c === 'py' ? ['-3', '--version'] : ['--version'];
+      const r = spawnSync(c, args, { windowsHide: true, timeout: 8000 });
+      const out = ((r.stdout || '') + ' ' + (r.stderr || '')).toString();
+      if (r && r.status === 0 && /Python 3/i.test(out)) { pythonBinCache = c; break; }
+    } catch (_) {}
+  }
+  return pythonBinCache;
+}
+
+function detectDotnet() {
+  if (dotnetProbeDone) return dotnetAvailableCache;
+  dotnetProbeDone = true;
+  dotnetAvailableCache = commandExists('dotnet');
+  return dotnetAvailableCache;
+}
+
+const SUPPORTED_LOCAL_LANGUAGES = ['javascript', 'typescript', 'java', 'cpp', 'c', 'python'];
+
+function isLocallySupported(language) {
+  const lang = String(language || '').toLowerCase();
+  if (lang === 'python') return !!detectPython();
+  if (lang === 'csharp' || lang === 'c#' || lang === 'go' || lang === 'rust') return !!detectDotnet() && false;
+  return SUPPORTED_LOCAL_LANGUAGES.includes(lang);
+}
+
 const TIMEOUT_MS = 10000;
+
+// Compilation is a ONE-TIME setup cost (javac/g++/gcc on the generated driver),
+// not the user's algorithm runtime, so it must NOT share the tight execution
+// TLE. A cold compiler cache — e.g. the first g++ run pulling in the huge
+// <bits/stdc++.h> header — can legitimately take well over 10s; killing it at
+// the execution limit made a CORRECT C++ program surface as "compilation
+// failed". Compile gets its own generous (still bounded) budget; the 10s TLE
+// above continues to govern how long a user's PROGRAM may run.
+const COMPILE_TIMEOUT_MS = 60000;
 
 // Bounded worker pool for the batch path. Keeps peak CPU/memory predictable
 // (each compiled process is short-lived) while still overlapping the process
@@ -116,7 +172,7 @@ async function prepareProgram(fullCode, language) {
   switch (language) {
     case 'java': {
       fs.writeFileSync(path.join(dir, 'Main.java'), fullCode);
-      const comp = await runCmd('javac', ['Main.java'], { cwd: dir });
+      const comp = await runCmd('javac', ['Main.java'], { cwd: dir, timeout: COMPILE_TIMEOUT_MS });
       if (!comp.ok) {
         return { ok: false, dir, error: `javac not found on this machine: ${comp.error}`, errorType: 'system_error', status: 'internal_error', statusId: 13 };
       }
@@ -128,7 +184,7 @@ async function prepareProgram(fullCode, language) {
     }
     case 'c': {
       fs.writeFileSync(path.join(dir, 'main.c'), fullCode);
-      const comp = await runCmd('gcc', ['main.c', '-o', 'main.exe', '-lm'], { cwd: dir });
+      const comp = await runCmd('gcc', ['main.c', '-o', 'main.exe', '-lm'], { cwd: dir, timeout: COMPILE_TIMEOUT_MS });
       if (!comp.ok) {
         return { ok: false, dir, error: `gcc not found on this machine: ${comp.error}`, errorType: 'system_error', status: 'internal_error', statusId: 13 };
       }
@@ -141,7 +197,7 @@ async function prepareProgram(fullCode, language) {
     }
     case 'cpp': {
       fs.writeFileSync(path.join(dir, 'main.cpp'), fullCode);
-      const comp = await runCmd('g++', ['main.cpp', '-o', 'main.exe', '-std=c++17', '-lm'], { cwd: dir });
+      const comp = await runCmd('g++', ['main.cpp', '-o', 'main.exe', '-std=c++17', '-lm'], { cwd: dir, timeout: COMPILE_TIMEOUT_MS });
       if (!comp.ok) {
         return { ok: false, dir, error: `g++ not found on this machine: ${comp.error}`, errorType: 'system_error', status: 'internal_error', statusId: 13 };
       }
@@ -161,10 +217,21 @@ async function prepareProgram(fullCode, language) {
       run = (input) => runCmd(process.execPath, [script], { cwd: dir, input });
       break;
     }
-    case 'python':
-      return { ok: false, dir, error: 'Python is not installed on this machine, so local execution cannot run Python. Install Python, or use a hosted execution engine for Python problems.', errorType: 'system_error', status: 'internal_error', statusId: 13 };
+    case 'python': {
+      const bin = detectPython();
+      if (!bin) {
+        return { ok: false, dir, error: 'Python execution backend is unavailable: no Python 3 runtime was found on this machine. Install Python 3 or configure Judge0 for Python execution.', errorType: 'system_error', status: 'internal_error', statusId: 13 };
+      }
+      const script = path.join(dir, 'main.py');
+      fs.writeFileSync(script, fullCode);
+      const args = bin === 'py' ? ['-3', script] : [script];
+      run = (input) => runCmd(bin, args, { cwd: dir, input });
+      break;
+    }
+    case 'csharp':
+      return { ok: false, dir, error: 'C# execution is currently unavailable because no configured C# runtime exists. C# requires Judge0 or a dotnet SDK that is not installed here.', errorType: 'system_error', status: 'internal_error', statusId: 13 };
     default:
-      return { ok: false, dir, error: `Local execution is not available for language "${language}". This machine supports Java, Node (JavaScript/TypeScript), C and C++.`, errorType: 'system_error', status: 'internal_error', statusId: 13 };
+      return { ok: false, dir, error: `Local execution is not available for language "${language}". Supported local languages: JavaScript, TypeScript, Java, C, C++, Python (when a Python 3 runtime is installed).`, errorType: 'system_error', status: 'internal_error', statusId: 13 };
   }
 
   return { ok: true, dir, run };
@@ -186,6 +253,11 @@ async function runPreparedCase(prepared, language, input, expectedOutput, return
   if ((language === 'javascript' || language === 'typescript') &&
       res && res.code !== 0 && /SyntaxError\b/.test(res.stderr || '')) {
     return fail({ input, expectedOutput, error: (res.stderr || res.stdout || 'Syntax error in user code.').trim(), errorType: 'CompileError', status: 'compilation_error', statusId: 6, time: Date.now() - t0 });
+  }
+
+  if (language === 'python' &&
+      res && res.code !== 0 && /SyntaxError|IndentationError|TabError/i.test((res.stderr || '') + (res.stdout || ''))) {
+    return fail({ input, expectedOutput, error: (res.stderr || res.stdout || 'Python syntax error.').trim(), errorType: 'CompileError', status: 'compilation_error', statusId: 6, time: Date.now() - t0 });
   }
 
   if (!res.ok) throw new Error(res.error);
@@ -301,4 +373,4 @@ async function executeSingleCase(fullCode, language, input, expectedOutput, retu
   }
 }
 
-module.exports = { executeSingleCase, executeTestCases, prepareProgram, normalizeStdin, mapWithConcurrency };
+module.exports = { executeSingleCase, executeTestCases, prepareProgram, normalizeStdin, mapWithConcurrency, detectPython, detectDotnet, isLocallySupported, SUPPORTED_LOCAL_LANGUAGES };

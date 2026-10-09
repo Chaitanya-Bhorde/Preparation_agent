@@ -395,7 +395,7 @@ function SetupScreen({ onStart, activeState, onResume }) {
           <MessageSquare className="w-5 h-5 text-blue-400" />
           Interview Mode
         </h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {config?.modes?.map((m) => (
             <button type="button" key={m}
               onClick={() => setMode(m)}
@@ -585,7 +585,7 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
   const proctoring = useProctoring({
     enabled: !!sessionId && !isComplete,
     onViolation: (reason, count) => {
-      console.log(`[Proctoring] Warning ${count}/2: ${reason}`);
+      console.log(`[Proctoring] Warning ${count}/3: ${reason}`);
     },
     onAutoSubmit: (reason) => {
       console.log(`[Proctoring] Auto-submit triggered: ${reason}`);
@@ -655,7 +655,6 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
 
   // Auto-submit due to proctoring violation (3rd violation)
   const autoSubmitDueToProctoring = useCallback(async (reason) => {
-    if (reason === 'NO_FACE') { console.log('[Interview] Ignoring auto-submit request from camera signal: ' + reason); return; }
     if (autoSubmittedRef.current) return;
     autoSubmittedRef.current = true;
     console.log('[Interview] Auto-submitting due to proctoring: ' + reason);

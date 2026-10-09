@@ -129,39 +129,50 @@ describe('useProctoring', () => {
     await startCamera(api);
     expect(api.current.cameraError).toMatch(/No camera found/i);
   });
-it('raises a camera warning when the face leaves the frame, even while the screen re-renders every second', async () => {
+  it('warns on first NO_FACE and counts it as violation 1/3', async () => {
     const events = [];
     const api = mountProctoring((kind, payload) => events.push({ kind, payload }));
     await startCamera(api);
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(api.current.faceDetected).toBe(true);
-    expect(api.current.violationCount).toBe(0);
-    expect(events.filter((e) => e.kind === 'violation')).toHaveLength(0);
 
     framePixels = 'dark';
     await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
     expect(api.current.faceDetected).toBe(false);
-    // Camera/face absence is advisory-only: it warns but NEVER feeds the
-    // auto-submit counter (which is reserved for tab-switch / window-blur).
-    expect(api.current.violationCount).toBe(0);
+    expect(api.current.violationCount).toBe(1);
     expect(api.current.faceWarningCount).toBe(1);
     expect(events[0]).toEqual({ kind: 'violation', payload: { reason: 'NO_FACE', count: 1 } });
-    expect(api.current.lastWarning.message).toMatch(/Camera check/i);
+    expect(api.current.lastWarning.message).toMatch(/1\/3/);
     expect(api.current.autoSubmitted).toBe(false);
   });
 
-  it('never auto-submits from repeated camera warnings alone', async () => {
+  it('auto-submits on the third NO_FACE violation and only once', async () => {
     const events = [];
     const api = mountProctoring((kind, payload) => events.push({ kind, payload }));
     await startCamera(api);
 
     framePixels = 'dark';
-    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
-    expect(api.current.faceWarningCount).toBeGreaterThanOrEqual(2);
-    expect(api.current.violationCount).toBe(0);
+    await act(async () => { await vi.advanceTimersByTimeAsync(11000); });
+    expect(api.current.violationCount).toBeGreaterThanOrEqual(3);
+    expect(api.current.autoSubmitted).toBe(true);
+    expect(api.current.lastWarning.message).toMatch(/3\/3/);
+    expect(events.filter((e) => e.kind === 'autoSubmit')).toHaveLength(1);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(events.filter((e) => e.kind === 'autoSubmit')).toHaveLength(1);
+  });
+
+  it('recovers when the face becomes visible again', async () => {
+    const api = mountProctoring();
+    await startCamera(api);
+
+    framePixels = 'dark';
+    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    expect(api.current.faceDetected).toBe(false);
+    expect(api.current.violationCount).toBe(1);
+
+    framePixels = 'skin';
+    await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+    expect(api.current.faceDetected).toBe(true);
     expect(api.current.autoSubmitted).toBe(false);
-    expect(events.filter((e) => e.kind === 'autoSubmit')).toHaveLength(0);
   });
 
   it('still escalates tab-switch violations to auto-submit on the third strike', async () => {
@@ -176,7 +187,7 @@ it('raises a camera warning when the face leaves the frame, even while the scree
       await vi.advanceTimersByTimeAsync(1100);
     });
     expect(api.current.violationCount).toBe(2);
-    expect(api.current.lastWarning.message).toMatch(/Warning 2\/2/);
+    expect(api.current.lastWarning.message).toMatch(/Warning 2\/3/);
     expect(api.current.autoSubmitted).toBe(false);
 
     await act(async () => {

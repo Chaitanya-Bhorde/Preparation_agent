@@ -309,7 +309,7 @@ export default function InterviewExperiences() {
           <div className="bg-gray-900 rounded-xl p-6 w-full max-w-2xl border border-gray-800 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-white mb-4">Share Interview Experience</h2>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-gray-300 text-sm block mb-1">Company *</label>
                   <input type="text" required value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className={INPUT_CLASSES} placeholder="e.g. Google" />
@@ -319,7 +319,7 @@ export default function InterviewExperiences() {
                   <input type="text" required value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={INPUT_CLASSES} placeholder="e.g. SDE-1" />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="text-gray-300 text-sm block mb-1">Year</label>
                   <input type="text" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className={INPUT_CLASSES} />

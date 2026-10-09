@@ -66,13 +66,24 @@ router.get('/questions/:topicId', async (req, res) => {
   }
 });
 
-// POST /api/aptitude/submit-answer  - instant feedback ONLY, no scoring/stat update in practice mode
+// POST /api/aptitude/submit-answer  - instant feedback + one persisted practice row per answer
 router.post('/submit-answer', protect, async (req, res) => {
   try {
     const { questionId, selectedAnswer, timeTaken } = req.body;
     const question = await AptitudeQuestion.findById(questionId);
     if (!question) return res.status(404).json({ error: 'Question not found' });
     const isCorrect = question.correctAnswer === selectedAnswer;
+    await AptitudeSubmission.create({
+      userId: req.user.id,
+      type: 'single-question',
+      topicId: question.topicId,
+      category: question.category,
+      answers: [{ questionId, selectedAnswer, isCorrect, timeTaken: timeTaken || 0 }],
+      correctCount: isCorrect ? 1 : 0,
+      totalCount: 1,
+      startTime: new Date(),
+      endTime: new Date(),
+    });
     res.status(200).json({
       isCorrect,
       correctAnswer: question.correctAnswer,

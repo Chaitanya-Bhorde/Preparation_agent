@@ -17,6 +17,13 @@ const STATUS_CONFIG = {
   // No test cases exist for this problem, so nothing was verified. Shown
   // distinctly from WrongAnswer because nothing was actually checked.
   Untested: { icon: AlertTriangle, color: 'text-gray-400', bg: 'bg-gray-800/60', label: 'Not verifiable (no test cases)' },
+  // The EXECUTION BACKEND failed (engine unreachable / internal error) — not
+  // the user's code. Distinct from WrongAnswer so nobody is told their
+  // solution is wrong when nothing was actually executed.
+  SystemError: { icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-900/20', label: 'Execution backend error' },
+  // The selected language has no runtime available (e.g. C# with no dotnet /
+  // Judge0). Also an infrastructure outcome, never a wrong answer.
+  UnsupportedLanguage: { icon: AlertTriangle, color: 'text-gray-400', bg: 'bg-gray-800/60', label: 'Language unavailable' },
 };
 
 const LANGUAGES = [
@@ -25,7 +32,8 @@ const LANGUAGES = [
   { id: 'java', label: 'Java' },
   { id: 'cpp', label: 'C++' },
   { id: 'c', label: 'C' },
-  { id: 'csharp', label: 'C#' },
+  // C# is intentionally not offered: no C# runtime exists locally or in the
+  // configured Judge0, so the backend rejects it with a clear message.
 ];
 
 const MONACO_LANG_MAP = {
@@ -415,8 +423,8 @@ export default function CodingProblemDetail() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-1/2 flex flex-col overflow-hidden border-r border-gray-800">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+        <div className="w-full md:w-1/2 h-[45%] md:h-auto flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-gray-800">
           <div className="flex border-b border-gray-800 shrink-0">
             <button onClick={() => handleTabChange('description')}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium ${activeTab === 'description' ? 'text-white border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
@@ -494,7 +502,7 @@ export default function CodingProblemDetail() {
           </div>
         </div>
 
-        <div className="w-1/2 flex flex-col">
+        <div className="w-full md:w-1/2 h-[55%] md:h-auto flex flex-col">
           <div className="flex-1 min-h-0">
             <Editor
               height="100%"

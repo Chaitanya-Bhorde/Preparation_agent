@@ -241,7 +241,7 @@ export default function ProgressExport() {
           </div>
 
           {/* Difficulty Breakdown */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
               <p className="text-green-400 text-lg font-bold">{data.stats.easySolved}</p>
               <p className="text-gray-500 text-xs">Easy</p>

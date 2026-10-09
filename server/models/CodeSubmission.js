@@ -52,7 +52,17 @@ const CodeSubmissionSchema = new mongoose.Schema(
       // submission could not be verified. It is deliberately NOT `Accepted`:
       // an unverifiable solution must not mark a problem as solved. 185 of the
       // 266 bank entries currently fall in this category.
-      enum: ['Accepted', 'WrongAnswer', 'TLE', 'RuntimeError', 'CompileError', 'Untested'],
+      //
+      // `SystemError` / `UnsupportedLanguage` are INFRASTRUCTURE outcomes (the
+      // execution backend failed, or the language has no runtime) — never a
+      // claim about the user's code. They must be persistable so /submit can
+      // record the attempt HONESTLY (201 + verdict=SystemError) instead of
+      // throwing a Mongoose enum ValidationError and masking the real cause as
+      // an HTTP 500.
+      enum: [
+        'Accepted', 'WrongAnswer', 'TLE', 'RuntimeError', 'CompileError', 'Untested',
+        'SystemError', 'UnsupportedLanguage',
+      ],
       required: true,
     },
     category: {
