@@ -235,18 +235,13 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
     }
 
-    // The DB stores the SHA-256 of the emailed token, so hash the incoming
-    // param before lookup. The historical authResumeSecurity suite reads the
-    // STORED hash from the DB and replays it as the param (i.e. it sends the
-    // hash, not the raw token); accept that shape too so the single-use,
-    // expiry, and replay assertions keep exercising the real path.
-    const hashOf = (v) => crypto.createHash('sha256').update(v).digest('hex');
-    const resetTokenHash = hashOf(rawToken);
+    // The DB stores only the SHA-256 of the emailed raw token, so hash the
+    // incoming param before lookup. The stored hash is NOT accepted as a
+    // token itself: possession of the raw value delivered by email is the
+    // only way through.
+    const resetTokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const user = await User.findOne({
-      $or: [
-        { resetPasswordToken: resetTokenHash },
-        { resetPasswordToken: rawToken },
-      ],
+      resetPasswordToken: resetTokenHash,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
@@ -269,10 +264,7 @@ exports.resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const updated = await User.findOneAndUpdate(
       {
-        $or: [
-          { resetPasswordToken: resetTokenHash },
-          { resetPasswordToken: rawToken },
-        ],
+        resetPasswordToken: resetTokenHash,
         resetPasswordExpire: { $gt: Date.now() },
       },
       {

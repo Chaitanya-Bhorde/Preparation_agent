@@ -40,6 +40,20 @@ jest.mock('pdfjs-dist', () => ({
   }),
 }));
 
+// The production flow delivers the RAW reset token only inside the emailed
+// link - the database keeps just its SHA-256. Intercept nodemailer so the
+// suite can capture that link and replay the raw token exactly the way a
+// real user would (from the delivered mail, never by reading the DB).
+const mockSentMails = [];
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn(() => ({
+    sendMail: jest.fn(async (mail) => {
+      mockSentMails.push(mail);
+      return { messageId: 'test-message-id' };
+    }),
+  })),
+}));
+
 const User = require('../models/User');
 const authRouter = require('../routes/auth');
 const atsRouter = require('../routes/ats');
@@ -52,6 +66,20 @@ let mongoServer;
 let server;
 let baseUrl;
 let cookie;
+
+// Captured at load so afterAll can restore the ambient environment exactly.
+const ORIGINAL_ENV = {
+  SMTP_HOST: process.env.SMTP_HOST,
+  RATE_LIMIT_FORGOT_MAX: process.env.RATE_LIMIT_FORGOT_MAX,
+  RATE_LIMIT_RESET_MAX: process.env.RATE_LIMIT_RESET_MAX,
+};
+// The reset-endpoint limiters are built when routes/auth.js is first
+// required (below), so these must be set BEFORE that require. The suite
+// issues ~9 forgot-password calls; a per-IP cap of 10 would leave it one
+// flaky retry from a spurious 429.
+process.env.SMTP_HOST = process.env.SMTP_HOST || 'smtp.test.local';
+process.env.RATE_LIMIT_FORGOT_MAX = '100';
+process.env.RATE_LIMIT_RESET_MAX = '100';
 
 const buildApp = () => {
   const app = express();
@@ -123,9 +151,14 @@ afterAll(async () => {
   await new Promise((r) => server.close(r));
   await mongoose.disconnect();
   if (mongoServer) await mongoServer.stop();
+  for (const [key, value] of Object.entries(ORIGINAL_ENV)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 });
 
 beforeEach(async () => {
+  mockSentMails.length = 0;
   await User.deleteMany({});
   const reg = await json('POST', '/api/auth/register', {
     name: 'Probe User',
@@ -174,14 +207,38 @@ describe('POST /api/auth/forgotpassword', () => {
 });
 
 describe('PUT /api/auth/resetpassword/:token', () => {
-  /** Read the stored token straight from the DB - it is never in a response. */
-  const issueAndReadToken = async (email = 'probe@example.com') => {
-    await json('POST', '/api/auth/forgotpassword', { email });
-    return (await User.findOne({ email })).resetPasswordToken;
+  /**
+   * Drive the REAL flow: request a reset, then pull the RAW token out of the
+   * intercepted email link. The DB stores only the token's SHA-256, so the
+   * raw value reaches this suite exactly the way it reaches a user - via the
+   * delivered mail, never by reading the database.
+   */
+  const issueRawToken = async (email = 'probe@example.com') => {
+    const before = mockSentMails.length;
+    const res = await json('POST', '/api/auth/forgotpassword', { email });
+    expect(res.status).toBe(200);
+    // forgotPassword hands delivery to the mailer asynchronously; wait for
+    // the intercepted sendMail call to land before parsing the link.
+    for (let i = 0; i < 100 && mockSentMails.length === before; i += 1) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(mockSentMails.length).toBe(before + 1);
+    const mail = mockSentMails[mockSentMails.length - 1];
+    expect(mail.to).toBe(email);
+    const match = `${mail.text}\n${mail.html}`.match(/\/reset-password\/([0-9a-f]{64})\b/);
+    expect(match).not.toBeNull();
+    return match[1];
   };
 
   it('resets with a valid token and clears it afterwards', async () => {
-    const token = await issueAndReadToken();
+    const token = await issueRawToken();
+
+    // The DB must hold only the token's hash - never the raw value the
+    // link carries.
+    const issued = await User.findOne({ email: 'probe@example.com' });
+    expect(issued.resetPasswordToken).toEqual(expect.any(String));
+    expect(issued.resetPasswordToken).not.toBe(token);
+
     const res = await json('PUT', `/api/auth/resetpassword/${token}`, { password: 'brandnew99' });
     expect(res.status).toBe(200);
 
@@ -194,6 +251,17 @@ describe('PUT /api/auth/resetpassword/:token', () => {
     expect(await user.matchPassword('secret123')).toBe(false);
   });
 
+  it('rejects the stored hash when it is replayed as the token', async () => {
+    expect((await json('POST', '/api/auth/forgotpassword', { email: 'probe@example.com' })).status).toBe(200);
+    const stored = (await User.findOne({ email: 'probe@example.com' })).resetPasswordToken;
+    const res = await json('PUT', `/api/auth/resetpassword/${stored}`, { password: 'x1234567' });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    // Password untouched: the stored hash is not a valid bearer token.
+    const user = await User.findOne({ email: 'probe@example.com' }).select('+password');
+    expect(await user.matchPassword('secret123')).toBe(true);
+  });
+
   it('rejects an invalid token', async () => {
     const res = await json('PUT', '/api/auth/resetpassword/deadbeefdeadbeef', { password: 'x1234567' });
     expect(res.status).toBe(400);
@@ -201,7 +269,7 @@ describe('PUT /api/auth/resetpassword/:token', () => {
   });
 
   it('rejects an expired token and leaves the password untouched', async () => {
-    const token = await issueAndReadToken();
+    const token = await issueRawToken();
     await User.updateOne(
       { email: 'probe@example.com' },
       { $set: { resetPasswordExpire: Date.now() - 1000 } }
@@ -212,7 +280,7 @@ describe('PUT /api/auth/resetpassword/:token', () => {
   });
 
   it('cannot be replayed once used', async () => {
-    const token = await issueAndReadToken();
+    const token = await issueRawToken();
     expect((await json('PUT', `/api/auth/resetpassword/${token}`, { password: 'first123' })).status).toBe(200);
     expect((await json('PUT', `/api/auth/resetpassword/${token}`, { password: 'second123' })).status).toBe(400);
   });
