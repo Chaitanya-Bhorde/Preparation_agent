@@ -1,4 +1,5 @@
 const Submission = require('../models/Submission');
+const CodeSubmission = require('../models/CodeSubmission');
 const Problem = require('../models/Problem');
 const SQLProblem = require('../models/SQLProblem');
 const SQLSubmission = require('../models/SQLSubmission');
@@ -15,7 +16,15 @@ const updateLeaderboardAfterSubmission = async (userId) => {
     if (!user) return;
 
     const totalSubs = await Submission.countDocuments({ user: userId, type: 'submit' });
-    const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' });
+    // CodeSubmission has NO `type` field (see models/CodeSubmission.js and the
+    // dualSubmissionCollections guard): filtering on it matches nothing, so the
+    // DSA accepted count must query the verdict alone. The enum is capitalized
+    // ('Accepted'), so only that value is counted.
+    const dsaAccepted = await CodeSubmission.countDocuments({
+      user: userId,
+      verdict: 'Accepted',
+    });
+    const acceptedSubs = await Submission.countDocuments({ user: userId, type: 'submit', status: 'accepted' }) + dsaAccepted;
     const acceptanceRate = totalSubs > 0 ? Math.round((acceptedSubs / totalSubs) * 100) : 0;
 
     const totalSolved = user.stats.totalSolved || 0;
@@ -140,17 +149,24 @@ exports.submitSolution = async (req, res) => {
     if (!problem) {
       return res.status(404).json({ success: false, message: 'Problem not found' });
     }
-    const submission = await Submission.create({
+    const CodeSubmission = require('../models/CodeSubmission');
+    // CodeSubmission's schema carries verdict/runtimeMs/memoryKb/testCaseResults
+    // with {input, expected, actualOutput, ...} — it has NO type/status/
+    // problemDifficulty/problemTags/executionTime/memoryKb-as-memoryUsed/score/
+    // errorType/testCase-shape fields, so only schema fields are set here.
+    // Unknown paths would be silently dropped by Mongoose (strict) and the
+    // record would persist without them.
+    const submission = await CodeSubmission.create({
       user: req.user.id,
       problem: problemId,
       code,
       language,
-      status: 'pending',
-      totalTestCases: problem.testCases.length,
-      type: 'submit',
-      problemDifficulty: problem.difficulty,
-      problemTags: problem.tags,
+      verdict: 'Untested',
       category: 'dsa',
+      passedTestCases: 0,
+      totalTestCases: problem.testCases.length,
+      runtimeMs: 0,
+      memoryKb: 0,
     });
     const signature = problem.functionSignature ? problem.functionSignature[language] : null;
     if (!signature) {
@@ -160,39 +176,37 @@ exports.submitSolution = async (req, res) => {
     // Execute test cases with timeout enforcement
     const results = await submitCode(code, language, problem.testCases, signature, problem.timeLimit || 2000);
     const passedCount = results.filter((r) => r.passed).length;
-    let status = 'accepted';
-    let errorType = null;
-    let errorMessage = null;
-    
-    // Check for TLE first - this takes priority
-    const tleResult = results.find(r => r.errorType === 'time_limit_exceeded');
+
+    // CodeSubmission.verdict is a CAPITALIZED enum
+    // (Accepted/WrongAnswer/TLE/RuntimeError/CompileError/...). The lowercase
+    // status vocabulary below ('accepted', 'wrong_answer', ...) belongs to the
+    // legacy Submission model only; persisting it here throws a Mongoose
+    // ValidationError and turns every submit into an HTTP 500.
+    let verdict = 'Accepted';
+    const tleResult = results.find((r) => r.errorType === 'time_limit_exceeded');
     if (tleResult) {
-      status = 'time_limit_exceeded';
-      errorType = 'time_limit_exceeded';
-      errorMessage = tleResult.error || `Execution time ${tleResult.executionTime}ms exceeded limit`;
+      verdict = 'TLE';
     } else {
-      const hasError = results.some(r => r.errorType && r.errorType !== 'unknown');
+      const hasError = results.some((r) => r.errorType && r.errorType !== 'unknown');
       if (hasError) {
-        const firstError = results.find(r => r.errorType);
-        status = firstError.errorType === 'compilation_error' ? 'compilation_error'
-          : firstError.errorType === 'time_limit_exceeded' ? 'time_limit_exceeded'
-          : firstError.errorType === 'runtime_error' ? 'runtime_error'
-          : 'wrong_answer';
-        errorType = firstError.errorType;
-        errorMessage = firstError.error;
+        const firstError = results.find((r) => r.errorType);
+        verdict = firstError.errorType === 'compilation_error' ? 'CompileError'
+          : firstError.errorType === 'runtime_error' ? 'RuntimeError'
+          : 'WrongAnswer';
       } else if (passedCount === problem.testCases.length) {
-        status = 'accepted';
+        verdict = 'Accepted';
       } else {
-        status = 'wrong_answer';
+        verdict = 'WrongAnswer';
       }
     }
-    
-    submission.status = status;
+    // Legacy lowercase status for the Submission ledger + user-stats branches.
+    const status = verdict === 'Accepted' ? 'accepted' : 'wrong_answer';
+
+    submission.verdict = verdict;
     submission.testCaseResults = results.map((r, idx) => ({
-      testCase: problem.testCases[idx]?._id || null,
       passed: r.passed,
       input: r.isSample ? (r.input || problem.testCases[idx]?.input || '') : '',
-      expectedOutput: r.isSample ? r.expectedOutput : '',
+      expected: r.isSample ? r.expectedOutput : '',
       actualOutput: r.output || '',
       executionTime: r.executionTime || 0,
       memoryUsed: r.memoryUsed || 0,
@@ -201,24 +215,56 @@ exports.submitSolution = async (req, res) => {
       isSample: r.isSample || false,
     }));
     submission.passedTestCases = passedCount;
-    submission.executionTime = Math.max(...results.map((r) => r.executionTime || 0));
-    submission.memoryUsed = Math.max(...results.map((r) => r.memoryUsed || 0));
-    submission.score = Math.round((passedCount / Math.max(problem.testCases.length, 1)) * 100);
-    submission.errorType = errorType;
-    submission.errorMessage = errorMessage;
+    submission.runtimeMs = Math.max(...results.map((r) => r.executionTime || 0), 0);
+    submission.memoryKb = Math.max(...results.map((r) => r.memoryUsed || 0), 0);
     await submission.save();
+
+    // DUAL-WRITE the same attempt into the legacy `submissions` ledger so
+    // analytics / featureEngineering / topic-progress / goals / mistakes /
+    // readiness / profile / merged history keep seeing DSA submits. The legacy
+    // schema uses the lowercase status vocabulary and the
+    // {input, expectedOutput, actualOutput} case shape.
+    await Submission.create({
+      user: req.user.id,
+      problem: problemId,
+      code,
+      language,
+      status,
+      type: 'submit',
+      passedTestCases: passedCount,
+      totalTestCases: problem.testCases.length,
+      executionTime: Math.max(...results.map((r) => r.executionTime || 0), 0),
+      memoryUsed: Math.max(...results.map((r) => r.memoryUsed || 0), 0),
+      score: Math.round((passedCount / Math.max(problem.testCases.length, 1)) * 100),
+      problemDifficulty: problem.difficulty,
+      problemTags: problem.tags,
+      category: 'dsa',
+      testCaseResults: results.map((r, idx) => ({
+        passed: r.passed,
+        input: r.isSample ? (r.input || problem.testCases[idx]?.input || '') : '',
+        expectedOutput: r.isSample ? r.expectedOutput : '',
+        actualOutput: r.output || '',
+        executionTime: r.executionTime || 0,
+        memoryUsed: r.memoryUsed || 0,
+        errorType: r.errorType || null,
+        errorMessage: r.error || null,
+        isSample: r.isSample || false,
+      })),
+    });
+
     problem.totalSubmissions += 1;
     if (status === 'accepted') problem.acceptedSubmissions += 1;
     problem.acceptanceRate = Math.round((problem.acceptedSubmissions / Math.max(problem.totalSubmissions, 1)) * 100);
     await problem.save();
     if (status === 'accepted') {
-      const existingAccepted = await Submission.findOne({
+      // CodeSubmission has NO `type` field: filtering on it matches nothing
+      // and every repeat Accepted would inflate the solved counters.
+      const existingAccepted = await CodeSubmission.findOne({
         user: req.user.id,
         problem: problemId,
-        status: 'accepted',
-        type: 'submit',
+        verdict: 'Accepted',
         _id: { $ne: submission._id },
-      });
+      }).lean();
       if (!existingAccepted) {
         const solvedIncrement = problem.difficulty === 'easy' ? { 'stats.easySolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }
           : problem.difficulty === 'medium' ? { 'stats.mediumSolved': 1, 'stats.totalSolved': 1, 'stats.totalSubmissions': 1 }

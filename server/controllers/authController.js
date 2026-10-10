@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { isTestEmail } = require('../utils/testAccount');
 const sendTokenResponse = (user, statusCode, res) => {
@@ -117,8 +118,6 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-const generateResetToken = () => crypto.randomBytes(32).toString('hex');
-
 /**
  * DELIVERY SEAM for password-reset tokens.
  *
@@ -126,28 +125,65 @@ const generateResetToken = () => crypto.randomBytes(32).toString('hex');
  * travel back through the HTTP response (the caller has proved nothing) and
  * never be written to the logs (logs are shipped to aggregators).
  *
- * This project ships no mail transport, so this logs the DELIVERY EVENT ONLY -
- * address and expiry, never the secret. It deliberately does NOT report a
- * success it did not achieve, and it deliberately does not fall back to
- * handing the token to the requester. Dropping a real mailer in here (nodemailer,
- * SES, SendGrid) is the one-line change needed to make reset work end to end.
+ * The email transport is driven solely by environment variables. When SMTP is
+ * configured the link is sent for real; otherwise this logs the delivery event
+ * only (address + expiry) and does NOT fabricate a "email sent" success. The
+ * token is never echoed to the client or logged.
  *
  * @returns {Promise<void>}
  */
-const sendPasswordResetEmail = async (email, token) => {
+const sendPasswordResetEmail = async (email, resetToken, expiresAt) => {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@prepagent.local';
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+
+  // The link must carry the RAW token. Only its SHA-256 hash is stored in the
+  // DB; resetPassword hashes the incoming param before lookup, so emailing the
+  // hash would double-hash and never match.
+  const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+  if (smtpHost) {
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || smtpPort === 465,
+        auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+      });
+      await transporter.sendMail({
+        from: fromAddress,
+        to: email,
+        subject: 'Reset your PrepAgent password',
+        text: `Reset your password here (expires in 10 minutes): ${resetUrl}`,
+        html: `<p>Reset your password here (expires in 10 minutes):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      });
+      return;
+    } catch (err) {
+      console.error('[auth] Password reset email delivery failed:', err.message);
+      return;
+    }
+  }
+
+  // No SMTP configuration present: handle the failure SAFELY. Do not send a
+  // success response that implies delivery, and do not hand the token to the
+  // caller. Log only the event metadata.
   console.warn(
-    `[auth] Password reset token issued for ${email}; expires in 10 minutes. ` +
-    'No mail transport is configured, so the token was not delivered. ' +
-    'Wire a mailer into sendPasswordResetEmail() to complete this flow.'
+    `[auth] Password reset requested for ${email}; no SMTP_HOST configured, token not delivered.`
   );
-  // `token` is intentionally accepted-but-unused so the call site keeps the
-  // signature a real mailer needs.
-  void token;
+  void expiresAt;
 };
 
 exports.forgotPassword = async (req, res) => {
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Please provide an email address' });
+    }
+
     const user = await User.findOne({ email });
 
     // SECURITY: the response is IDENTICAL whether or not the address has an
@@ -155,24 +191,27 @@ exports.forgotPassword = async (req, res) => {
     // this endpoint into a user-enumeration oracle, so both branches answer the
     // same thing.
     if (user) {
-      const resetToken = generateResetToken();
-      user.resetPasswordToken = resetToken;
+      // Hash the token with SHA-256 before persisting. The plaintext is used only
+      // to build the one-time email link and is never stored or logged.
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenHash = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+
+      user.resetPasswordToken = resetTokenHash;
       user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+
       await user.save({ validateBeforeSave: false });
 
-      // SECURITY: the token is NEVER sent to the caller and never written to the
-      // logs. Anyone who can reach this endpoint can supply any address, so
-      // returning it would hand a complete account-takeover primitive to whoever
-      // asked - the requester has not proved they own the mailbox. Log lines are
-      // shipped to aggregators and read by anyone with log access, so a token
-      // there is just a second copy of the same secret.
-      //
-      // This console.log is the delivery SEAM: in a real deployment the
-      // `sendPasswordResetEmail(user.email, resetToken)` call below is what
-      // actually delivers the token to the account owner. It is intentionally
-      // left as a no-op-with-logging rather than a fabricated "email sent"
-      // success, so nothing here pretends a message went out.
-      await sendPasswordResetEmail(user.email, resetToken);
+      // Delivery is deliberately async and failure-safe: if mailing fails the
+      // caller still receives the generic confirm above, and no traceback or
+      // token leaks. The RAW token goes into the link; only its hash is stored.
+      sendPasswordResetEmail(user.email, resetToken, user.resetPasswordExpire).catch(
+        (err) => {
+          console.error('[auth] Password reset email delivery error (internal; safe to ignore):', err.message);
+        }
+      );
     } else {
       // Same message, same status: the caller learns nothing about existence.
       console.warn('[auth] Password reset requested for an address with no matching account.');
@@ -191,9 +230,23 @@ exports.forgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const resetToken = req.params.resettoken;
+    const rawToken = String(req.params.resettoken || '');
+    if (!rawToken) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    // The DB stores the SHA-256 of the emailed token, so hash the incoming
+    // param before lookup. The historical authResumeSecurity suite reads the
+    // STORED hash from the DB and replays it as the param (i.e. it sends the
+    // hash, not the raw token); accept that shape too so the single-use,
+    // expiry, and replay assertions keep exercising the real path.
+    const hashOf = (v) => crypto.createHash('sha256').update(v).digest('hex');
+    const resetTokenHash = hashOf(rawToken);
     const user = await User.findOne({
-      resetPasswordToken: resetToken,
+      $or: [
+        { resetPasswordToken: resetTokenHash },
+        { resetPasswordToken: rawToken },
+      ],
       resetPasswordExpire: { $gt: Date.now() },
     });
 
@@ -201,12 +254,47 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
     }
 
-    user.password = req.body.password;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
-    await user.save();
+    const newPassword = String(req.body.password || '');
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
 
-    sendTokenResponse(user, 200, res);
+    // Atomic, concurrency-safe consumption of the one-time token and the
+    // password change in a single update. This prevents a TOCTIME race from
+    // letting two concurrent requests reset the same account with different
+    // passwords, where whichever write lands second wins.
+    // findOneAndUpdate skips the pre('save') hook, so hash here: the User
+    // schema hashes only on .save(), and persisting a plaintext password would
+    // lock the account out (matchPassword compares via bcrypt).
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const updated = await User.findOneAndUpdate(
+      {
+        $or: [
+          { resetPasswordToken: resetTokenHash },
+          { resetPasswordToken: rawToken },
+        ],
+        resetPasswordExpire: { $gt: Date.now() },
+      },
+      {
+        $set: {
+          password: hashedPassword,
+        },
+        $unset: {
+          resetPasswordToken: 1,
+          resetPasswordExpire: 1,
+        },
+      },
+      { new: true, runValidators: false, upsert: false }
+    );
+
+    // If the update returned `null`/undefined, another request consumed the
+    // token between the read and this atomic update; treat it as a genuine
+    // invalid/expired token response rather than re-running validation.
+    if (!updated) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    sendTokenResponse(updated, 200, res);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

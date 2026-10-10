@@ -8,6 +8,8 @@ import { LOADING_SPINNER } from './utils/ui';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Problems = lazy(() => import('./pages/Problems'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -62,6 +64,8 @@ function App() {
           <Routes>
             <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
             <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+            <Route path="/forgot-password" element={user ? <Navigate to="/" /> : <ForgotPassword />} />
+            <Route path="/reset-password/:resettoken" element={user ? <Navigate to="/" /> : <ResetPassword />} />
             <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
             <Route path="/problems" element={<PrivateRoute><Problems /></PrivateRoute>} />
             <Route path="/problems/:slug" element={<PrivateRoute><ProblemDetail /></PrivateRoute>} />
