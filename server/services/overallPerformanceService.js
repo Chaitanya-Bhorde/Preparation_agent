@@ -31,6 +31,7 @@ const SQLSubmission = require('../models/SQLSubmission');
 const AptitudeSubmission = require('../models/AptitudeSubmission');
 const InterviewSession = require('../models/InterviewSession');
 const User = require('../models/User');
+const { verifiedRealAccountReason, VERIFIED_REAL_ACCOUNTS } = require('../utils/testAccount');
 const mongoose = require('mongoose');
 
 // --- Published scoring constants (mirrors services/recommendationService) ---
@@ -406,15 +407,32 @@ async function buildAllRows() {
   // automated test account, is not a leaderboard participant. The flag is
   // matched at the query level (not in JS) so a flagged account never even
   // contributes a name.
+  //
+  // EXCEPTION: an address an operator has verified as a real person
+  // (utils/testAccount.js VERIFIED_REAL_ACCOUNTS) is re-admitted even if the
+  // row still carries a stale `isTestAccount: true` from before the override
+  // existed. Without this the override could only help NEW registrations and
+  // an already-flagged real student would stay hidden forever. The set is
+  // normally empty, so the query is unchanged for every deployment that has
+  // not made an explicit verification decision.
+  const verifiedRealEmails = [...VERIFIED_REAL_ACCOUNTS.keys()];
+  const eligibility = verifiedRealEmails.length
+    ? { $or: [{ isTestAccount: { $ne: true } }, { email: { $in: verifiedRealEmails } }] }
+    : { isTestAccount: { $ne: true } };
+
   const users = await User.find({
     _id: { $in: [...userIds].map(toObjectId) },
-    isTestAccount: { $ne: true },
+    ...eligibility,
   })
-    .select('name')
+    .select('name email')
     .lean();
 
+  // Belt-and-braces: the query narrows by address, this guarantees the exact
+  // normalised address is the one that was verified (never a domain match).
+  const eligible = users.filter((u) => u.isTestAccount !== true || verifiedRealAccountReason(u.email));
+
   const rows = [];
-  users.forEach((u) => {
+  eligible.forEach((u) => {
     const id = String(u._id);
     const row = buildRow({ userId: id, name: u.name, counts: pickCounts(counts, id) });
     // No section attempted => overall === null => not a leaderboard entry.

@@ -20,6 +20,15 @@
  */
 
 const CodeSubmission = require('../models/CodeSubmission');
+const { VERIFIED_REAL_ACCOUNTS } = require('../utils/testAccount');
+
+/**
+ * Complete addresses an operator has verified as real people, pre-normalised
+ * exactly like `normalizeAddress` so the `$in` below is a true address match.
+ */
+function verifiedRealEmails() {
+  return [...VERIFIED_REAL_ACCOUNTS.keys()].map((e) => e.trim().toLowerCase());
+}
 
 /**
  * Accounts that must never appear on a public leaderboard.
@@ -75,7 +84,20 @@ function dsaRankingPipeline(opts = {}) {
     //    test account back onto the board. The qualified path is required.
     { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'userDoc' } },
     { $unwind: '$userDoc' },
-    { $match: { 'userDoc.isTestAccount': { $ne: true } } },
+    // Accounts an operator has verified as real people are re-admitted even if
+    // the row still carries a stale `isTestAccount: true` from before the
+    // override existed. Matching is on the COMPLETE address via the shared
+    // helper, never on a domain, so no other account on the same domain is
+    // admitted. The set is empty by default, so this changes nothing for any
+    // deployment that has made no verification decision.
+    {
+      $addFields: {
+        eligibleRealUser: {
+          $in: [{ $toLower: { $trim: { input: '$userDoc.email' } } }, verifiedRealEmails()],
+        },
+      },
+    },
+    { $match: { $or: [{ 'userDoc.isTestAccount': { $ne: true } }, { eligibleRealUser: true }] } },
     { $project: { _id: 0, userId: '$_id', username: '$userDoc.name', solvedCount: 1, easyCount: 1, mediumCount: 1, hardCount: 1, acceptedOnSolved: 1 } },
     { $sort: { solvedCount: -1, easyCount: -1, username: 1 } },
   ];

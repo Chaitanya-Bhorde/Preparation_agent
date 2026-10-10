@@ -105,9 +105,41 @@ const VERIFIED_AUTOMATION_ACCOUNTS = new Map([
   ['admin@prepagent.io', 'name "TestAdmin"'],
 ]);
 
+/**
+ * Accounts individually verified as REAL people, by their COMPLETE address.
+ *
+ * WHY THIS EXISTS — the mirror image of VERIFIED_AUTOMATION_ACCOUNTS.
+ *   The RFC-reserved domains above (example.com &c) cannot host a mailbox, but
+ *   a human can still TYPE one into the registration form. The domain rule
+ *   therefore answers "can this address receive mail?", which is NOT the same
+ *   question as "was this account created by a human?". Conflating the two
+ *   used to ban a real student from every public leaderboard at the moment
+ *   they signed up (see authController.register).
+ *
+ *   An entry here is the operator's verdict that the human behind the address
+ *   is genuine. Because matching is on the WHOLE ADDRESS — never a domain, and
+ *   never a display-name pattern — it cannot exempt any other account on the
+ *   same domain, and it can never be widened into a domain rule.
+ *
+ * EMPTY BY DESIGN. This map is the durable override path, not a roster: it is
+ * populated by hand, one reviewed address at a time, with the evidence that
+ * the account belongs to a real person (e.g. registered through the app's own
+ * signup form by that person). No address is pre-seeded here, because a
+ * person's identity is not something source code gets to assert.
+ */
+const VERIFIED_REAL_ACCOUNTS = new Map();
+
 /** Normalised full address for exact-match lookups. */
 function normalizeAddress(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+/**
+ * @returns {string|null} the operator's evidence when the address has been
+ *   verified as belonging to a real person, else null.
+ */
+function verifiedRealAccountReason(email) {
+  return VERIFIED_REAL_ACCOUNTS.get(normalizeAddress(email)) || null;
 }
 
 function domainOf(email) {
@@ -124,6 +156,9 @@ function domainOf(email) {
  * `ci@build.example.com` is treated like `ci@example.com`.
  */
 function isTestEmail(email) {
+  // An operator-verified real person outranks every domain rule: the whole
+  // point of the override is that the domain cannot answer this question.
+  if (verifiedRealAccountReason(email)) return false;
   const domain = registrableDomain(domainOf(email));
   if (!domain) return false;
   if (PROTECTED_EMAIL_DOMAINS.has(domain)) return false;
@@ -148,6 +183,10 @@ function registrableDomain(domain) {
  * automation accounts above, which sit on domains no domain rule may claim.
  */
 function testAccountReason(user) {
+  // Checked BEFORE the automation rules so a verified real person is never
+  // re-flagged by scripts/flagTestAccounts.js --apply, and never reported as a
+  // candidate. This is what makes the override durable across re-runs.
+  if (verifiedRealAccountReason(user && user.email)) return null;
   const verified = VERIFIED_AUTOMATION_ACCOUNTS.get(normalizeAddress(user && user.email));
   if (verified) return `verified automation account: ${verified}`;
   const domain = registrableDomain(domainOf(user && user.email));
@@ -164,8 +203,10 @@ module.exports = {
   OBSERVED_AUTOMATION_DOMAINS,
   PROTECTED_EMAIL_DOMAINS,
   VERIFIED_AUTOMATION_ACCOUNTS,
+  VERIFIED_REAL_ACCOUNTS,
   domainOf,
   registrableDomain,
   isTestEmail,
   testAccountReason,
+  verifiedRealAccountReason,
 };
