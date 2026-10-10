@@ -105,6 +105,9 @@ function dsaRankingPipeline(opts = {}) {
 
 /** Count how many real users have at least one solved DSA problem. */
 async function countRankedUsers() {
+  // Mirrors dsaRankingPipeline's eligibility exactly (including the verified
+  // -real exception), otherwise the pagination `total` would disagree with the
+  // rows the pipeline returns and a verified user would drop off the last page.
   const rows = await CodeSubmission.aggregate([
     { $match: { category: 'dsa' } },
     { $group: { _id: { user: '$user', problem: '$problem' }, accepted: { $sum: { $cond: [{ $eq: ['$verdict', 'Accepted'] }, 1, 0] } } } },
@@ -114,7 +117,14 @@ async function countRankedUsers() {
     { $group: { _id: '$_id.user' } },
     { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'userDoc' } },
     { $unwind: '$userDoc' },
-    { $match: PUBLIC_USER_MATCH },
+    {
+      $addFields: {
+        eligibleRealUser: {
+          $in: [{ $toLower: { $trim: { input: '$userDoc.email' } } }, verifiedRealEmails()],
+        },
+      },
+    },
+    { $match: { $or: [{ 'userDoc.isTestAccount': { $ne: true } }, { eligibleRealUser: true }] } },
     { $count: 'n' },
   ]);
   return rows[0] ? rows[0].n : 0;

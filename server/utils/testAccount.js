@@ -121,13 +121,19 @@ const VERIFIED_AUTOMATION_ACCOUNTS = new Map([
  *   never a display-name pattern — it cannot exempt any other account on the
  *   same domain, and it can never be widened into a domain rule.
  *
- * EMPTY BY DESIGN. This map is the durable override path, not a roster: it is
- * populated by hand, one reviewed address at a time, with the evidence that
- * the account belongs to a real person (e.g. registered through the app's own
- * signup form by that person). No address is pre-seeded here, because a
- * person's identity is not something source code gets to assert.
+ * NOT A ROSTER. Each entry is added by hand, one reviewed address at a time,
+ * against stated evidence. Addresses are never pre-seeded, because a person's
+ * identity is not something source code gets to assert.
  */
-const VERIFIED_REAL_ACCOUNTS = new Map();
+const VERIFIED_REAL_ACCOUNTS = new Map([
+  // Evidence: the operator states this account was created by the person
+  // themselves through the application's own signup form, and it carries
+  // genuine DSA/SQL/aptitude history (live _id 6ac8c32d5739c964048092fc). The
+  // `example.com` part is a reserved domain, so registration stamped
+  // `isTestAccount: true` on it automatically and hid that history; the
+  // domain says the address is unmailable, not that the account is synthetic.
+  ['rahul.sharma.test@example.com', 'self-registered via the app signup form; operator-verified real student'],
+]);
 
 /** Normalised full address for exact-match lookups. */
 function normalizeAddress(email) {

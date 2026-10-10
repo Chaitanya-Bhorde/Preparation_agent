@@ -314,6 +314,89 @@ describe('Activity is preserved and counted correctly', () => {
   });
 });
 
+// The state SHIPPED IN SOURCE, snapshotted before any test mutates it. The
+// suite-wide beforeEach clears the map so no test inherits a verification
+// decision, which also means the committed default has to be restored
+// explicitly — otherwise nothing would ever prove the real account is
+// actually admitted out of the box.
+const SHIPPED_VERIFIED_REAL = new Map(VERIFIED_REAL_ACCOUNTS);
+const restoreShippedVerification = () => {
+  VERIFIED_REAL_ACCOUNTS.clear();
+  SHIPPED_VERIFIED_REAL.forEach((v, k) => VERIFIED_REAL_ACCOUNTS.set(k, v));
+};
+
+// ===========================================================================
+describe('The shipped override actually contains the reported account', () => {
+  beforeEach(restoreShippedVerification);
+
+  it('names the exact live address, not a domain or a display name', () => {
+    // Guards the real regression: the machinery was correct while this map was
+    // still empty, so every test above passed and the user stayed hidden.
+    expect(verifiedRealAccountReason(RAHUL_EMAIL)).toBeTruthy();
+    expect(SHIPPED_VERIFIED_REAL.size).toBe(1);
+    // A sibling on the same reserved domain is NOT covered.
+    expect(verifiedRealAccountReason('sibling.test@example.com')).toBeNull();
+    expect(verifiedRealAccountReason('Rahul.Sharma.Test@Example.com')).toBeTruthy();
+  });
+
+  it('the reported account is admitted with its stale flag, on BOTH boards', async () => {
+    const u = await mkUser('Rahul Sharma', RAHUL_EMAIL, { isTestAccount: true });
+    await fullActivity(u);
+
+    expect((await getOverallLeaderboard({})).leaderboard.map((r) => r.name))
+      .toContain('Rahul Sharma');
+
+    const { leaderboard, pagination } = await getDsaLeaderboard({});
+    expect(leaderboard.map((r) => r.username)).toEqual(['Rahul Sharma']);
+    // pagination.total must agree with the rows, or he falls off the last page.
+    expect(pagination.total).toBe(1);
+  });
+
+  it('sibling accounts on the same domain stay excluded', async () => {
+    const u = await mkUser('Rahul Sharma', RAHUL_EMAIL, { isTestAccount: true });
+    const sibling = await mkUser('Sibling', 'sibling.test@example.com', { isTestAccount: true });
+    await fullActivity(u);
+    await fullActivity(sibling);
+
+    expect((await getOverallLeaderboard({})).leaderboard.map((r) => r.name)).toEqual(['Rahul Sharma']);
+    expect((await getDsaLeaderboard({})).leaderboard.map((r) => r.username)).toEqual(['Rahul Sharma']);
+  });
+
+  it('flagTestAccounts.js cannot re-flag the verified account', () => {
+    // The path scripts/flagTestAccounts.js --apply uses to pick candidates.
+    // Returning null is what keeps the override durable across re-runs.
+    expect(testAccountReason({ email: RAHUL_EMAIL, name: 'Rahul Sharma' })).toBeNull();
+    // An unverified reserved-domain account is still reported as automation.
+    expect(testAccountReason({ email: 'sibling.test@example.com' })).toBeTruthy();
+  });
+
+  it('unverified automation accounts remain excluded under the shipped default', async () => {
+    const bot = await mkUser('E2E Bot', 'bot@example.com', { isTestAccount: true });
+    await fullActivity(bot);
+
+    expect((await getOverallLeaderboard({})).leaderboard).toEqual([]);
+    expect((await getDsaLeaderboard({})).leaderboard).toEqual([]);
+  });
+
+  it('the pagination total counts a verified user alongside normal ones', async () => {
+    const u = await mkUser('Rahul Sharma', RAHUL_EMAIL, { isTestAccount: true });
+    const a = await mkUser('Alice', 'alice@prepagent.com');
+    const b = await mkUser('Bob', 'bob@prepagent.com');
+    await fullActivity(u);
+    await fullActivity(a);
+    await fullActivity(b);
+
+    const { leaderboard, pagination } = await getDsaLeaderboard({ limit: 2, page: 1 });
+    expect(pagination.total).toBe(3);
+    expect(pagination.pages).toBe(2);
+    expect(leaderboard).toHaveLength(2);
+
+    const page2 = await getDsaLeaderboard({ limit: 2, page: 2 });
+    expect(page2.pagination.total).toBe(3);
+    expect(page2.leaderboard).toHaveLength(1);
+  });
+});
+
 // ===========================================================================
 describe('Registration classification (authController.register path)', () => {
   it('normal registration of a non-reserved address is never flagged', () => {
