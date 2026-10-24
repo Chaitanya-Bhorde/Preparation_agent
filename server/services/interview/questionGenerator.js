@@ -22,7 +22,7 @@ const { callJson, AiServiceError } = require('./aiClient');
 const { isDuplicateQuestion, conceptOverlap } = require('./similarity');
 const { getFallbackQuestion } = require('./fallbackBank');
 
-const MAX_GENERATION_ATTEMPTS = 2;
+const MAX_GENERATION_ATTEMPTS = 4;
 const MAX_CONCEPT_OVERLAP = 0.5; // skip questions re-testing >=50% known concepts
 
 /** Resolve the effective difficulty for the next question. */

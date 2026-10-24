@@ -70,6 +70,8 @@ const sub = (user, problem, verdict) => CodeSubmission.create({
 });
 
 // ===========================================================================
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+
 describe('P3 — unique solved count', () => {
   it('three Accepted submissions of the SAME problem count as ONE solved problem', async () => {
     const u = await mkUser('A', 'a@example.com');

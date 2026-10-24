@@ -8,6 +8,8 @@
  */
 
 const fields = require('../config/interviewFields');
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
+
 const similarity = require('../services/interview/similarity');
 const { extractJsonObject } = require('../services/interview/aiClient');
 const fallbackBank = require('../services/interview/fallbackBank');
@@ -20,14 +22,14 @@ const {
 const { generateReport } = require('../services/interview/reportGenerator');
 
 describe('interview fields config', () => {
-  test('exposes at least 50 selectable fields across 5 categories', () => {
+  it('exposes at least 50 selectable fields across 5 categories', () => {
     expect(fields.FIELDS.length).toBeGreaterThanOrEqual(50);
     expect(fields.CATEGORIES.length).toBe(5);
     const grouped = fields.getFields();
     expect(grouped.reduce((n, c) => n + c.fields.length, 0)).toBe(fields.FIELDS.length);
   });
 
-  test('contains every required field label', () => {
+  it('contains every required field label', () => {
     const labels = fields.getFieldLabels();
     for (const required of [
       'C', 'C++', 'Java', 'Python', 'JavaScript',
@@ -46,28 +48,28 @@ describe('interview fields config', () => {
     }
   });
 
-  test('validateTopics accepts valid topics case-insensitively via aliases', () => {
+  it('validateTopics accepts valid topics case-insensitively via aliases', () => {
     const { valid, canonical } = fields.validateTopics(['java', 'DBMS', 'SQL', 'OOP', 'Arrays', 'Strings']);
     expect(valid).toBe(true);
     expect(canonical.map((c) => c.id)).toEqual(['java', 'dbms', 'sql', 'oop', 'arrays', 'strings']);
     expect(fields.resolveField('reactjs').id).toBe('react');
   });
 
-  test('validateTopics rejects invalid topics and dedupes', () => {
+  it('validateTopics rejects invalid topics and dedupes', () => {
     const { valid, invalid, canonical } = fields.validateTopics(['Java', 'java', 'React Hooks']);
     expect(valid).toBe(false);
     expect(invalid).toEqual(['React Hooks']);
     expect(canonical).toHaveLength(1); // 'Java' + 'java' deduped
   });
 
-  test('validateTopics rejects empty input', () => {
+  it('validateTopics rejects empty input', () => {
     expect(fields.validateTopics([]).valid).toBe(false);
     expect(fields.validateTopics('nonsense').valid).toBe(false);
   });
 });
 
 describe('duplicate question detection', () => {
-  test('detects semantically equivalent questions', () => {
+  it('detects semantically equivalent questions', () => {
     expect(similarity.isDuplicateQuestion(
       'What is polymorphism?',
       ['Explain polymorphism in OOP.']
@@ -78,7 +80,7 @@ describe('duplicate question detection', () => {
     )).toBe(true);
   });
 
-  test('allows genuinely different questions in the same topic', () => {
+  it('allows genuinely different questions in the same topic', () => {
     expect(similarity.isDuplicateQuestion(
       'What is polymorphism?',
       ['How does a HashMap handle collisions internally?']
@@ -89,33 +91,33 @@ describe('duplicate question detection', () => {
     )).toBe(false);
   });
 
-  test('handles empty inputs safely', () => {
+  it('handles empty inputs safely', () => {
     expect(similarity.isDuplicateQuestion('', ['anything'])).toBe(false);
     expect(similarity.isDuplicateQuestion('question', [])).toBe(false);
   });
 });
 
 describe('AI response JSON extraction', () => {
-  test('parses clean JSON', () => {
+  it('parses clean JSON', () => {
     expect(extractJsonObject('{"question":"hi"}')).toEqual({ question: 'hi' });
   });
 
-  test('parses fenced markdown JSON', () => {
+  it('parses fenced markdown JSON', () => {
     const text = '```json\n{"a": 1, "b": {"c": 2}}\n```';
     expect(extractJsonObject(text)).toEqual({ a: 1, b: { c: 2 } });
   });
 
-  test('parses JSON surrounded by prose', () => {
+  it('parses JSON surrounded by prose', () => {
     const text = 'Sure! Here is the question: {"question":"What is a heap?"} Let me know.';
     expect(extractJsonObject(text)).toEqual({ question: 'What is a heap?' });
   });
 
-  test('handles braces inside strings', () => {
+  it('handles braces inside strings', () => {
     const text = '{"q":"use of { and } in code","n":1}';
     expect(extractJsonObject(text)).toEqual({ q: 'use of { and } in code', n: 1 });
   });
 
-  test('returns null for malformed or empty payloads', () => {
+  it('returns null for malformed or empty payloads', () => {
     expect(extractJsonObject('no json here')).toBeNull();
     expect(extractJsonObject('{"broken": ')).toBeNull();
     expect(extractJsonObject('')).toBeNull();
@@ -124,7 +126,7 @@ describe('AI response JSON extraction', () => {
 });
 
 describe('fallback question bank', () => {
-  test('covers every configured field id', () => {
+  it('covers every configured field id', () => {
     for (const field of fields.FIELDS) {
       const q = fallbackBank.getFallbackQuestion(field.id, 'easy', []);
       expect(q).toBeTruthy();
@@ -134,7 +136,7 @@ describe('fallback question bank', () => {
     }
   });
 
-  test('returns a question object with expected shape', () => {
+  it('returns a question object with expected shape', () => {
     const q = fallbackBank.getFallbackQuestion('hashing', 'medium', []);
     expect(q).toHaveProperty('text');
     expect(q).toHaveProperty('difficulty');
@@ -143,14 +145,14 @@ describe('fallback question bank', () => {
 });
 
 describe('evaluator guards', () => {
-  test('clamps scores into 0-10', () => {
+  it('clamps scores into 0-10', () => {
     expect(clampScore(15)).toBe(10);
     expect(clampScore(-3)).toBe(0);
     expect(clampScore('7.56')).toBe(7.6);
     expect(clampScore(NaN)).toBe(0);
   });
 
-  test('short-circuits empty answers without an AI call', async () => {
+  it('short-circuits empty answers without an AI call', async () => {
     const empty = await evaluateAnswer({ question: 'Q?', topic: 'Java', answer: '   ' });
     expect(empty.overall).toBe(0);
     expect(empty.verdict).toBe('incorrect');
@@ -158,7 +160,7 @@ describe('evaluator guards', () => {
     expect(MIN_ANSWER_LENGTH).toBeGreaterThan(0);
   });
 
-  test('very short answers also short-circuit', async () => {
+  it('very short answers also short-circuit', async () => {
     const tiny = await evaluateAnswer({ question: 'Q?', topic: 'Java', answer: 'a' });
     expect(tiny.overall).toBe(0);
   });
@@ -171,7 +173,7 @@ describe('question validation and difficulty adaptation', () => {
     experienceLevel: 'fresher',
   };
 
-  test('rejects questions outside the selected topics (topic control)', () => {
+  it('rejects questions outside the selected topics (topic control)', () => {
     const err = validateGeneratedQuestion(
       { question: 'Explain React hooks rules.', topic: 'React', difficulty: 'easy', expectedConcepts: [] },
       session, [], []
@@ -180,7 +182,7 @@ describe('question validation and difficulty adaptation', () => {
     expect(err).toMatch(/outside selected topics/);
   });
 
-  test('rejects re-testing a concept already covered', () => {
+  it('rejects re-testing a concept already covered', () => {
     // Text similarity alone won't catch a re-worded concept question — the
     // askedConcepts overlap guard is the primary defense in that case.
     const err = validateGeneratedQuestion(
@@ -193,7 +195,7 @@ describe('question validation and difficulty adaptation', () => {
     expect(err).toMatch(/re-tests already-covered concepts/);
   });
 
-  test('accepts a valid on-topic new question and normalizes fields', () => {
+  it('accepts a valid on-topic new question and normalizes fields', () => {
     const ok = validateGeneratedQuestion(
       {
         question: 'How does the JVM resolve method calls at runtime?',
@@ -211,7 +213,7 @@ describe('question validation and difficulty adaptation', () => {
     expect(ok.type).toBe('conceptual'); // invalid type falls back
   });
 
-  test('rejects invalid difficulty', () => {
+  it('rejects invalid difficulty', () => {
     const err = validateGeneratedQuestion(
       { question: 'Valid question text here?', topic: 'Java', difficulty: 'impossible', expectedConcepts: [] },
       session, [], []
@@ -219,7 +221,7 @@ describe('question validation and difficulty adaptation', () => {
     expect(err).toBe('invalid difficulty');
   });
 
-  test('mixed difficulty cycles by performance', () => {
+  it('mixed difficulty cycles by performance', () => {
     const mixedSession = { ...session, difficulty: 'mixed' };
     expect(resolveDifficulty(mixedSession, [])).toBe('easy');
     expect(resolveDifficulty(mixedSession, [9, 9])).toBe('hard');
@@ -228,7 +230,7 @@ describe('question validation and difficulty adaptation', () => {
     expect(resolveDifficulty(session, [9, 9])).toBe('medium'); // fixed difficulty stays
   });
 
-  test('adaptDifficulty pushes strong candidates up and weak ones down', () => {
+  it('adaptDifficulty pushes strong candidates up and weak ones down', () => {
     expect(adaptDifficulty('easy', [9, 9, 9])).toBe('medium');
     expect(adaptDifficulty('medium', [9, 9, 9])).toBe('hard');
     expect(adaptDifficulty('hard', [1, 2, 2])).toBe('medium');
@@ -239,7 +241,7 @@ describe('question validation and difficulty adaptation', () => {
 });
 
 describe('report aggregation', () => {
-  test('aggregates deterministic topic/skill scores and falls back when AI fails', async () => {
+  it('aggregates deterministic topic/skill scores and falls back when AI fails', async () => {
     const session = { topics: ['Java', 'DBMS'], difficulty: 'medium', experienceLevel: 'fresher' };
     const answers = [
       {
@@ -278,7 +280,7 @@ describe('report aggregation', () => {
     expect(report.recommendedTopics.length).toBeGreaterThan(0);
   });
 
-  test('zero answers → score 0 and NO fabricated strengths/weaknesses/analysis', async () => {
+  it('zero answers → score 0 and NO fabricated strengths/weaknesses/analysis', async () => {
     const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 1 };
     const report = await generateReport(session, []);
     expect(report.score).toBe(0);
@@ -293,7 +295,7 @@ describe('report aggregation', () => {
     expect(report.recommendedTopics).toEqual([]);
   });
 
-  test('all main answers empty/missing → same no-analysis behavior regardless of follow-ups', async () => {
+  it('all main answers empty/missing → same no-analysis behavior regardless of follow-ups', async () => {
     const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 1 };
     const answers = [
       { question: { text: 'Q1', topic: 'Java' }, evaluation: { overall: 0, verdict: 'incorrect' } },
@@ -311,7 +313,7 @@ describe('report aggregation', () => {
     expect(report.maxScore).toBe(2);
   });
 
-  test('partial answers → analysis only from answered questions', async () => {
+  it('partial answers → analysis only from answered questions', async () => {
     const session = { topics: ['Java'], difficulty: 'medium', experienceLevel: 'fresher' };
     // Only Q1 was actually answered; Q2 has NO answer record (user submitted zero answers
     // for it, or interview was auto-submitted after 3 proctoring violations).
