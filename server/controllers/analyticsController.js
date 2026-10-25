@@ -13,6 +13,7 @@ const InterviewSession = require('../models/InterviewSession');
 const User = require('../models/User');
 const svc = require('../services/analyticsService');
 const { buildHeatmap, computeMonthlyFromEvents, dateStr, percent, countActiveDays, computeStreaks } = svc;
+const { computeDsaProgress } = require('../services/dsaProgressService');
 
 const uid = (req) => (req.user ? String(req.user.id || req.user._id) : null);
 
@@ -204,8 +205,21 @@ async function categorySummary(req, res, category) {
     };
     let subs = [];
     if (category === 'dsa' || category === 'overall') {
+      const progress = await computeDsaProgress(userId);
+      Object.assign(base, {
+        totalSubmissions: progress.totalSubmissions,
+        acceptedSubmissions: progress.acceptedSubmissions,
+        totalAttempted: progress.totalAttempts,
+        totalSolved: progress.totalSolved,
+        acceptanceRate: progress.acceptanceRate,
+        difficulty: {
+          easy: progress.easySolved,
+          medium: progress.mediumSolved,
+          hard: progress.hardSolved,
+        },
+        totalProblems: progress.totalProblems,
+      });
       subs = await loadDsaSubmissions(userId);
-      Object.assign(base, dsaStats(subs));
     } else if (category === 'sql') {
       subs = await loadSqlSubmissions(userId);
       Object.assign(base, sqlStats(subs));

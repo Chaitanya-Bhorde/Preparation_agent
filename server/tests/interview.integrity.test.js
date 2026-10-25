@@ -336,4 +336,85 @@ describe('report aggregation', () => {
     expect(report.assessment.length).toBeGreaterThan(0);
     expect(report.strengths).toEqual(['Solid answers in Java']);
   });
+
+  /* ------------------------------------------ full-flow integration tests */
+
+  describe('end-to-end interview flow (no MongoDB, no AI)', () => {
+    it('CSS-only topic: off-topic AI question is rejected, on-topic accepted', () => {
+      const session = { topics: ['CSS'], difficulty: 'easy' };
+      const previousTexts = [];
+      const askedConcepts = [];
+
+      // Off-topic question must be rejected
+      const offTopic = validateGeneratedQuestion(
+        { question: 'Explain React hooks rules.', topic: 'React', difficulty: 'easy', expectedConcepts: [] },
+        session, previousTexts, askedConcepts
+      );
+      expect(typeof offTopic).toBe('string');
+      expect(offTopic).toContain('outside selected topics');
+
+      // On-topic question must be accepted
+      const onTopic = validateGeneratedQuestion(
+        { question: 'What is the CSS box model?', topic: 'CSS', difficulty: 'easy', expectedConcepts: ['box model'] },
+        session, previousTexts, askedConcepts
+      );
+      expect(typeof onTopic).toBe('object');
+      expect(onTopic.topic).toBe('CSS');
+    });
+
+    it('follow-ups never change the scoring denominator', async () => {
+      const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 2 };
+      // Q1 correct (marks 2), Q2 partially correct (marks 1), one follow-up on Q1 (marks ignored)
+      const answers = [
+        { text: 'Correct answer', question: { text: 'Q1', topic: 'Java', isFollowUp: false }, evaluation: { overall: 9, verdict: 'correct', marks: 2 } },
+        { text: 'Follow-up answer', question: { text: 'FU1', topic: 'Java', isFollowUp: true }, evaluation: { overall: 8, verdict: 'correct', marks: 1 } },
+        { text: 'Partial answer', question: { text: 'Q2', topic: 'Java', isFollowUp: false }, evaluation: { overall: 5, verdict: 'partially_correct', marks: 1 } },
+      ];
+      const report = await generateReport(session, answers);
+      expect(report.maxScore).toBe(4); // 2 main questions × 2 marks
+      expect(report.score).toBe(3);   // 2 + 1
+      expect(report.overallScore).toBe(75);
+      expect(report.stats.followUpCount).toBe(1);
+      // Follow-up marks must not be in main score
+      const mainMarksSum = report.mainQuestions.reduce((sum, q) => sum + (q.score ?? 0), 0);
+      expect(mainMarksSum).toBe(3);
+    });
+
+    it('report and analytics agree: score, maxScore, percentage all consistent', async () => {
+      const session = { topics: ['Java', 'DBMS'], difficulty: 'medium', experienceLevel: 'fresher', totalQuestions: 3 };
+      const answers = [
+        { text: 'Great answer', question: { text: 'Q1', topic: 'Java', isFollowUp: false }, evaluation: { overall: 9, verdict: 'correct', marks: 2 } },
+        { text: 'OK answer', question: { text: 'Q2', topic: 'DBMS', isFollowUp: false }, evaluation: { overall: 5, verdict: 'partially_correct', marks: 1 } },
+        { text: 'Wrong answer', question: { text: 'Q3', topic: 'Java', isFollowUp: false }, evaluation: { overall: 1, verdict: 'incorrect', marks: 0 } },
+      ];
+      const report = await generateReport(session, answers);
+      expect(report.maxScore).toBe(6);
+      expect(report.score).toBe(3);
+      expect(report.overallScore).toBe(50);
+      expect(report.percentage).toBe(50);
+      // All three main questions present
+      expect(report.mainQuestions).toHaveLength(3);
+      // Topic performance matches
+      const byTopic = report.topicPerformance.reduce((m, t) => { m[t.topic] = t.averageScore; return m; }, {});
+      expect(byTopic.Java).toBe(1); // (2+0)/2
+      expect(byTopic.DBMS).toBe(1); // 1/1
+    });
+
+    it('unanswered questions scored honestly: no fabricated marks', async () => {
+      const session = { topics: ['Java'], difficulty: 'easy', experienceLevel: 'fresher', totalQuestions: 2 };
+      // Only one answer submitted; second question has no answer record
+      const answers = [
+        { text: 'Answered', question: { text: 'Q1', topic: 'Java', isFollowUp: false }, evaluation: { overall: 9, verdict: 'correct', marks: 2 } },
+      ];
+      const report = await generateReport(session, answers);
+      expect(report.maxScore).toBe(4); // 2 questions × 2 marks
+      expect(report.score).toBe(2);   // only Q1 answered correctly
+      expect(report.overallScore).toBe(50);
+      // One real answer → deterministic fallback, not 'no-answers'
+      expect(report.generatedBy).toBe('deterministic-fallback');
+      // Only the answered question contributes analysis
+      expect(report.mainQuestions).toHaveLength(1);
+      expect(report.strengths).toEqual(['Solid answers in Java']);
+    });
+  });
 });

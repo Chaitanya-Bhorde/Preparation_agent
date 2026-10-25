@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Award, ArrowLeft, Loader2, AlertCircle, BarChart3, Target, TrendingUp, BookOpen } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { PAGE_CONTAINER } from '../utils/ui';
 import { getInterviewHistoryDetail } from '../api';
 
@@ -70,6 +71,18 @@ export default function MockInterviewReport() {
   const maxScore = report?.maxScore ?? session.totalQuestions * 2;
   const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
 
+  const { fullCount = 0, partialCount = 0, incorrectCount = 0 } = report?.stats || {};
+  const selectedCount = report?.stats?.selectedQuestionCount || mainQuestions.length;
+  const answeredCount = fullCount + partialCount + incorrectCount;
+  const unanswered = Math.max(0, selectedCount - answeredCount);
+
+  const pieData = [
+    { name: 'Correct', value: fullCount, color: '#22c55e' },
+    { name: 'Partially Correct', value: partialCount, color: '#eab308' },
+    { name: 'Incorrect', value: incorrectCount, color: '#ef4444' },
+    { name: 'Unanswered', value: unanswered, color: '#64748b' },
+  ].filter((d) => d.value > 0);
+
   return (
     <div className={PAGE_CONTAINER}>
       <button onClick={() => navigate('/mock-interview/history')} className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 text-sm"><ArrowLeft className="w-4 h-4" /> Back to History</button>
@@ -83,6 +96,39 @@ export default function MockInterviewReport() {
         <div className={`text-6xl font-bold mb-2 ${scoreColor(score / maxScore * 10)}`}>{score}<span className="text-2xl text-gray-500">/{maxScore}</span></div>
         <div className="text-gray-400">{pct}% • {mainQuestions.length} main questions</div>
       </div>
+      {pieData.length > 0 && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-8">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-purple-400" />Question Outcomes
+          </h2>
+          <div className="flex items-center justify-center">
+            <PieChart width={360} height={260}>
+              <Legend />
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={110}
+                fill="#888"
+                labelLine={false}
+                label={{
+                  position: 'outside',
+                  fill: '#888',
+                  fontSize: 12,
+                }}
+              >
+                {pieData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </div>
+        </div>
+      )}
       {report?.stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 text-center"><div className="text-2xl font-bold text-white">{report.stats.mainQuestionsAsked ?? mainQuestions.length}</div><div className="text-xs text-gray-500">Main Questions</div></div>
