@@ -592,7 +592,6 @@ function InterviewSession({ sessionData, onComplete, onAbandon }) {
       autoSubmitDueToProctoring(reason);
     },
   });
-  // Diagnostics: last answer-submit request/response for the debug strip.
   const [lastSubmitDiag, setLastSubmitDiag] = useState(null); // { url, status, ok, at }
   const [lastTts, setLastTts] = useState(null); // { text, ok, at } of last TTS call
 

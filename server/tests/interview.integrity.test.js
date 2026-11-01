@@ -8,8 +8,7 @@
  */
 
 const fields = require('../config/interviewFields');
-import { describe, it, expect, beforeEach, afterAll } from 'vitest';
-
+// (jest globals: describe, it, expect, beforeEach, afterAll)
 const similarity = require('../services/interview/similarity');
 const { extractJsonObject } = require('../services/interview/aiClient');
 const fallbackBank = require('../services/interview/fallbackBank');

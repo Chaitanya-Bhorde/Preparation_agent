@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertCircle, Inbox, Loader2 } from 'lucide-react';
 import LeaderboardRow from './LeaderboardRow';
 import './LeaderboardTable.css';

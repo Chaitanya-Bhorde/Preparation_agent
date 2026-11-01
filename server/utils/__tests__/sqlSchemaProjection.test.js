@@ -6,8 +6,7 @@
  * tests pin the two properties that matter: it must never invent content, and
  * it must never touch hidden test data.
  */
-import { describe, it, expect } from 'vitest';
-
+// (jest globals: describe, it, expect)
 const {
   projectSqlProblem, parseSchemaTables, parseInserts, splitStatements, coerceLiteral, columnsOf,
 } = require('../sqlSchemaProjection');

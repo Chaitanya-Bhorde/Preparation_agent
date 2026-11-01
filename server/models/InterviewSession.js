@@ -71,7 +71,7 @@ const FinalReportSchema = new mongoose.Schema(
     mistakes: [String], // detected mistakes from MAIN answers only
     assessment: String, // final AI assessment paragraph
     recommendedTopics: [String],
-    generatedBy: { type: String, enum: ['ai', 'deterministic-fallback'], default: 'ai' },
+    generatedBy: { type: String, enum: ['ai', 'deterministic-fallback', 'no-answers'], default: 'ai' },
   },
   { _id: false }
 );
